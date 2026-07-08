@@ -1,0 +1,71 @@
+# environments and local secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python packaging/build outputs
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# artifacts (models, logs) — code is reproducible, bytes are not
+artifacts/
+runs/
+tensorboard/
+logs/
+*.log
+*.zip
+*.parquet
+*.csv
+!configs/*.csv
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.onnx
+
+# tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.nox/
+.tox/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+
+# frontend dependencies/build outputs
+node_modules/
+.vite/
+src/microgrid_simulator/ui/web/dist/
+src/microgrid_simulator/ui/web/coverage/
+
+# notebooks
+.ipynb_checkpoints/
+
+# local editor/OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# local assistant/tooling metadata
+.claude/
+
+# uv
+uv.lock.tmp

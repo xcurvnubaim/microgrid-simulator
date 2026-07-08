@@ -1,0 +1,179 @@
+# ---------------------------------------------------------------------------
+# Microgrid Simulator (Region 4: the Environment) — typed, env-overridable.
+# Env overrides use prefix MGS_ and __ delimiter, e.g. MGS_REWARD__W_CARBON=2.0
+# ---------------------------------------------------------------------------
+
+# --- editable topology + tick resolution ---
+topology:
+  timestep_hours: 0.25       # 15-minute control interval
+  n_pv: 2
+  n_storage: 1
+  n_ev: 0                    # EV charging hub removed from the bus list below
+  n_load: 3
+
+# Packet-Tracer-like bus/node list. The UI and backend both read this list.
+buses:
+  # - id: 0
+  #   name: Grid interconnect
+  #   vn_kv: 20.0
+  #   role: grid
+  #   x: 70
+  #   y: 150
+  - id: 0
+    name: Main distribution
+    vn_kv: 0.4
+    role: main
+    x: 290
+    y: 150
+  - id: 1
+    name: PV yard
+    vn_kv: 0.4
+    role: pv
+    x: 520
+    y: 60
+  # - id: 3
+  #   name: EV charging hub
+  #   vn_kv: 0.4
+  #   role: ev
+  #   x: 520
+  #   y: 240
+  - id: 2
+    name: Academic loads
+    vn_kv: 0.4
+    role: load
+    x: 760
+    y: 150
+  - id: 3
+    name: Battery storage
+    vn_kv: 0.4
+    role: battery
+    x: 760
+    y: 240
+
+# Connections between bus ids. Different-voltage links are transformer links.
+lines:
+  - name: PV feeder
+    from_bus: 0
+    to_bus: 1
+    kind: line
+    length_km: 0.18
+    max_i_ka: 1.0
+  # - name: EV feeder
+  #   from_bus: 1
+  #   to_bus: 3
+  #   kind: line
+  #   length_km: 0.22
+  #   max_i_ka: 1.0
+  - name: Academic feeder
+    from_bus: 0
+    to_bus: 2
+    kind: line
+    length_km: 0.28
+    max_i_ka: 1.0
+  - name: Battery feeder
+    from_bus: 0
+    to_bus: 3
+    kind: line
+    length_km: 0.16
+    max_i_ka: 1.0
+  # - name: Campus tie
+  #   from_bus: 2
+  #   to_bus: 3
+  #   kind: line
+  #   length_km: 0.16
+  #   max_i_ka: 1.0
+
+# --- battery (empirical SoC baseline; PINN residual added later) ---
+battery:
+  bus: 3                    # "Battery storage" bus in the list above
+  capacity_mwh: 0.50
+  charge_eff: 0.96
+  discharge_eff: 0.96
+  max_charge_mw: 0.25
+  max_discharge_mw: 0.25
+  soc_min: 0.10
+  soc_max: 0.95
+  soc_init: 0.50
+
+# ev:
+#   bus: 3
+#   capacity_mwh: 0.06
+#   max_charge_mw: 0.04
+#   soc_init: 0.35
+
+# --- diesel genset (discrete on/off + continuous setpoint) ---
+# max_kw is a placeholder (~half the 352.8 kW observed peak);
+# replace with the real nameplate rating when the spec is available.
+# The operating constraints are typical prime-rated genset figures scaled
+# to max_kw — update them together with the nameplate.
+# NOTE: enabled must be set explicitly — leaving the whole section out would
+# fall back to the code default (enabled: true on bus 1).
+diesel:
+  enabled: false
+#   max_kw: 150.0
+#   min_kw: 45.0              # minimum stable load (~30%; wet stacking below)
+#   ramp_kw_per_min: 30.0     # ~20% of nameplate per minute; 0 = unlimited
+#   min_up_time_min: 30.0     # must run this long once started (anti-cycling)
+#   min_down_time_min: 15.0   # cool-down before a restart is allowed
+#   bus: 0
+#   carbon_kg_per_kwh: 0.70
+
+# --- real historical demand trace (demand-driver swap) ---
+# Point `file` at the campus net-load export, e.g.
+#   /home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx
+# Header sits on row 2 (header_row: 1); columns include statstime + demand (kW).
+# When file is null or missing, the synthetic sinusoid drives the loads.
+demand:
+  enabled: true
+  file: null
+  header_row: 1
+  timestamp_column: statstime
+  value_column: demand
+  unit: kw
+  random_window: true       # fresh random 24h slice per reset()
+
+# --- episode ---
+episode:
+  horizon_hours: 24.0        # one day per episode
+  start_hour: 0.0
+
+# --- reward weights (the five terms from the diagram) ---
+reward:
+  w_carbon: 1.0              # grid + diesel carbon intensity x kWh
+  w_autonomy: 1.0           # grid-import penalty (push import -> 0)
+  w_health: 1.0             # battery degradation (PINN placeholder)
+  w_waste: 1.0              # curtailed solar with nowhere to go
+  w_unserved: 1.0           # energy-insufficient (unserved load)
+  # carbon intensities (kgCO2 / kWh)
+  grid_carbon_kg_per_kwh: 0.45
+  diesel_carbon_kg_per_kwh: 0.70
+  # economic / operational scales
+  import_price: 180.0        # cost per MWh imported
+  peak_threshold_mw: 0.35    # soft peak-demand cap
+  peak_penalty: 200.0
+  # hard-constraint penalties
+  voltage_penalty: 100.0     # per-pu excursion outside [0.95, 1.05]
+  soc_violation_penalty: 50.0
+
+# --- editable grid assets (used by dashboard and backend) ---
+pv_arrays:
+  - name: PV array 0
+    bus: 1                   # "PV yard"
+    p_mw: 0.12
+  - name: PV array 1
+    bus: 1
+    p_mw: 0.08
+
+loads:
+  - name: Lab load
+    bus: 2                   # "Academic loads"
+    p_mw: 0.16
+    q_mvar: 0.040
+  - name: Library load
+    bus: 2
+    p_mw: 0.10
+    q_mvar: 0.025
+  - name: Admin load
+    bus: 0                   # "Main distribution"
+    p_mw: 0.07
+    q_mvar: 0.018
