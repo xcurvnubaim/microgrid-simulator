@@ -11,6 +11,9 @@ topology:
   n_ev: 0                    # EV charging hub removed from the bus list below
   n_load: 3
 
+backend:
+  name: pandapower           # temporary runtime lock; other values are normalized away
+
 # Packet-Tracer-like bus/node list. The UI and backend both read this list.
 buses:
   # - id: 0
@@ -154,6 +157,7 @@ reward:
   w_autonomy: 1.0           # grid-import penalty (push import -> 0)
   w_health: 1.0             # battery degradation (PINN placeholder)
   w_waste: 1.0              # curtailed solar with nowhere to go
+  w_excess: 1.0             # non-exportable overgeneration sent to the dump load
   w_unserved: 1.0           # energy-insufficient (unserved load)
   # carbon intensities (kgCO2 / kWh)
   grid_carbon_kg_per_kwh: 0.45

@@ -194,6 +194,15 @@ class SimpleBackend(MicrogridBackend):
                 )
             )
 
+        local_supply_mw = pv_used + self.diesel.p_mw + max(0.0, -applied_battery_mw)
+        named_sinks_mw = (
+            served + max(0.0, applied_battery_mw) + max(0.0, -grid_import)
+        )
+        excess_generation_mw = max(
+            0.0,
+            local_supply_mw + max(0.0, grid_import) - named_sinks_mw,
+        )
+
         state = GridState(
             v_bus=[1.0] * self.n_buses,
             p_load=[p for p, _ in per_load],
@@ -212,6 +221,10 @@ class SimpleBackend(MicrogridBackend):
             battery_p_mw=applied_battery_mw,
             diesel_p_mw=self.diesel.p_mw,
             diesel_on=self.diesel.is_on,
+            excess_generation_mw=excess_generation_mw,
+            dump_load_mw=excess_generation_mw,
+            network_loss_mw=0.0,
+            reference_balance_mw=0.0,
             demand_is_real=self.demand_is_real,
             pv_is_real=self.pv.pv_is_real,
             solver_ok=True,

@@ -117,6 +117,9 @@ class OpenDSSBackend(SimpleBackend):
         # EV chargers aggregate into one load at the EV bus.
         kv = by_id.get(int(s.ev.bus), ref).vn_kv
         self._cmd(f"new load.ev bus1=bus{s.ev.bus} phases=3 kv={kv} kw=0 kvar=0 model=1")
+        self._cmd(
+            f"new load.dump bus1=bus{ref.id} phases=3 kv={ref.vn_kv} kw=0 kvar=0 model=1"
+        )
 
         kvs = sorted({b.vn_kv for b in buses})
         self._cmd(f"set voltagebases={kvs}")
@@ -158,11 +161,19 @@ class OpenDSSBackend(SimpleBackend):
         ev_kw = max(0.0, state.load_demand_mw - sum(state.p_load))
         ev_kw *= served_fraction * 1000.0
         self._cmd(f"edit load.ev kw={ev_kw}")
+        self._cmd(f"edit load.dump kw={state.dump_load_mw * 1000.0}")
 
         dss.Solution.Solve()
         if not dss.Solution.Converged():  # pragma: no cover - solver dependent
             state.solver_ok = False
             return
+
+        state.network_loss_mw = max(0.0, float(dss.Circuit.Losses()[0]) / 1.0e6)
+        if state.islanded:
+            # The OpenDSS circuit source is the numerical voltage reference.
+            # With the explicit dump load it should supply active network loss,
+            # not absorb unreported diesel overgeneration.
+            state.reference_balance_mw = state.network_loss_mw
 
         # Mean per-bus voltage magnitude (pu), reported in topology bus order.
         volts: dict[str, float] = {}

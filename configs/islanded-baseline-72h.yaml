@@ -17,14 +17,14 @@ scenario:
 
 topology:
   timestep_hours: 0.25
-  solver: balance
+  solver: ac
   n_pv: 2
   n_storage: 1
   n_ev: 0
   n_load: 3
 
 backend:
-  name: simple
+  name: pandapower
   validation_backend: pandapower
 
 episode:
@@ -105,6 +105,7 @@ reward:
   w_autonomy: 0.0             # islanded: no utility exchange exists
   w_health: 1.0
   w_waste: 1.0
+  w_excess: 1.0             # diesel/other surplus routed to the explicit dump load
   w_unserved: 5.0             # load service is the scenario's primary objective
   # Grid-connected terms below are INERT in this islanded scenario (no grid-role bus);
   # retained so grid-connected scenario variants can reuse the same reward block.

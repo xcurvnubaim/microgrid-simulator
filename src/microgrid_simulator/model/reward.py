@@ -5,6 +5,7 @@
       + w_autonomy * grid_import_penalty
       + w_health   * battery_degradation_penalty   # from PINN
       + w_waste    * curtailed_solar_penalty
+      + w_excess   * dumped_overgeneration_penalty
       + w_unserved * unserved_load_penalty
       + constraint_penalty                          # hard SoC / voltage / solver
     )
@@ -62,7 +63,10 @@ def compute_reward(
     wasted_mw = max(0.0, state.pv_available_mw - state.pv_used_mw)
     waste = wasted_mw * dt_hours * 1000.0  # kWh of spilled solar
 
-    # 5. Energy insufficient — unserved load (kWh).
+    # 5. Non-exportable overgeneration routed to the dump load (kWh).
+    excess = max(0.0, state.excess_generation_mw) * dt_hours * 1000.0
+
+    # 6. Energy insufficient — unserved load (kWh).
     unserved_mw = max(0.0, state.load_demand_mw - state.load_served_mw)
     unserved = unserved_mw * dt_hours * 1000.0
 
@@ -76,6 +80,7 @@ def compute_reward(
         autonomy=cfg.w_autonomy * autonomy,
         health=cfg.w_health * health,
         waste=cfg.w_waste * waste,
+        excess=cfg.w_excess * excess,
         unserved=cfg.w_unserved * unserved,
         constraint=constraint,
     )
@@ -84,6 +89,7 @@ def compute_reward(
         + breakdown.autonomy
         + breakdown.health
         + breakdown.waste
+        + breakdown.excess
         + breakdown.unserved
         + breakdown.constraint
     )
@@ -128,7 +134,8 @@ def _compute_pymgrid_reward(
         carbon=diesel_cost,
         autonomy=0.0,
         health=battery_cost,
-        waste=excess_cost,
+        waste=0.0,
+        excess=excess_cost,
         unserved=unserved_cost,
         constraint=0.0,
     )

@@ -18,6 +18,12 @@ from microgrid_simulator.ui.rollout import _totals, run_rollout
 TRAJECTORY_COLUMNS = (
     "timestamp",
     "step",
+    "dispatch_policy",
+    "dispatch_rule",
+    "requested_battery_kw",
+    "requested_diesel_on",
+    "requested_diesel_kw",
+    "requested_pv_curtailment_pct",
     "load_kw",
     "served_kw",
     "unserved_kw",
@@ -30,10 +36,15 @@ TRAJECTORY_COLUMNS = (
     "battery_charge_from_diesel_kw",
     "battery_discharge_kw",
     "diesel_kw",
+    "diesel_load_serving_kw",
+    "diesel_overgeneration_kw",
     "diesel_on",
     "soc_pct",
     "soh_pct",
     "excess_generation_kw",
+    "dump_load_kw",
+    "network_loss_kw",
+    "reference_balance_kw",
     "power_balance_residual_kw",
     "carbon_kg",
     "reward",
@@ -56,7 +67,7 @@ POLICY_LIMITATIONS = {
     "schedule": [
         "- The manual-schedule controller deliberately overgenerates diesel outside its "
         "low-risk window regardless of actual residual; the surplus has no PV/battery sink "
-        "commanded for it and shows up as `excess_generation_kwh` plus extra "
+        "commanded for it and is routed to the explicit `dump_load_kwh` sink, with extra "
         "`diesel_kwh`/`carbon_kg` rather than being curtailed or stored.",
     ],
 }
@@ -156,6 +167,24 @@ def _report_markdown(
         ("PV used", total["pv_used_kwh"], "kWh", "before source attribution"),
         ("PV curtailed/spilled", total["pv_wasted_kwh"], "kWh", "PV-only waste definition"),
         ("Diesel generation", total["diesel_kwh"], "kWh", "assumed generator model"),
+        (
+            "Diesel load-serving energy",
+            total["diesel_load_serving_kwh"],
+            "kWh",
+            "PV-first accounting attribution",
+        ),
+        (
+            "Diesel overgeneration",
+            total["diesel_overgeneration_kwh"],
+            "kWh",
+            "diesel share routed to the dump-load path",
+        ),
+        (
+            "Diesel useful output",
+            total["diesel_useful_pct"],
+            "%",
+            "generation not classified as dumped diesel excess",
+        ),
         ("Diesel runtime", meta["diesel_runtime_hours"], "h", "realized on-state"),
         ("Diesel starts", meta["diesel_starts"], "count", "realized starts"),
         ("Diesel carbon proxy", total["carbon_kg"], "kg CO2e", "0.70 kg/kWh assumed"),
@@ -193,16 +222,28 @@ def _report_markdown(
             "placeholder degradation law",
         ),
         (
-            "Excess-generation proxy",
+            "Excess generation",
             total["excess_generation_kwh"],
             "kWh",
-            "not an explicit modeled sink",
+            "non-load-serving generation",
+        ),
+        (
+            "Dump-load energy",
+            total["dump_load_kwh"],
+            "kWh",
+            "explicit sink for non-exportable surplus",
+        ),
+        (
+            "Network losses",
+            total["network_loss_kwh"],
+            "kWh",
+            "separate from excess generation",
         ),
         (
             "Maximum balance residual",
             total["max_abs_power_balance_residual_kw"],
             "kW",
-            "after named excess proxy",
+            "after dump load, losses, and reference balance",
         ),
     ]
 
@@ -312,7 +353,8 @@ def _report_markdown(
             "- This is a historical-telemetry-fed simulation, not measured historical dispatch.",
             "- The simple backend is lossless and reports flat 1 pu voltage; it does not validate feeder voltage, losses, or line loading.",
             "- Battery charge is source-resolved into PV/grid/diesel shares by a fixed PV-then-diesel-then-grid merit order; the split is an accounting attribution over the lossless single-bus balance, not a metered physical routing.",
-            "- `excess_generation_kwh` exposes supply above served load and battery charging, but no physical dump load is modeled.",
+            "- `excess_generation_kwh` exposes supply above served load and battery charging; non-exportable surplus is routed to the explicit `dump_load_kwh` sink.",
+            "- AC network losses and any numerical reference-bus balance are reported separately and are never relabeled as waste.",
             "- Battery degradation is a placeholder throughput/SOC-stress proxy, not a calibrated life model.",
             "- Equipment and feeder assumptions remain subject to the provenance blockers; results establish a controller baseline, not physical-campus validation.",
         ]
@@ -444,10 +486,10 @@ def plot_telemetry_replay(
     )
     ax.plot(
         time,
-        frame["excess_generation_kw"],
+        frame["diesel_overgeneration_kw"],
         color="#9334e6",
         linewidth=1.5,
-        label="Excess-generation proxy",
+        label="Diesel overgeneration",
     )
     ax.set_ylabel("Power (kW)")
     ax.set_title("Reliability and unresolved surplus")
@@ -463,7 +505,7 @@ def plot_telemetry_replay(
         0.01,
         0.002,
         "Simple lossless backend; BESS and diesel parameters are assumed. "
-        "PV spill is explicit; excess generation is a proxy, not a modeled dump load.",
+        "PV spill, excess generation, dump-load energy, and AC network losses are explicit and separate.",
         fontsize=9,
         color="#5f6368",
     )

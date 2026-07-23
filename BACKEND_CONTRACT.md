@@ -29,13 +29,21 @@ For a lossless single scheduling bus, using realized rather than requested power
 P_grid = P_load_served + P_batt - P_pv_used - P_diesel
 P_load_served = P_load_demand - P_unserved
 P_pv_spill = max(0, P_pv_available - P_pv_used)
+P_excess = P_dump = max(0, P_pv_used + P_diesel + P_batt_discharge
+                           + P_grid_import - P_load_served - P_batt_charge
+                           - P_grid_export)
 ```
 
 In an island, `P_grid = 0`. Battery discharge is clipped to residual demand,
 `max(0, P_load_demand - P_pv - P_diesel)`. Battery charging is clipped to local
 generation surplus. PV with no load, storage, or export sink is curtailed. Remaining
-inflexible surplus is reported as `excess_generation_kw`; it is not called waste and is
-not evidence of a physical dump load.
+inflexible surplus is reported as `excess_generation_kw` and routed to the explicit
+`dump_load_kw` sink; it is not called PV waste.
+
+AC validation backends additionally report `network_loss_kw` and the signed
+`reference_balance_kw`. The latter discloses active power supplied (+) or absorbed (-)
+by the numerical voltage reference. It must never be silently relabeled as grid exchange,
+dump-load energy, or network loss.
 
 Battery SOC uses AC-terminal power:
 
@@ -62,8 +70,11 @@ Every paper-facing rollout reports at least:
 - realized battery charge/discharge and SOC;
 - battery charging attributed to PV, diesel, and grid;
 - diesel power, state, starts, and runtime;
+- diesel output attributed to load service, battery charging, and dumped
+  overgeneration under the documented PV-first accounting merit order;
 - grid import/export when connected;
-- excess-generation proxy and named-path balance residual;
+- excess generation, dump-load energy, AC network loss, numerical reference balance,
+  and the resulting named-path balance residual;
 - each reward penalty and each constraint violation separately.
 
 The fixed charging attribution is PV surplus, then diesel surplus, then grid import. The
@@ -87,8 +98,8 @@ Do not replace missing equipment or feeder evidence with unlabeled typical value
 ## Verification and tolerances
 
 - Unit/regression tests enforce SOC direction/bounds, device limits, islanded
-  charge/discharge feasibility, PV spill, source attribution, deterministic replay, and
-  reward/accounting outputs.
+  charge/discharge feasibility, PV spill, diesel excess/dump-load routing, source
+  attribution, deterministic replay, and reward/accounting outputs.
 - The January rule trajectory matched `CampusMicrogridScheduling.slx` within
   `4.71e-13 kW`; the Simulink model matched the direct MATLAB implementation within
   `1.42e-14 kW`.

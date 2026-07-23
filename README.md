@@ -5,9 +5,10 @@ training ground everything else trains against.
 
 A [Gymnasium](https://gymnasium.farama.org/) environment for a **editable-bus campus
 microgrid**, backed by **pandapower** Newton-Raphson AC power flow, with
-**battery state-of-charge physics** and the **five-term reward** from the
+**battery state-of-charge physics** and a **multi-term reward** from the
 architecture diagram (carbon · autonomy · battery health · energy waste ·
-unserved load). Trainable out of the box with **stable-baselines3** (PPO / SAC).
+excess generation · unserved load). Trainable out of the box with
+**stable-baselines3** (PPO / SAC).
 
 > Companion to `simple-sim/` (the multi-backend + Isaac Sim bridge) and
 > `microgrid-forecaster/` (the Data Aggregator). This package is the clean,
@@ -24,7 +25,7 @@ Each `step()`:
 1. integrate battery SoC from the action (efficiency-aware, band-clamped)
 2. update EV / load powers, apply PV curtailment + time-of-day scaling
 3. run `pandapower.runpp()` on the editable-bus campus
-4. compute the five-term reward
+4. compute the multi-term reward
 5. advance the timestamp
 
 ### Campus topology (editable)
@@ -65,7 +66,12 @@ synthetic sinusoid drives the loads. The diesel genset (default 150 kW — a
 placeholder until the real nameplate spec exists) adds
 `diesel_kw * carbon_per_kwh_diesel * dt` to the carbon reward term. PV and SOC
 are now exposed in the dashboard as a combined PV availability/usage and battery
-SoC chart.
+SoC chart. Non-exportable diesel surplus is routed to an explicit dump-load
+account, while PV spill, AC losses, and numerical reference-bus balance remain
+separate fields. The dashboard exposes diesel-overgeneration energy, peak power,
+useful-output percentage, per-step values, and a dedicated source/sink chart.
+The configured diesel-bus chart also overlays `Diesel excess (kW)` as a red dashed
+series on its own right-side scale, keeping small surplus visible beside total output.
 
 For the deterministic paper baseline, `configs/islanded-baseline-72h.yaml` loads
 timestamp-aligned measured load and PV, fails on missing samples instead of falling back
@@ -115,7 +121,8 @@ and validation boundary.
 
 ```text
 reward = -( w_carbon·carbon + w_autonomy·grid_import + w_health·degradation
-          + w_waste·curtailed_solar + w_unserved·unmet_load + constraints )
+          + w_waste·curtailed_solar + w_excess·dumped_overgeneration
+          + w_unserved·unmet_load + constraints )
 ```
 
 Default weights and physics live in `configs/pymgrid25-scenario-2.yaml`; alternate

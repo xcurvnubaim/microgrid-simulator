@@ -7,7 +7,7 @@ import pytest
 from microgrid_simulator.backends.simple_backend import SimpleBackend
 from microgrid_simulator.config import Settings
 from microgrid_simulator.core.types import ControlAction, GridState
-from microgrid_simulator.ui.rollout import _totals
+from microgrid_simulator.ui.rollout import _per_bus_state, _totals
 
 
 def _islanded_settings() -> Settings:
@@ -76,6 +76,62 @@ def test_islanded_pv_surplus_is_reported_as_spill() -> None:
     assert state.pv_available_mw > state.pv_used_mw
 
 
+def _diesel_excess_settings(backend_name: str = "simple") -> Settings:
+    raw = _islanded_settings().model_dump()
+    raw["backend"]["name"] = backend_name
+    raw["topology"]["solver"] = "ac" if backend_name == "pandapower" else "balance"
+    raw["episode"]["start_hour"] = 0.0
+    raw["pv_arrays"] = [{"name": "PV", "bus": 2, "p_mw": 0.0}]
+    raw["loads"] = [{"name": "Load", "bus": 4, "p_mw": 0.010, "q_mvar": 0.002}]
+    raw["diesel"] |= {
+        "enabled": True,
+        "bus": 1,
+        "min_kw": 45.0,
+        "max_kw": 150.0,
+        "ramp_kw_per_min": 0.0,
+        "start_delay_min": 0.0,
+        "min_up_time_min": 0.0,
+    }
+    return Settings(**raw)
+
+
+def test_islanded_diesel_surplus_is_explicit_dump_load() -> None:
+    settings = _diesel_excess_settings()
+    backend = SimpleBackend(settings)
+
+    state = backend.step(ControlAction(diesel_on=True, diesel_setpoint_mw=0.045))
+
+    expected = state.diesel_p_mw - state.load_served_mw
+    assert expected > 0.0
+    assert state.excess_generation_mw == pytest.approx(expected)
+    assert state.dump_load_mw == pytest.approx(expected)
+    assert state.diesel_load_serving_mw == pytest.approx(state.load_served_mw)
+    assert state.diesel_overgeneration_mw == pytest.approx(expected)
+    assert state.network_loss_mw == 0.0
+    assert state.reference_balance_mw == 0.0
+    per_bus = _per_bus_state(settings, state, slack_id=0)
+    assert per_bus[settings.diesel.bus]["diesel_excess_kw"] == pytest.approx(expected * 1000.0)
+    assert all(
+        values["diesel_excess_kw"] == 0.0
+        for bus_id, values in per_bus.items()
+        if bus_id != settings.diesel.bus
+    )
+
+
+def test_pandapower_dump_prevents_hidden_slack_absorption() -> None:
+    pytest.importorskip("pandapower")
+    from microgrid_simulator.backends.pandapower_backend import PandapowerBackend
+
+    backend = PandapowerBackend(_diesel_excess_settings("pandapower"))
+    state = backend.step(ControlAction(diesel_on=True, diesel_setpoint_mw=0.045))
+
+    assert state.dump_load_mw > 0.0
+    assert state.excess_generation_mw == pytest.approx(state.dump_load_mw, abs=1e-8)
+    assert state.diesel_overgeneration_mw == pytest.approx(state.dump_load_mw, abs=1e-8)
+    assert state.reference_balance_mw >= -1e-8
+    assert state.network_loss_mw >= 0.0
+
+
 def test_charge_source_split_sums_to_charge_and_orders_pv_diesel_grid() -> None:
     # Charge 100 kW with 40 kW surplus PV, 30 kW surplus diesel; grid covers 30.
     state = GridState(
@@ -100,6 +156,21 @@ def test_charge_source_split_zero_while_discharging() -> None:
     assert state.battery_charge_from_pv_mw == 0.0
     assert state.battery_charge_from_grid_mw == 0.0
     assert state.battery_charge_from_diesel_mw == 0.0
+
+
+def test_diesel_overgeneration_excludes_load_serving_and_battery_charging() -> None:
+    state = GridState(
+        load_served_mw=0.020,
+        pv_used_mw=0.0,
+        diesel_p_mw=0.080,
+        battery_p_mw=0.050,
+        excess_generation_mw=0.010,
+        dump_load_mw=0.010,
+    )
+
+    assert state.diesel_load_serving_mw == pytest.approx(0.020)
+    assert state.battery_charge_from_diesel_mw == pytest.approx(0.050)
+    assert state.diesel_overgeneration_mw == pytest.approx(0.010)
 
 
 def test_islanded_charge_is_fully_attributed_to_pv() -> None:

@@ -346,6 +346,99 @@ export function GenerationChart({ rows, meta, fullRows }) {
   );
 }
 
+// ── source-specific overgeneration accounting ──────────────────────────────
+export function OvergenerationChart({ rows, meta, fullRows }) {
+  if (!rows.length) return null;
+  const dt = meta?.timestep_hours ?? 0.25;
+  const statRows = fullRows ?? rows;
+  const energy = (key) =>
+    statRows.reduce((total, row) => total + Math.max(0, row[key] ?? 0), 0) * dt;
+  const dieselKwh = energy("diesel_kw");
+  const dieselExcessKwh = energy("diesel_overgeneration_kw");
+  const dumpKwh = energy("dump_load_kw");
+  const lossKwh = energy("network_loss_kw");
+  const dieselUsefulPct =
+    dieselKwh > 1e-9 ? (100 * (dieselKwh - dieselExcessKwh)) / dieselKwh : 100;
+  const dieselExcessPct =
+    dieselKwh > 1e-9 ? (100 * dieselExcessKwh) / dieselKwh : 0;
+  const peakDieselExcessKw = Math.max(
+    ...statRows.map((row) => row.diesel_overgeneration_kw ?? 0)
+  );
+  const note =
+    `total ${fmt(dieselKwh, 1)} kWh` +
+    ` · useful ${fmt(dieselUsefulPct, 1)}%` +
+    ` · excess ${fmt(dieselExcessPct, 1)}% (${fmt(dieselExcessKwh, 1)} kWh)` +
+    ` · peak ${fmt(peakDieselExcessKw, 1)} kW` +
+    ` · excess → dump ${fmt(dumpKwh, 1)} kWh` +
+    (lossKwh > 0.001 ? ` · AC loss ${fmt(lossKwh, 2)} kWh` : "");
+
+  return (
+    <Panel title="Diesel output allocation" note={note} height={280}>
+      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
+        <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
+        <YAxis tick={axis} unit=" kW" width={62} />
+        <Tooltip {...tooltipStyle} />
+        <Legend wrapperStyle={{ fontSize: 11.5, fontFamily: "IBM Plex Mono" }} />
+        <ReferenceLine y={0} stroke={THEME.faint} />
+        <Area isAnimationActive={false}
+          stackId="diesel-allocation"
+          dataKey="diesel_load_serving_kw"
+          name="Diesel → load"
+          fill={COLORS.ok}
+          stroke={COLORS.ok}
+          fillOpacity={0.42}
+          type="monotone"
+        />
+        <Area isAnimationActive={false}
+          stackId="diesel-allocation"
+          dataKey="battery_charge_from_diesel_kw"
+          name="Diesel → battery"
+          fill={COLORS.battery}
+          stroke={COLORS.battery}
+          fillOpacity={0.42}
+          type="monotone"
+        />
+        <Area isAnimationActive={false}
+          stackId="diesel-allocation"
+          dataKey="diesel_overgeneration_kw"
+          name="Diesel excess"
+          fill={COLORS.unserved}
+          stroke={COLORS.unserved}
+          fillOpacity={0.38}
+          type="monotone"
+        />
+        <Line isAnimationActive={false}
+          dataKey="diesel_kw"
+          name="Total diesel output"
+          stroke={COLORS.diesel}
+          strokeWidth={2}
+          dot={false}
+          type="monotone"
+        />
+        <Line isAnimationActive={false}
+          dataKey="dump_load_kw"
+          name="Dump sink (= excess here)"
+          stroke={COLORS.volt}
+          strokeWidth={1.5}
+          strokeDasharray="5 3"
+          dot={false}
+          type="monotone"
+        />
+        <Line isAnimationActive={false}
+          dataKey="network_loss_kw"
+          name="AC network loss"
+          stroke={COLORS.load}
+          strokeWidth={1.3}
+          strokeDasharray="4 3"
+          dot={false}
+          type="monotone"
+        />
+      </ComposedChart>
+    </Panel>
+  );
+}
+
 // ── power outage timeline ─────────────────────────────────────────────────
 function outageEvents(rows, dt) {
   const events = [];
@@ -465,6 +558,7 @@ function BusChart({ bus, rows }) {
       demand_kw: b.demand_kw ?? 0,
       pv_kw: b.pv_kw ?? 0,
       diesel_kw: b.diesel_kw ?? 0,
+      diesel_excess_kw: b.diesel_excess_kw ?? 0,
       diesel_on: Boolean(b.diesel_on),
       grid_kw: Math.max(0, b.grid_kw ?? 0),
       battery_discharge_kw: Math.max(0, -(b.battery_kw ?? 0)),
@@ -482,6 +576,7 @@ function BusChart({ bus, rows }) {
     chg: nonzero(data, "battery_charge_kw"),
     demand: nonzero(data, "demand_kw"),
     diesel: hasDiesel,
+    dieselExcess: nonzero(data, "diesel_excess_kw"),
     unserved: nonzero(data, "unserved_kw"),
   };
   const anyPower = Object.values(series).some(Boolean);
@@ -505,13 +600,22 @@ function BusChart({ bus, rows }) {
   return (
     <Panel
       title={title}
-      note={`${role} · sources vs demand${series.diesel ? " · shaded = diesel ON" : ""}`}
+      note={`${role} · sources vs demand${series.diesel ? " · shaded = diesel ON" : ""}${series.dieselExcess ? " · right axis = diesel excess" : ""}`}
       height={220}
     >
       <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
+        {series.dieselExcess && (
+          <YAxis
+            yAxisId="dieselExcess"
+            orientation="right"
+            tick={axis}
+            unit=" kW"
+            width={62}
+          />
+        )}
         <Tooltip {...tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 11, fontFamily: "IBM Plex Mono" }} />
         {series.diesel &&
@@ -533,6 +637,18 @@ function BusChart({ bus, rows }) {
         )}
         {series.diesel && (
           <Area isAnimationActive={false} stackId="src" dataKey="diesel_kw" name="Diesel" fill={COLORS.diesel} stroke={COLORS.diesel} fillOpacity={0.5} type="monotone" />
+        )}
+        {series.dieselExcess && (
+          <Line isAnimationActive={false}
+            yAxisId="dieselExcess"
+            dataKey="diesel_excess_kw"
+            name="Diesel excess (kW)"
+            stroke={COLORS.unserved}
+            strokeWidth={2.2}
+            strokeDasharray="6 3"
+            dot={false}
+            type="monotone"
+          />
         )}
         {series.grid && (
           <Area isAnimationActive={false} stackId="src" dataKey="grid_kw" name="Grid import" fill={COLORS.grid} stroke={COLORS.grid} fillOpacity={0.4} type="monotone" />
@@ -574,6 +690,7 @@ const PENALTIES = [
   ["penalty_autonomy", "autonomy", COLORS.grid],
   ["penalty_health", "battery health", COLORS.battery],
   ["penalty_waste", "solar waste", COLORS.solar],
+  ["penalty_excess", "dumped excess", COLORS.diesel],
   ["penalty_unserved", "unserved", COLORS.unserved],
   ["penalty_constraint", "constraints", COLORS.volt],
 ];

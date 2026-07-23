@@ -20,10 +20,11 @@ from microgrid_simulator.controllers import (
     ManualScheduleController,
     RuleBasedController,
 )
+from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.env import MicrogridEnv
+from microgrid_simulator.rl.env import decode_action
 
-POLICIES = ("rule", "idle", "random", "deterministic", "mpc", "schedule")
-STATEFUL_POLICIES = ("mpc",)
+POLICIES = ("rule", "idle", "random", "deterministic", "schedule")
 
 
 def _rule_action(env: MicrogridEnv) -> np.ndarray:
@@ -49,6 +50,70 @@ def policy_action(env: MicrogridEnv, policy: str) -> np.ndarray:
         idle[-1] = -1.0
         return idle
     return _rule_action(env)
+
+
+def _dispatch_rule(
+    settings: Settings,
+    policy: str,
+    state: GridState,
+    control: ControlAction,
+) -> str:
+    """Describe the controller branch that produced one requested action."""
+
+    eps = 1e-9
+    if control.battery_p_mw > eps:
+        battery = "charge battery"
+    elif control.battery_p_mw < -eps:
+        battery = "discharge battery"
+    else:
+        battery = "hold battery"
+    diesel = "run diesel" if control.diesel_on else "diesel off"
+
+    if policy == "rule":
+        if state.islanded:
+            if control.battery_p_mw > eps:
+                battery = "charge battery from PV surplus"
+            elif control.battery_p_mw < -eps:
+                battery = "discharge battery for capacity gap"
+            diesel = "diesel follows residual with headroom" if control.diesel_on else "diesel off"
+            return f"islanded rule: {battery}; {diesel}"
+
+        hour = state.timestamp % 24.0
+        if 8.0 <= hour < 15.0:
+            battery = "morning charge window"
+        elif 18.0 <= hour < 22.0:
+            battery = "evening discharge window"
+        else:
+            battery = "hold battery outside time windows"
+        diesel = "diesel peak shaving" if control.diesel_on else "diesel off below peak threshold"
+        return f"grid rule: {battery}; {diesel}"
+
+    if policy == "schedule":
+        diesel_level = settings.diesel_schedule.level_at(state.timestamp % 24.0)
+        battery_mode = "reactive battery" if not settings.battery_schedule.segments else battery
+        return f"schedule rule: diesel {diesel_level}; {battery_mode}"
+    if policy == "deterministic":
+        return f"deterministic merit order: {battery}; {diesel}"
+    if policy == "random":
+        return f"random sampled action: {battery}; {diesel}"
+    if policy == "idle":
+        return "idle rule: hold battery; diesel off; no PV curtailment"
+    return f"{policy} policy: {battery}; {diesel}"
+
+
+def _dispatch_trace(env: MicrogridEnv, policy: str, action: np.ndarray) -> dict[str, Any]:
+    """Capture the exact request sent to the environment before it is realized."""
+
+    state = env._last_state  # noqa: SLF001
+    control = decode_action(action, env.settings, env.n_ev, env.diesel_enabled)
+    return {
+        "dispatch_policy": policy,
+        "dispatch_rule": _dispatch_rule(env.settings, policy, state, control),
+        "requested_battery_kw": control.battery_p_mw * 1000.0,
+        "requested_diesel_on": bool(control.diesel_on),
+        "requested_diesel_kw": control.diesel_setpoint_mw * 1000.0,
+        "requested_pv_curtailment_pct": control.pv_curtail * 100.0,
+    }
 
 
 def _slack_bus_id(settings: Settings) -> int:
@@ -90,6 +155,9 @@ def _per_bus_state(settings: Settings, s: Any, slack_id: int) -> dict[int, dict[
             "pv_kw": pv_mw * 1000.0,
             "battery_kw": s.battery_p_mw * 1000.0 if bus.id == settings.battery.bus else 0.0,
             "diesel_kw": s.diesel_p_mw * 1000.0 if on_diesel_bus else 0.0,
+            "diesel_excess_kw": (
+                s.diesel_overgeneration_mw * 1000.0 if on_diesel_bus else 0.0
+            ),
             "diesel_on": bool(s.diesel_on) if on_diesel_bus else False,
             "grid_kw": s.grid_import_mw * 1000.0 if bus.id == slack_id else 0.0,
             "v_pu": round(s.v_bus[i], 5) if i < len(s.v_bus) else None,
@@ -104,6 +172,7 @@ def _step_row(
     reward: float,
     info: dict[str, Any],
     slack_id: int,
+    dispatch: dict[str, Any],
 ) -> dict[str, Any]:
     s = env._last_state  # noqa: SLF001
     dt = settings.topology.timestep_hours
@@ -112,21 +181,20 @@ def _step_row(
     battery_charge_kw = max(0.0, s.battery_p_mw) * 1000.0
     battery_discharge_kw = max(0.0, -s.battery_p_mw) * 1000.0
     local_supply_kw = (s.pv_used_mw + s.diesel_p_mw) * 1000.0 + battery_discharge_kw
-    excess_generation_kw = max(
-        0.0,
-        local_supply_kw
-        + grid_import_kw
-        - s.load_served_mw * 1000.0
-        - battery_charge_kw
-        - grid_export_kw,
-    )
+    excess_generation_kw = max(0.0, s.excess_generation_mw * 1000.0)
+    dump_load_kw = max(0.0, s.dump_load_mw * 1000.0)
+    network_loss_kw = max(0.0, s.network_loss_mw * 1000.0)
+    reference_balance_kw = s.reference_balance_mw * 1000.0
     balance_residual_kw = (
         local_supply_kw
         + grid_import_kw
+        + max(0.0, reference_balance_kw)
         - s.load_served_mw * 1000.0
         - battery_charge_kw
         - grid_export_kw
-        - excess_generation_kw
+        - dump_load_kw
+        - network_loss_kw
+        - max(0.0, -reference_balance_kw)
     )
     gross_generation_kw = (
         s.pv_used_mw + s.diesel_p_mw + max(0.0, -s.battery_p_mw) + max(0.0, s.grid_import_mw)
@@ -138,6 +206,7 @@ def _step_row(
     return {
         "step": step + 1,
         "hour": round(s.timestamp, 4),
+        **dispatch,
         "reward": reward,
         "grid_import_kw": s.grid_import_mw * 1000.0,
         "grid_import_positive_kw": grid_import_kw,
@@ -160,9 +229,14 @@ def _step_row(
         "battery_charge_from_grid_kw": s.battery_charge_from_grid_mw * 1000.0,
         "battery_charge_from_diesel_kw": s.battery_charge_from_diesel_mw * 1000.0,
         "diesel_kw": s.diesel_p_mw * 1000.0,
+        "diesel_load_serving_kw": s.diesel_load_serving_mw * 1000.0,
+        "diesel_overgeneration_kw": s.diesel_overgeneration_mw * 1000.0,
         "diesel_on": bool(s.diesel_on),
         "gross_generation_kw": gross_generation_kw,
         "excess_generation_kw": excess_generation_kw,
+        "dump_load_kw": dump_load_kw,
+        "network_loss_kw": network_loss_kw,
+        "reference_balance_kw": reference_balance_kw,
         "power_balance_residual_kw": balance_residual_kw,
         "carbon_kg": carbon_kg,
         "solver_ok": bool(s.solver_ok),
@@ -186,9 +260,8 @@ def _step_row(
     }
 
 
-# Ground-truth mapping from the backend instance actually driving the episode
-# to its config name, since `run_rollout` can override `backend.name` (e.g. the
-# "mpc" policy forces pypsa regardless of what the scenario YAML says).
+# Ground-truth mapping retained for directly injected test/research backends.
+# User-facing runtime construction is currently locked to PandapowerBackend.
 _BACKEND_CLASS_NAMES = {
     "SimpleBackend": "simple",
     "PandapowerBackend": "pandapower",
@@ -243,33 +316,22 @@ def _episode_meta(
 
 
 def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict[str, Any]:
-    # The MPC baseline needs the PyPSAOperationalBackend's rolling-horizon
-    # optimizer, so it forces that backend regardless of the config's own
-    # `backend.name` (its per-step physics match SimpleBackend exactly).
-    backend_name = "pypsa" if policy == "mpc" else None
-    env = MicrogridEnv(settings=settings, backend_name=backend_name)
+    if policy not in POLICIES:
+        raise ValueError(
+            f"policy must be one of {POLICIES}; MPC is unavailable while "
+            "runtime physics is locked to pandapower"
+        )
+    env = MicrogridEnv(settings=settings)
     _, reset_info = env.reset(seed=seed)
     dt = settings.topology.timestep_hours
     slack_id = _slack_bus_id(settings)
 
-    controller = None
-    if policy in STATEFUL_POLICIES:
-        from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
-        from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
-
-        if not isinstance(env.backend, PyPSAOperationalBackend):
-            raise ValueError(f"policy={policy!r} requires the pypsa backend")
-        controller = PyPSAMPCController(backend=env.backend)
-        controller.reset()
-
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        if controller is not None:
-            action = env.encode_action(controller.act(env._last_state))  # noqa: SLF001
-        else:
-            action = policy_action(env, policy)
+        action = policy_action(env, policy)
+        dispatch = _dispatch_trace(env, policy, action)
         _, reward, terminated, truncated, info = env.step(action)
-        rows.append(_step_row(settings, env, step, reward, info, slack_id))
+        rows.append(_step_row(settings, env, step, reward, info, slack_id, dispatch))
         if terminated or truncated:
             break
 
@@ -294,6 +356,11 @@ def stream_rollout(
     episode totals and the counters only known at the end. The env is closed
     even when the consumer stops iterating early (client disconnect).
     """
+    if policy not in POLICIES:
+        raise ValueError(
+            f"policy must be one of {POLICIES}; MPC is unavailable while "
+            "runtime physics is locked to pandapower"
+        )
     env = MicrogridEnv(settings=settings)
     try:
         _, reset_info = env.reset(seed=seed)
@@ -307,8 +374,9 @@ def stream_rollout(
         rows: list[dict[str, Any]] = []
         for step in range(env.max_steps):
             action = policy_action(env, policy)
+            dispatch = _dispatch_trace(env, policy, action)
             _, reward, terminated, truncated, info = env.step(action)
-            row = _step_row(settings, env, step, reward, info, slack_id)
+            row = _step_row(settings, env, step, reward, info, slack_id, dispatch)
             rows.append(row)
             yield {"type": "row", "row": row}
             if terminated or truncated:
@@ -347,6 +415,8 @@ def _totals(rows: list[dict[str, Any]], dt: float) -> dict[str, float]:
     grid_kwh = _sum("grid_import_positive_kw") * dt
     grid_export_kwh = _sum("grid_export_kw") * dt
     diesel_kwh = _sum("diesel_kw") * dt
+    diesel_load_serving_kwh = _sum("diesel_load_serving_kw") * dt
+    diesel_overgeneration_kwh = _sum("diesel_overgeneration_kw") * dt
     pv_available_kwh = _sum("pv_available_kw") * dt
     battery_charge_kwh = _sum("battery_charge_kw") * dt
     battery_charge_from_pv_kwh = _sum("battery_charge_from_pv_kw") * dt
@@ -362,6 +432,13 @@ def _totals(rows: list[dict[str, Any]], dt: float) -> dict[str, float]:
         "grid_import_kwh": grid_kwh,
         "grid_export_kwh": grid_export_kwh,
         "diesel_kwh": diesel_kwh,
+        "diesel_load_serving_kwh": diesel_load_serving_kwh,
+        "diesel_overgeneration_kwh": diesel_overgeneration_kwh,
+        "diesel_useful_pct": (
+            100.0 * (diesel_kwh - diesel_overgeneration_kwh) / diesel_kwh
+            if diesel_kwh
+            else 100.0
+        ),
         "pv_available_kwh": pv_available_kwh,
         "pv_used_kwh": pv_used_kwh,
         "pv_wasted_kwh": _sum("pv_wasted_kw") * dt,
@@ -385,8 +462,21 @@ def _totals(rows: list[dict[str, Any]], dt: float) -> dict[str, float]:
         "peak_load_kw": float(max(r["load_kw"] for r in rows)),
         "peak_pv_kw": float(max((r.get("pv_available_kw", 0.0) for r in rows), default=0.0)),
         "excess_generation_kwh": _sum("excess_generation_kw") * dt,
+        "dump_load_kwh": _sum("dump_load_kw") * dt,
+        "network_loss_kwh": _sum("network_loss_kw") * dt,
+        "reference_balance_import_kwh": sum(
+            max(0.0, float(r.get("reference_balance_kw", 0.0))) for r in rows
+        )
+        * dt,
+        "reference_balance_absorption_kwh": sum(
+            max(0.0, -float(r.get("reference_balance_kw", 0.0))) for r in rows
+        )
+        * dt,
         "peak_excess_generation_kw": float(
             max((r.get("excess_generation_kw", 0.0) for r in rows), default=0.0)
+        ),
+        "peak_diesel_overgeneration_kw": float(
+            max((r.get("diesel_overgeneration_kw", 0.0) for r in rows), default=0.0)
         ),
         "max_abs_power_balance_residual_kw": float(
             max((abs(r.get("power_balance_residual_kw", 0.0)) for r in rows), default=0.0)

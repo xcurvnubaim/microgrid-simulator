@@ -1,9 +1,8 @@
 """MicrogridEnv — the Gymnasium RL environment.
 
-Wraps *any* :class:`~microgrid_simulator.core.backend.MicrogridBackend` behind
-the standard Gymnasium contract. The backend is chosen by name from the config
-(``backend.name``: simple | pandapower | pypsa | opendss | auto) — this module
-never imports a simulation engine directly.
+Wraps the temporarily hardcoded pandapower AC runtime behind the standard
+Gymnasium contract. Backend arguments remain API-compatible but are normalized
+by the backend factory while the lock is active.
 
 Action (continuous, normalised to [-1, 1] for SB3 compatibility):
     a[0]        battery power      -> [-max_discharge, +max_charge] MW
@@ -135,7 +134,12 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             settings, self.max_steps
         )
 
-        self.backend = backend if backend is not None else create_backend(settings, backend_name)
+        if backend is not None:
+            raise ValueError(
+                "custom backend injection is disabled while runtime physics is "
+                "hardcoded to pandapower AC"
+            )
+        self.backend = create_backend(settings, backend_name)
         self.n_ev = settings.topology.n_ev
         self._steps = 0
         self._last_state: GridState = self.backend.reset()
@@ -215,6 +219,12 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "pv_wasted_mw": max(0.0, state.pv_available_mw - state.pv_used_mw),
             "diesel_p_mw": state.diesel_p_mw,
             "diesel_on": state.diesel_on,
+            "diesel_load_serving_mw": state.diesel_load_serving_mw,
+            "diesel_overgeneration_mw": state.diesel_overgeneration_mw,
+            "excess_generation_mw": state.excess_generation_mw,
+            "dump_load_mw": state.dump_load_mw,
+            "network_loss_mw": state.network_loss_mw,
+            "reference_balance_mw": state.reference_balance_mw,
             "demand_is_real": state.demand_is_real,
             "pv_is_real": state.pv_is_real,
             **breakdown.as_info(),

@@ -139,6 +139,14 @@ def test_paper_report_writes_288_measured_intervals(tmp_path) -> None:
     trajectory = pd.read_csv(output / "trajectory.csv")
     stored = json.loads((output / "metrics.json").read_text())
     assert len(trajectory) == 288
+    assert trajectory["dispatch_policy"].eq("rule").all()
+    assert trajectory["dispatch_rule"].str.startswith("islanded rule:").all()
+    assert {
+        "requested_battery_kw",
+        "requested_diesel_on",
+        "requested_diesel_kw",
+        "requested_pv_curtailment_pct",
+    }.issubset(trajectory.columns)
     assert metrics["meta"]["demand_is_real"] is True
     assert metrics["meta"]["pv_is_real"] is True
     assert stored["totals"]["load_kwh"] == pytest.approx(7200.0)

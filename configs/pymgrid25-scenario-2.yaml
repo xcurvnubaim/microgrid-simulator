@@ -29,13 +29,13 @@ external_reference:
     overgeneration_cost: 1.0
 topology:
   timestep_hours: 1.0
-  solver: balance
+  solver: ac
   n_pv: 1
   n_storage: 1
   n_ev: 0
   n_load: 1
 backend:
-  name: simple
+  name: pandapower
   timestep_hours: 1.0
 buses:
 - id: 0

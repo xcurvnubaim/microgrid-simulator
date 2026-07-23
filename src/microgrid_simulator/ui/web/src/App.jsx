@@ -3,7 +3,7 @@ import { getDefaults, simulateStream } from "./api.js";
 import ConfigRail from "./components/ConfigRail.jsx";
 import SLD from "./components/SLD.jsx";
 import TopologyDesigner from "./components/TopologyDesigner.jsx";
-import { DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart } from "./components/Charts.jsx";
+import { DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart, OvergenerationChart } from "./components/Charts.jsx";
 import { KpiStrip, StepTable } from "./components/Widgets.jsx";
 import { applyTopologyChange } from "./topologySettings.js";
 
@@ -14,8 +14,14 @@ const MAX_ROWS = 4032;
 const TOTAL_SUM_KEYS = [
   "total_reward", "grid_import_kwh", "grid_export_kwh", "diesel_kwh", "pv_used_kwh", "pv_wasted_kwh",
   "load_kwh", "served_kwh", "unserved_kwh", "blackout_steps", "blackout_hours", "carbon_kg",
+  "excess_generation_kwh", "dump_load_kwh", "network_loss_kwh",
+  "diesel_load_serving_kwh", "diesel_overgeneration_kwh",
+  "reference_balance_import_kwh", "reference_balance_absorption_kwh",
 ];
-const TOTAL_MAX_KEYS = ["peak_unserved_kw", "peak_import_kw", "peak_load_kw"];
+const TOTAL_MAX_KEYS = [
+  "peak_unserved_kw", "peak_import_kw", "peak_load_kw", "peak_excess_generation_kw",
+  "peak_diesel_overgeneration_kw",
+];
 
 function mergeTotals(prev, t) {
   if (!prev) return t;
@@ -23,6 +29,11 @@ function mergeTotals(prev, t) {
   const out = { ...prev };
   for (const k of TOTAL_SUM_KEYS) out[k] = (prev[k] ?? 0) + (t[k] ?? 0);
   for (const k of TOTAL_MAX_KEYS) out[k] = Math.max(prev[k] ?? 0, t[k] ?? 0);
+  out.diesel_useful_pct =
+    (out.diesel_kwh ?? 0) > 0
+      ? (100 * ((out.diesel_kwh ?? 0) - (out.diesel_overgeneration_kwh ?? 0))) /
+        out.diesel_kwh
+      : 100;
   out.final_soc_pct = t.final_soc_pct ?? prev.final_soc_pct;
   return out;
 }
@@ -38,8 +49,21 @@ function liveTotals(rows, dt) {
     grid_import_kwh: sum("grid_import_positive_kw") * dt,
     grid_export_kwh: sum("grid_export_kw") * dt,
     diesel_kwh: sum("diesel_kw") * dt,
+    diesel_load_serving_kwh: sum("diesel_load_serving_kw") * dt,
+    diesel_overgeneration_kwh: sum("diesel_overgeneration_kw") * dt,
+    diesel_useful_pct:
+      sum("diesel_kw") > 0
+        ? (100 * (sum("diesel_kw") - sum("diesel_overgeneration_kw"))) / sum("diesel_kw")
+        : 100,
     pv_used_kwh: sum("pv_used_kw") * dt,
     pv_wasted_kwh: sum("pv_wasted_kw") * dt,
+    excess_generation_kwh: sum("excess_generation_kw") * dt,
+    dump_load_kwh: sum("dump_load_kw") * dt,
+    network_loss_kwh: sum("network_loss_kw") * dt,
+    reference_balance_import_kwh:
+      rows.reduce((acc, r) => acc + Math.max(0, r.reference_balance_kw ?? 0), 0) * dt,
+    reference_balance_absorption_kwh:
+      rows.reduce((acc, r) => acc + Math.max(0, -(r.reference_balance_kw ?? 0)), 0) * dt,
     load_kwh: sum("load_kw") * dt,
     served_kwh: sum("served_kw") * dt,
     unserved_kwh: sum("unserved_kw") * dt,
@@ -48,6 +72,10 @@ function liveTotals(rows, dt) {
     peak_unserved_kw: Math.max(...rows.map((r) => r.unserved_kw ?? 0)),
     peak_import_kw: Math.max(...rows.map((r) => r.grid_import_positive_kw ?? Math.max(0, r.grid_import_kw ?? 0))),
     peak_load_kw: Math.max(...rows.map((r) => r.load_kw ?? 0)),
+    peak_excess_generation_kw: Math.max(...rows.map((r) => r.excess_generation_kw ?? 0)),
+    peak_diesel_overgeneration_kw: Math.max(
+      ...rows.map((r) => r.diesel_overgeneration_kw ?? 0)
+    ),
     final_soc_pct: rows[rows.length - 1].soc_pct ?? 0,
     carbon_kg: sum("carbon_kg"),
   };
@@ -264,14 +292,14 @@ export default function App() {
         </button>
         <div className="brand">
           <h1>Microgrid Control Room</h1>
-          <span className="sub">editable topology · pluggable physics engines · Region 4</span>
+          <span className="sub">editable topology · pandapower AC physics · Region 4</span>
         </div>
 
         <span className={`badge ${demandReal ? "real" : "synthetic"}`}>
           {demandReal ? "● demand: historical trace" : "○ demand: synthetic sinusoid"}
         </span>
         {meta?.backend && (
-          <span className="badge" title="Physics engine that solved the last run — pick a different one under Scenario → Episode.">
+          <span className="badge" title="Physics engine that solved the last run. Runtime selection is temporarily locked.">
             ⚙ engine: {meta.backend}
           </span>
         )}
@@ -417,6 +445,7 @@ export default function App() {
               <PvSocChart rows={chartRows} />
               <DispatchChart rows={chartRows} peakKw={(settings?.reward?.peak_threshold_mw ?? 0) * 1000} />
               <GenerationChart rows={chartRows} meta={meta} fullRows={rows} />
+              <OvergenerationChart rows={chartRows} meta={meta} fullRows={rows} />
               <OutageChart rows={chartRows} meta={meta} fullRows={rows} />
               <BusCharts rows={chartRows} meta={meta} />
               <div className="chart-grid">

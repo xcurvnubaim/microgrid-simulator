@@ -66,6 +66,7 @@ class PandapowerBackend(MicrogridBackend):
         self.pv_indices: list[int] = []
         self.storage_indices: list[int] = []
         self.diesel_index: int | None = None
+        self.dump_load_index: int | None = None
         # ``grid_connected`` is False when the topology has no utility intertie
         # (no bus with role grid/slack/utility). Islanded operation must serve
         # demand from PV + diesel + battery alone; any shortfall is a blackout.
@@ -162,11 +163,13 @@ class PandapowerBackend(MicrogridBackend):
             raise ValueError("topology must contain at least one bus")
 
         ref_id, self.grid_connected = self._reference_bus_id()
+        self.reference_bus_id = ref_id
         # pandapower needs a voltage reference (slack) to solve. When grid-connected
         # this is the utility intertie (effectively infinite). When islanded it sits
         # on a grid-forming local source (diesel/battery) purely as the numerical
-        # reference; its net injection stays ~0 and we report grid_import as 0, so
-        # the utility can never silently rescue an islanded shortfall.
+        # reference. Its active balance is exposed separately (normally AC
+        # losses after the explicit dump load is applied), while reported
+        # utility grid_import remains zero.
         ref_name = self.bus_cfg_by_id[ref_id].name
         pp.create_ext_grid(
             net,
@@ -208,6 +211,22 @@ class PandapowerBackend(MicrogridBackend):
                     q_mvar=0.0,
                     name="Diesel genset",
                     type="diesel",
+                )
+            )
+
+        # An island has no export path. Surplus from an inflexible source such
+        # as diesel minimum output therefore needs an explicit sink; otherwise
+        # pandapower's numerical ext_grid silently absorbs it.
+        self.dump_load_index = None
+        if not self.grid_connected:
+            self.dump_load_index = int(
+                pp.create_load(
+                    net,
+                    bus=self._bus(ref_id),
+                    p_mw=0.0,
+                    q_mvar=0.0,
+                    name="Explicit excess-generation dump load",
+                    type="dump_load",
                 )
             )
 
@@ -437,6 +456,14 @@ class PandapowerBackend(MicrogridBackend):
             self.net.storage.at[idx, "p_mw"] = battery_p_mw
             self.net.storage.at[idx, "soc_percent"] = self.battery.soc * 100.0
 
+        if self.dump_load_index is not None:
+            local_supply_mw = pv_used_mw + self.diesel.p_mw + max(0.0, -battery_p_mw)
+            named_sinks_mw = demand_mw * served_fraction + max(0.0, battery_p_mw)
+            self.net.load.at[self.dump_load_index, "p_mw"] = max(
+                0.0, local_supply_mw - named_sinks_mw
+            )
+            self.net.load.at[self.dump_load_index, "q_mvar"] = 0.0
+
     def _feasible_battery_request(
         self, action: ControlAction, ev_p_mw: list[float] | None = None
     ) -> float:
@@ -554,6 +581,28 @@ class PandapowerBackend(MicrogridBackend):
             served = demand * self._served_load_fraction
             unserved = demand - served
 
+        dump_load_mw = (
+            float(net.load.at[self.dump_load_index, "p_mw"])
+            if self.dump_load_index is not None
+            else 0.0
+        )
+        if balance:
+            network_loss_mw = 0.0
+            reference_balance_mw = 0.0
+        else:
+            network_loss_mw = 0.0
+            for result_name in ("res_line", "res_trafo", "res_trafo3w"):
+                result = getattr(net, result_name, None)
+                if result is not None and "pl_mw" in result:
+                    network_loss_mw += float(result.pl_mw.sum())
+            # Connected ext_grid power is already ``grid_import_mw``. For an
+            # island this is only the disclosed numerical grid-forming balance.
+            reference_balance_mw = (
+                0.0 if self.grid_connected else float(net.res_ext_grid.p_mw.sum())
+            )
+        hidden_absorption_mw = max(0.0, -reference_balance_mw)
+        excess_generation_mw = dump_load_mw + hidden_absorption_mw
+
         v_bus = [1.0] * len(self.bus_lookup) if balance else [float(v) for v in net.res_bus.vm_pu]
         line_loading = (
             []
@@ -588,6 +637,10 @@ class PandapowerBackend(MicrogridBackend):
             battery_p_mw=battery_p_mw,
             diesel_p_mw=self.diesel.p_mw,
             diesel_on=self.diesel.is_on,
+            excess_generation_mw=excess_generation_mw,
+            dump_load_mw=dump_load_mw,
+            network_loss_mw=max(0.0, network_loss_mw),
+            reference_balance_mw=reference_balance_mw,
             demand_is_real=self.demand_is_real,
             pv_is_real=self.pv_is_real,
             solver_ok=True,

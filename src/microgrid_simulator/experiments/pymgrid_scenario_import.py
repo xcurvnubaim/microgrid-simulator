@@ -128,16 +128,16 @@ def translate_pymgrid_scenario(
         },
         "topology": {
             "timestep_hours": timestep_hours,
-            "solver": "balance",
+            "solver": "ac",
             "n_pv": 1,
             "n_storage": 1,
             "n_ev": 0,
             "n_load": 1,
         },
-        "backend": {"name": "simple", "timestep_hours": timestep_hours},
+        "backend": {"name": "pandapower", "timestep_hours": timestep_hours},
         # Pymgrid's scheduling contract is electrically single-bus. Keep that
-        # balance model, but expose a feeder-style logical topology for the
-        # dashboard, matching the layout used by the campus profile. The
+        # accounting contract, but expose a feeder-style logical topology for
+        # the pandapower-only runtime and dashboard. The
         # benchmark reaches 54 MW, so use a 20 kV logical distribution level
         # rather than copying the campus profile's sub-MW 0.4 kV ratings.
         "buses": [

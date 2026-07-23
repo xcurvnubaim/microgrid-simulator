@@ -1,65 +1,32 @@
-"""Backend registry — resolve a config name to a simulator implementation.
-
-Heavy engines (pandapower, PyPSA, OpenDSS) are imported lazily so the default
-install only ever loads what the chosen backend actually needs.
-"""
+"""Backend registry for the temporarily pandapower-only runtime."""
 
 from __future__ import annotations
 
-import importlib.util
-import logging
-
-from microgrid_simulator.config import Settings
+from microgrid_simulator.config import RUNTIME_PHYSICS_ENGINE, Settings
 from microgrid_simulator.core.backend import MicrogridBackend
 
-LOGGER = logging.getLogger(__name__)
-
-BACKEND_NAMES = ("simple", "pandapower", "pypsa", "opendss")
+BACKEND_NAMES = (RUNTIME_PHYSICS_ENGINE,)
 
 
 def resolve_backend_name(name: str, settings: Settings) -> str:
-    """Resolve ``auto`` using the legacy ``topology.solver`` switch.
-
-    ``solver: ac`` historically meant pandapower Newton-Raphson and
-    ``solver: balance`` the algebraic engine, so old configs keep their exact
-    behaviour; if pandapower is not installed we fall back to the simple
-    backend with a warning instead of failing the default install.
-    """
-    name = (name or "auto").lower()
-    if name != "auto":
-        return name
-    if settings.topology.solver == "balance":
-        return "simple"
-    if importlib.util.find_spec("pandapower") is not None:
-        return "pandapower"
-    LOGGER.warning(
-        "backend.name=auto wants pandapower (topology.solver=ac) but it is not "
-        "installed — falling back to the simple backend. Reinstall project "
-        "dependencies with `pip install -e .`."
-    )
-    return "simple"
+    """Return the hardcoded runtime engine, ignoring config and overrides."""
+    del name, settings
+    return RUNTIME_PHYSICS_ENGINE
 
 
 def create_backend(settings: Settings, name: str | None = None) -> MicrogridBackend:
-    """Instantiate the backend selected by ``name`` (default: config's choice)."""
-    resolved = resolve_backend_name(name or settings.backend.name, settings)
-    if resolved == "simple":
-        from microgrid_simulator.backends.simple_backend import SimpleBackend
+    """Instantiate pandapower regardless of config or caller override."""
+    resolve_backend_name(name or settings.backend.name, settings)
+    settings.backend.name = RUNTIME_PHYSICS_ENGINE
+    settings.topology.solver = "ac"
+    from microgrid_simulator.backends.pandapower_backend import PandapowerBackend
 
-        return SimpleBackend(settings)
-    if resolved == "pandapower":
-        from microgrid_simulator.backends.pandapower_backend import PandapowerBackend
-
-        return PandapowerBackend(settings)
-    if resolved == "pypsa":
-        from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
-
-        return PyPSAOperationalBackend(settings)
-    if resolved == "opendss":
-        from microgrid_simulator.backends.opendss_backend import OpenDSSBackend
-
-        return OpenDSSBackend(settings)
-    raise ValueError(f"Unknown backend {resolved!r}; choose from {BACKEND_NAMES}")
+    return PandapowerBackend(settings)
 
 
-__all__ = ["BACKEND_NAMES", "create_backend", "resolve_backend_name"]
+__all__ = [
+    "BACKEND_NAMES",
+    "RUNTIME_PHYSICS_ENGINE",
+    "create_backend",
+    "resolve_backend_name",
+]

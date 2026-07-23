@@ -1,4 +1,4 @@
-"""Reward: sign convention, five-term breakdown, infeasible penalty."""
+"""Reward: sign convention, term breakdown, infeasible penalty."""
 
 from __future__ import annotations
 
@@ -47,6 +47,21 @@ def test_unserved_load_is_penalised() -> None:
     state = GridState(v_bus=[1.0], load_demand_mw=0.3, load_served_mw=0.2, solver_ok=True)
     _, b = compute_reward(state, _battery(), RewardCfg(), dt_hours=0.25)
     assert b.unserved > 0.0
+
+
+def test_dumped_excess_is_penalised_separately_from_pv_waste() -> None:
+    state = GridState(
+        v_bus=[1.0],
+        pv_available_mw=0.0,
+        pv_used_mw=0.0,
+        excess_generation_mw=0.045,
+        dump_load_mw=0.045,
+        solver_ok=True,
+    )
+    _, breakdown = compute_reward(state, _battery(), RewardCfg(), dt_hours=0.25)
+
+    assert breakdown.waste == 0.0
+    assert breakdown.excess == 45.0 * 0.25
 
 
 def test_infeasible_grid_gets_large_penalty() -> None:

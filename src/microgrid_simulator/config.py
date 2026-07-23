@@ -24,6 +24,8 @@ import yaml
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+RUNTIME_PHYSICS_ENGINE = "pandapower"
+
 
 class TopologyCfg(BaseModel):
     timestep_hours: float = 0.25
@@ -225,20 +227,14 @@ class BatteryScheduleCfg(BaseModel):
 
 
 class BackendCfg(BaseModel):
-    """Which simulation backend drives the environment.
+    """Runtime backend settings.
 
-    ``name``:
-      * ``auto``       -> pandapower when ``topology.solver == "ac"`` and pandapower
-                          is importable, otherwise the pure-python simple backend.
-      * ``simple``     -> fast algebraic balance (default for RL training).
-      * ``pandapower`` -> AC power flow (electrical validation).
-      * ``pypsa``      -> operational backend; step physics match ``simple`` and a
-                          rolling-horizon unit-commitment optimizer is exposed for
-                          MPC/baseline dispatch (requires the ``ops`` extra).
-      * ``opendss``    -> OpenDSS validation solve per tick (requires the ``dss`` extra).
+    ``name`` is temporarily normalized to :data:`RUNTIME_PHYSICS_ENGINE`.
+    Other backend-specific fields remain so research utilities and old scenario
+    files still deserialize while the user-facing runtime is locked.
     """
 
-    name: str = "auto"
+    name: str = RUNTIME_PHYSICS_ENGINE
     validation_backend: str | None = None  # e.g. "pandapower"; used by eval tooling
     timestep_hours: float | None = None  # overrides topology.timestep_hours when set
     # --- PyPSA operational options ---
@@ -333,6 +329,7 @@ class RewardCfg(BaseModel):
     w_autonomy: float = 1.0
     w_health: float = 1.0
     w_waste: float = 1.0
+    w_excess: float = 1.0
     w_unserved: float = 1.0
     grid_carbon_kg_per_kwh: float = 0.45
     diesel_carbon_kg_per_kwh: float = 0.70  # plan: diesel carbon reward term
@@ -428,6 +425,13 @@ class Settings(BaseSettings):
         """``backend.timestep_hours`` (new style) overrides ``topology.timestep_hours``."""
         if self.backend.timestep_hours is not None:
             self.topology.timestep_hours = float(self.backend.timestep_hours)
+        return self
+
+    @model_validator(mode="after")
+    def _lock_runtime_physics_engine(self) -> Settings:
+        """Temporarily force every configured environment onto pandapower AC."""
+        self.backend.name = RUNTIME_PHYSICS_ENGINE
+        self.topology.solver = "ac"
         return self
 
     @model_validator(mode="after")

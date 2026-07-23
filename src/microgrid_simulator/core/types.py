@@ -95,6 +95,16 @@ class GridState:
     battery_p_mw: float = 0.0
     diesel_p_mw: float = 0.0
     diesel_on: bool = False
+    # Non-load-serving generation is explicit instead of disappearing into a
+    # solver slack. ``dump_load_mw`` is the modeled sink for that surplus;
+    # ``network_loss_mw`` is kept separate so AC losses are never called waste.
+    excess_generation_mw: float = 0.0
+    dump_load_mw: float = 0.0
+    network_loss_mw: float = 0.0
+    # Active-power injection (+) or absorption (-) by an islanded backend's
+    # numerical voltage reference. This should be near zero except for AC
+    # losses/model mismatch and is always exposed rather than silently hidden.
+    reference_balance_mw: float = 0.0
     demand_is_real: bool = False
     pv_is_real: bool = False
     delta_soh: float = 0.0
@@ -165,6 +175,31 @@ class GridState:
         """Portion of battery charging attributed to surplus diesel output."""
         return self._charge_source_split_mw()[2]
 
+    @property
+    def diesel_load_serving_mw(self) -> float:
+        """Diesel output attributed to served load after PV serves load first."""
+        load = max(0.0, self.load_served_mw)
+        pv_to_load = min(max(0.0, self.pv_used_mw), load)
+        return min(max(0.0, self.diesel_p_mw), max(0.0, load - pv_to_load))
+
+    @property
+    def diesel_overgeneration_mw(self) -> float:
+        """Non-exportable diesel output routed to the excess/dump-load path.
+
+        This uses the same accounting merit order as battery charge attribution:
+        PV serves load first, diesel serves the remaining load, and identified
+        diesel surplus may charge the battery. Only the remainder that is also
+        present in ``excess_generation_mw`` is called diesel overgeneration.
+        The split is an accounting attribution, not metered physical routing.
+        """
+        unused_diesel = max(
+            0.0,
+            max(0.0, self.diesel_p_mw)
+            - self.diesel_load_serving_mw
+            - self.battery_charge_from_diesel_mw,
+        )
+        return min(max(0.0, self.excess_generation_mw), unused_diesel)
+
 
 @dataclass
 class BackendResult:
@@ -189,6 +224,7 @@ class RewardBreakdown:
     autonomy: float = 0.0
     health: float = 0.0
     waste: float = 0.0
+    excess: float = 0.0
     unserved: float = 0.0
     constraint: float = 0.0
     total: float = 0.0

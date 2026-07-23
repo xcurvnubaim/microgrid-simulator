@@ -2,26 +2,6 @@ import React, { useState } from "react";
 import { uploadDemand, fmt, COLORS } from "../api.js";
 import { Num, Check } from "./fields.jsx";
 
-const BACKENDS = [
-  ["auto", "Auto — pandapower when available"],
-  ["simple", "Simple — algebraic balance, fastest"],
-  ["pandapower", "pandapower — AC power flow"],
-  ["pypsa", "PyPSA — balance + UC optimizer"],
-  ["opendss", "OpenDSS — balance + voltage solve"],
-];
-
-const BACKEND_HINTS = {
-  auto: "Resolves to pandapower AC power flow when installed, otherwise the fast balance engine.",
-  simple:
-    "Exact energy balance, no electrical solve: bus voltages read a flat 1.0 pu and line loading is unavailable. Best for quick RL training.",
-  pandapower:
-    "Newton-Raphson AC power flow every tick — real bus voltages and line loading.",
-  pypsa:
-    "Balance-engine physics plus a PyPSA rolling-horizon unit-commitment optimizer (MPC baseline). Voltages read flat 1.0 pu.",
-  opendss:
-    "Balance-engine physics validated by an OpenDSS snapshot solve each tick — real bus voltages from the distribution circuit.",
-};
-
 function Group({ title, accent, children, open = false }) {
   return (
     <details className="group" open={open} style={{ "--accent": accent }}>
@@ -36,19 +16,6 @@ export default function ConfigRail({ settings, setSettings, demand, setDemand, o
   if (!settings) return <aside className={`rail ${open ? "open" : ""}`} />;
 
   const patch = (section, part) => setSettings({ ...settings, [section]: { ...settings[section], ...part } });
-
-  const backendName = settings.backend?.name ?? "auto";
-  const setBackend = (name) => {
-    // Keep the legacy topology.solver switch coherent: it decides what "auto"
-    // resolves to and which mode the pandapower backend runs in.
-    const solver =
-      name === "simple" ? "balance" : name === "pandapower" ? "ac" : settings.topology.solver;
-    setSettings({
-      ...settings,
-      backend: { ...settings.backend, name },
-      topology: { ...settings.topology, solver },
-    });
-  };
 
   const onFile = async (file) => {
     if (!file) return;
@@ -89,16 +56,12 @@ export default function ConfigRail({ settings, setSettings, demand, setDemand, o
         <Num label="Start hour (synthetic mode)" value={settings.episode.start_hour} step={0.25} min={0} max={23.75} onChange={(v) => patch("episode", { start_hour: v })} />
         <label className="field">
           <span>Physics engine</span>
-          <select value={backendName} onChange={(e) => setBackend(e.target.value)}>
-            {BACKENDS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          <select value="pandapower" disabled aria-label="Physics engine locked to pandapower">
+            <option value="pandapower">pandapower — AC power flow (locked)</option>
           </select>
         </label>
         <div style={{ fontSize: 11, color: "var(--faint)" }}>
-          {BACKEND_HINTS[backendName]}
+          Temporarily hardcoded: every tick runs a pandapower Newton-Raphson AC solve.
         </div>
       </Group>
 
