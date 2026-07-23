@@ -29,6 +29,7 @@ class Controller(ABC):
 
     def reset(self) -> None:
         """Called at episode start; override for stateful controllers."""
+        return None
 
     @abstractmethod
     def act(self, state: GridState) -> ControlAction:

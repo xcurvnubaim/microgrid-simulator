@@ -1,8 +1,9 @@
 """Typed configuration for the microgrid simulator.
 
-``configs/simulator.yaml`` is the single source of truth at runtime. Every
+``configs/pymgrid25-scenario-2.yaml`` is the default runtime scenario. Every
 entry point (CLI, dashboard server, RL env) must obtain settings through
-:func:`load_settings`, which resolves that file (override with ``$MGS_CONFIG``).
+:func:`load_settings`, which resolves that file (override with ``$MGS_CONFIG``
+or an explicit config path).
 The field defaults on the models below exist only so tests can build a
 ``Settings()`` in memory — they are not a second configuration source.
 
@@ -82,15 +83,20 @@ class LoadCfg(BaseModel):
 
 
 class BatteryCfg(BaseModel):
+    model: Literal["project", "pymgrid"] = "project"
     capacity_mwh: float = 0.50
     charge_eff: float = 0.96
     discharge_eff: float = 0.96
     max_charge_mw: float = 0.25
     max_discharge_mw: float = 0.25
+    limit_basis: Literal["terminal_power", "internal_energy_per_step"] = "terminal_power"
+    max_charge_internal_mwh_per_step: float | None = None
+    max_discharge_internal_mwh_per_step: float | None = None
     soc_min: float = 0.10
     soc_max: float = 0.95
     soc_init: float = 0.50
     bus: int = 5  # independent storage bus; it can charge from PV, grid, or diesel
+    degradation_enabled: bool = True
 
 
 class EvCfg(BaseModel):
@@ -112,6 +118,7 @@ class DieselCfg(BaseModel):
     max_kw: float = 150.0
     min_kw: float = 45.0  # minimum stable load (~30% of nameplate; wet stacking below)
     ramp_kw_per_min: float = 30.0  # ~20% of nameplate per minute; 0 = unlimited
+    start_delay_min: float = 0.25  # crank + synchronise (~15 s) at zero output before loading
     min_up_time_min: float = 30.0  # must run this long once started (anti-cycling)
     min_down_time_min: float = 15.0  # cool-down before a restart is allowed
     bus: int = 1
@@ -121,6 +128,7 @@ class DieselCfg(BaseModel):
     start_up_cost: float = 0.0
     shut_down_cost: float = 0.0
     fuel_cost_per_kwh: float = 0.0  # 0 = only carbon-weighted cost in the MPC objective
+    initial_on: bool = False
 
 
 class GridIntertieCfg(BaseModel):
@@ -128,6 +136,92 @@ class GridIntertieCfg(BaseModel):
 
     max_import_mw: float | None = None
     max_export_mw: float | None = None
+
+
+class ScheduleSegmentCfg(BaseModel):
+    """One clock-driven dispatch block; ``start_hour > end_hour`` wraps past
+    midnight (e.g. 22 → 6)."""
+
+    start_hour: float = Field(ge=0.0, le=24.0)
+    end_hour: float = Field(ge=0.0, le=24.0)
+
+    def contains(self, hour: float) -> bool:
+        hour = hour % 24.0
+        if self.start_hour <= self.end_hour:
+            return self.start_hour <= hour < self.end_hour
+        return hour >= self.start_hour or hour < self.end_hour  # overnight wrap
+
+
+class DieselScheduleSegmentCfg(ScheduleSegmentCfg):
+    """One clock-driven diesel dispatch block for the manual-schedule controller.
+
+    ``level`` is either a named level — ``"max"`` (nameplate), ``"min"``
+    (minimum stable load), ``"off"`` — or an explicit setpoint in kW (clamped
+    to the genset's [min_kw, max_kw] band when the unit is on).
+    """
+
+    level: Literal["max", "min", "off"] | float = "max"
+
+
+class DieselScheduleCfg(BaseModel):
+    """Time-of-day diesel timetable consumed by ``ManualScheduleController``.
+
+    Hours not covered by any segment mean diesel off; the first matching
+    segment wins. The default reproduces the timetable hand-derived from the
+    2026-01-15 window's hourly load/PV profile (full nameplate outside
+    09:00-14:00, minimum stable load inside it) and is a DESIGNED scenario
+    assumption, not a site fact — scenario YAMLs should override it.
+    """
+
+    segments: list[DieselScheduleSegmentCfg] = Field(
+        default_factory=lambda: [
+            DieselScheduleSegmentCfg(start_hour=0.0, end_hour=9.0, level="max"),
+            DieselScheduleSegmentCfg(start_hour=9.0, end_hour=14.0, level="min"),
+            DieselScheduleSegmentCfg(start_hour=14.0, end_hour=24.0, level="max"),
+        ]
+    )
+
+    def level_at(self, hour: float) -> Literal["max", "min", "off"] | float:
+        for segment in self.segments:
+            if segment.contains(hour):
+                return segment.level
+        return "off"
+
+
+class BatteryScheduleSegmentCfg(ScheduleSegmentCfg):
+    """One clock-driven battery dispatch block for the manual-schedule controller.
+
+    ``mode`` mirrors how operators actually schedule storage:
+
+    * ``"charge"`` — binary (0/1): the battery charges at its full
+      ``max_charge_mw``; the backend clips by SOC headroom and resolves the
+      charging-source split (PV → diesel → grid merit order).
+    * ``"discharge"`` — continuous: ``level`` is ``"max"`` or an explicit kW
+      value, clamped to ``max_discharge_mw``.
+    * ``"idle"`` — hold (same as an uncovered hour).
+    """
+
+    mode: Literal["charge", "discharge", "idle"] = "idle"
+    level: Literal["max"] | float = "max"  # discharge segments only (kW)
+
+
+class BatteryScheduleCfg(BaseModel):
+    """Time-of-day battery timetable consumed by ``ManualScheduleController``.
+
+    Empty segments (the default) keep the controller's reactive battery
+    behaviour (charge on PV surplus, discharge to backstop the scheduled
+    diesel) so existing baselines are unchanged. With segments the battery
+    follows the clock instead: uncovered hours are idle; the first matching
+    segment wins.
+    """
+
+    segments: list[BatteryScheduleSegmentCfg] = Field(default_factory=list)
+
+    def segment_at(self, hour: float) -> BatteryScheduleSegmentCfg | None:
+        for segment in self.segments:
+            if segment.contains(hour):
+                return segment
+        return None
 
 
 class BackendCfg(BaseModel):
@@ -158,11 +252,15 @@ class MeasurementCfg(BaseModel):
     """One measured time series (grid meter, PV, SOC, load) for the digital twin."""
 
     file: str
-    timestamp_column: str = "statstime"
+    timestamp_column: str | None = "statstime"
     value_column: str = "value"
-    unit: str = "kw"  # kw | mw | w | kwh_per_step | pct | fraction
+    unit: str = "kw"  # kw | mw | w | kwh_per_step | mwh_per_step | pct | fraction
     header_row: int = 0
     sheet: str | int | None = None  # Excel sheet, None -> first
+    value_multiplier: float = 1.0  # e.g. -1 converts pymgrid load demand to positive
+    synthetic_start: str | None = None  # used when the source has a positional index
+    synthetic_step_hours: float | None = None
+    prepend_first_as_context: bool = False
 
 
 class DigitalTwinCfg(BaseModel):
@@ -196,6 +294,18 @@ class ScenarioCfg(BaseModel):
     description: str = ""
 
 
+class ExternalReferenceCfg(BaseModel):
+    """Provenance and native parameters for an external comparison scenario."""
+
+    implementation: Literal["pymgrid"]
+    benchmark: str
+    scenario_number: int = Field(ge=0)
+    source_yaml: str
+    source_commit: str
+    reference_priority: bool = True
+    native_parameters: dict[str, Any] = Field(default_factory=dict)
+
+
 class DemandCfg(BaseModel):
     """Real historical demand trace (plan: demand-driver swap only)."""
 
@@ -211,9 +321,14 @@ class DemandCfg(BaseModel):
 class EpisodeCfg(BaseModel):
     horizon_hours: float = 24.0
     start_hour: float = 0.0
+    # Wall-clock timestamp of the first telemetry sample evaluated by a fixed
+    # replay. The environment also loads one preceding sample as controller
+    # context, so the first action does not peek at the first target interval.
+    telemetry_start: str | None = None
 
 
 class RewardCfg(BaseModel):
+    mode: Literal["project", "pymgrid"] = "project"
     w_carbon: float = 1.0
     w_autonomy: float = 1.0
     w_health: float = 1.0
@@ -226,6 +341,13 @@ class RewardCfg(BaseModel):
     peak_penalty: float = 200.0
     voltage_penalty: float = 100.0
     soc_violation_penalty: float = 50.0
+    # Native pymgrid marginal costs, used only when mode == "pymgrid".
+    pymgrid_battery_cost_cycle: float = 0.0
+    pymgrid_genset_cost: float = 0.0
+    pymgrid_co2_per_unit: float = 0.0
+    pymgrid_cost_per_unit_co2: float = 0.0
+    pymgrid_loss_load_cost: float = 0.0
+    pymgrid_overgeneration_cost: float = 0.0
 
 
 def _default_buses() -> list[BusCfg]:
@@ -251,11 +373,10 @@ def _default_lines() -> list[LineCfg]:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="MGS_", env_nested_delimiter="__", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="MGS_", env_nested_delimiter="__", extra="ignore")
 
     scenario: ScenarioCfg = Field(default_factory=ScenarioCfg)
+    external_reference: ExternalReferenceCfg | None = None
     topology: TopologyCfg = Field(default_factory=TopologyCfg)
     backend: BackendCfg = Field(default_factory=BackendCfg)
     intertie: GridIntertieCfg = Field(default_factory=GridIntertieCfg)
@@ -265,6 +386,8 @@ class Settings(BaseSettings):
     battery: BatteryCfg = Field(default_factory=BatteryCfg)
     ev: EvCfg = Field(default_factory=EvCfg)
     diesel: DieselCfg = Field(default_factory=DieselCfg)
+    diesel_schedule: DieselScheduleCfg = Field(default_factory=DieselScheduleCfg)
+    battery_schedule: BatteryScheduleCfg = Field(default_factory=BatteryScheduleCfg)
     demand: DemandCfg = Field(default_factory=DemandCfg)
     episode: EpisodeCfg = Field(default_factory=EpisodeCfg)
     reward: RewardCfg = Field(default_factory=RewardCfg)
@@ -305,6 +428,33 @@ class Settings(BaseSettings):
         """``backend.timestep_hours`` (new style) overrides ``topology.timestep_hours``."""
         if self.backend.timestep_hours is not None:
             self.topology.timestep_hours = float(self.backend.timestep_hours)
+        return self
+
+    @model_validator(mode="after")
+    def _derive_terminal_battery_limits(self) -> Settings:
+        """Expose terminal action bounds while preserving native internal limits."""
+
+        battery = self.battery
+        if battery.model == "pymgrid" and battery.limit_basis != "internal_energy_per_step":
+            raise ValueError("pymgrid battery model requires internal_energy_per_step limits")
+        if battery.model == "project" and battery.limit_basis != "terminal_power":
+            raise ValueError("project battery model requires terminal_power limits")
+        if battery.limit_basis != "internal_energy_per_step":
+            return self
+        if (
+            battery.max_charge_internal_mwh_per_step is None
+            or battery.max_discharge_internal_mwh_per_step is None
+        ):
+            raise ValueError(
+                "internal_energy_per_step battery limits require both internal MWh fields"
+            )
+        dt = float(self.topology.timestep_hours)
+        if dt <= 0 or battery.charge_eff <= 0 or battery.discharge_eff <= 0:
+            raise ValueError("battery timestep and efficiencies must be positive")
+        battery.max_charge_mw = battery.max_charge_internal_mwh_per_step / battery.charge_eff / dt
+        battery.max_discharge_mw = (
+            battery.max_discharge_internal_mwh_per_step * battery.discharge_eff / dt
+        )
         return self
 
     @model_validator(mode="after")
@@ -351,11 +501,11 @@ class Settings(BaseSettings):
 
 
 DEFAULT_CONFIG_ENV = "MGS_CONFIG"
-_CONFIG_RELPATH = Path("configs") / "simulator.yaml"
+_CONFIG_RELPATH = Path("configs") / "pymgrid25-scenario-2.yaml"
 
 
 def find_config_path() -> Path | None:
-    """Locate the canonical ``configs/simulator.yaml``.
+    """Locate the default ``configs/pymgrid25-scenario-2.yaml``.
 
     Order: ``$MGS_CONFIG`` if set, then a search upward from the current
     directory, then upward from this package (covers editable installs).
@@ -375,13 +525,13 @@ def load_settings(path: str | Path | None = None) -> Settings:
     """Single runtime entry point for configuration.
 
     All processes (CLI, dashboard server, RL env) must come through here so
-    they read the same ``configs/simulator.yaml`` — there is no silent
-    fallback to the in-code field defaults.
+    they read the same default scenario — there is no silent fallback to the
+    in-code field defaults.
     """
     resolved = Path(path) if path is not None else find_config_path()
     if resolved is None:
         raise FileNotFoundError(
-            "configs/simulator.yaml not found (searched upward from the current "
+            f"{_CONFIG_RELPATH} not found (searched upward from the current "
             f"directory and from the package); set ${DEFAULT_CONFIG_ENV} to point at it"
         )
     return Settings.from_yaml(resolved)

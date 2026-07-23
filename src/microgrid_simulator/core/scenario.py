@@ -24,6 +24,8 @@ class Scenario:
     # Total-demand trajectory for the episode, one MW value per tick (index 0 is
     # the reset tick). ``None`` -> the synthetic time-of-day curve drives loads.
     demand_window_mw: np.ndarray | None = None
+    # Total measured PV availability, aligned one-to-one with demand_window_mw.
+    pv_window_mw: np.ndarray | None = None
     name: str = "default"
 
     @classmethod

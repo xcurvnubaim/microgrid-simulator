@@ -15,67 +15,21 @@ import numpy as np
 
 from microgrid_simulator.backends import resolve_backend_name
 from microgrid_simulator.config import Settings
-from microgrid_simulator.controllers import DeterministicController
+from microgrid_simulator.controllers import (
+    DeterministicController,
+    ManualScheduleController,
+    RuleBasedController,
+)
 from microgrid_simulator.env import MicrogridEnv
 
-POLICIES = ("rule", "idle", "random", "deterministic")
+POLICIES = ("rule", "idle", "random", "deterministic", "mpc", "schedule")
+STATEFUL_POLICIES = ("mpc",)
 
 
 def _rule_action(env: MicrogridEnv) -> np.ndarray:
-    """Interpretable heuristic.
-
-    Grid-connected: solar-charge / evening-discharge the battery and let diesel
-    peak-shave whatever exceeds the soft peak threshold.
-
-    Islanded (no utility tie): there is no grid to backfill, so the controller
-    instead tries to *keep the lights on* — discharge the battery and dispatch
-    diesel to cover the full residual demand. When PV + battery + diesel still
-    can't meet it, the shortfall shows up as an islanded blackout.
-    """
-    action = np.zeros(env.action_dim, dtype=np.float32)
-    s = env._last_state  # noqa: SLF001 - diagnostics-grade access is fine here
-    hour = env.backend.timestamp % 24.0
-    islanded = not env.backend.grid_connected
-
-    residual_mw = max(0.0, s.load_demand_mw - s.pv_used_mw)
-
-    if islanded:
-        # Diesel is the firm dispatchable source, so let it carry the residual
-        # first; the battery only tops up what diesel can't and charges on PV
-        # surplus. (Leaning on the battery first would black out once its SoC
-        # floor is hit and diesel was never asked to compensate.)
-        surplus_mw = max(0.0, s.pv_used_mw - s.load_demand_mw)
-        diesel_max_mw = env.settings.diesel.max_kw / 1000.0 if env.diesel_enabled else 0.0
-        diesel_target_mw = min(residual_mw, diesel_max_mw)
-        battery_gap_mw = max(0.0, residual_mw - diesel_target_mw)
-        if surplus_mw > 0.0:
-            action[0] = min(1.0, surplus_mw / max(env.settings.battery.max_charge_mw, 1e-9))
-        elif battery_gap_mw > 0.0:
-            action[0] = -min(1.0, battery_gap_mw / max(env.settings.battery.max_discharge_mw, 1e-9))
-        # diesel should cover the whole residual it's capable of, regardless of
-        # battery state, so the lights stay on whenever capacity exists. A small
-        # headroom margin absorbs the one-tick control lag at demand ramps.
-        diesel_target_mw = residual_mw * 1.12
-    else:
-        action[0] = 0.6 if 8 <= hour < 15 else (-0.6 if 18 <= hour < 22 else 0.0)
-        diesel_target_mw = max(0.0, residual_mw - env.settings.reward.peak_threshold_mw)
-
-    if env.diesel_enabled:
-        # Grid-connected, don't start the genset for less than its minimum
-        # stable load — the grid covers small peaks. Islanded, any residual
-        # justifies a start (surplus below min load is dumped, lights stay on).
-        floor_mw = 0.0 if islanded else env.settings.diesel.min_kw / 1000.0
-        if diesel_target_mw > max(floor_mw, 0.0):
-            diesel_max_mw = env.settings.diesel.max_kw / 1000.0
-            frac = min(1.0, diesel_target_mw / max(diesel_max_mw, 1e-9))
-            action[-3] = 1.0  # on
-            action[-2] = frac * 2.0 - 1.0  # setpoint -> [-1, 1]
-        else:
-            action[-3] = -1.0  # off
-            action[-2] = -1.0
-
-    action[-1] = -1.0  # no curtailment
-    return action
+    """Encode the canonical physical-unit rule controller for the Gym env."""
+    controller = RuleBasedController(env.settings)
+    return env.encode_action(controller.act(env._last_state))  # noqa: SLF001
 
 
 def policy_action(env: MicrogridEnv, policy: str) -> np.ndarray:
@@ -83,6 +37,9 @@ def policy_action(env: MicrogridEnv, policy: str) -> np.ndarray:
         return env.action_space.sample()
     if policy == "deterministic":
         controller = DeterministicController(env.settings)
+        return env.encode_action(controller.act(env._last_state))  # noqa: SLF001
+    if policy == "schedule":
+        controller = ManualScheduleController(env.settings)
         return env.encode_action(controller.act(env._last_state))  # noqa: SLF001
     if policy == "idle":
         idle = np.zeros(env.action_dim, dtype=np.float32)
@@ -154,6 +111,23 @@ def _step_row(
     grid_export_kw = max(0.0, -s.grid_import_mw) * 1000.0
     battery_charge_kw = max(0.0, s.battery_p_mw) * 1000.0
     battery_discharge_kw = max(0.0, -s.battery_p_mw) * 1000.0
+    local_supply_kw = (s.pv_used_mw + s.diesel_p_mw) * 1000.0 + battery_discharge_kw
+    excess_generation_kw = max(
+        0.0,
+        local_supply_kw
+        + grid_import_kw
+        - s.load_served_mw * 1000.0
+        - battery_charge_kw
+        - grid_export_kw,
+    )
+    balance_residual_kw = (
+        local_supply_kw
+        + grid_import_kw
+        - s.load_served_mw * 1000.0
+        - battery_charge_kw
+        - grid_export_kw
+        - excess_generation_kw
+    )
     gross_generation_kw = (
         s.pv_used_mw + s.diesel_p_mw + max(0.0, -s.battery_p_mw) + max(0.0, s.grid_import_mw)
     ) * 1000.0
@@ -172,18 +146,26 @@ def _step_row(
         "served_kw": s.load_served_mw * 1000.0,
         "load_serving_supply_kw": s.load_served_mw * 1000.0,
         "unserved_kw": s.unserved_mw * 1000.0,
-        "blackout": bool(s.unserved_mw > 1e-6),
+        "blackout": bool(s.blackout),
         "islanded": bool(s.islanded),
+        "demand_is_real": bool(s.demand_is_real),
+        "pv_is_real": bool(s.pv_is_real),
         "pv_available_kw": s.pv_available_mw * 1000.0,
         "pv_used_kw": s.pv_used_mw * 1000.0,
         "pv_wasted_kw": max(0.0, s.pv_available_mw - s.pv_used_mw) * 1000.0,
         "battery_kw": s.battery_p_mw * 1000.0,
         "battery_charge_kw": battery_charge_kw,
         "battery_discharge_kw": battery_discharge_kw,
+        "battery_charge_from_pv_kw": s.battery_charge_from_pv_mw * 1000.0,
+        "battery_charge_from_grid_kw": s.battery_charge_from_grid_mw * 1000.0,
+        "battery_charge_from_diesel_kw": s.battery_charge_from_diesel_mw * 1000.0,
         "diesel_kw": s.diesel_p_mw * 1000.0,
         "diesel_on": bool(s.diesel_on),
         "gross_generation_kw": gross_generation_kw,
+        "excess_generation_kw": excess_generation_kw,
+        "power_balance_residual_kw": balance_residual_kw,
         "carbon_kg": carbon_kg,
+        "solver_ok": bool(s.solver_ok),
         "soc_pct": (s.soc[0] * 100.0) if s.soc else None,
         "soh_pct": (s.soh[0] * 100.0) if s.soh else None,
         "min_voltage_pu": min(s.v_bus) if s.v_bus else None,
@@ -193,6 +175,8 @@ def _step_row(
         "p_pv_kw": [p * 1000.0 for p in s.p_gen],
         "ev_soc_pct": [x * 100.0 for x in s.ev_soc],
         "max_line_loading_pct": max(s.line_loading) if s.line_loading else None,
+        "constraint_violation_count": len(s.violations),
+        "constraint_violation_types": sorted({v.kind for v in s.violations}),
         "per_bus": _per_bus_state(settings, s, slack_id),
         **{
             k.replace("reward/", "penalty_"): v
@@ -200,6 +184,23 @@ def _step_row(
             if k.startswith("reward/") and k != "reward/total"
         },
     }
+
+
+# Ground-truth mapping from the backend instance actually driving the episode
+# to its config name, since `run_rollout` can override `backend.name` (e.g. the
+# "mpc" policy forces pypsa regardless of what the scenario YAML says).
+_BACKEND_CLASS_NAMES = {
+    "SimpleBackend": "simple",
+    "PandapowerBackend": "pandapower",
+    "PyPSAOperationalBackend": "pypsa",
+    "OpenDSSBackend": "opendss",
+}
+
+
+def _resolved_backend_name(env: MicrogridEnv, settings: Settings) -> str:
+    return _BACKEND_CLASS_NAMES.get(
+        type(env.backend).__name__, resolve_backend_name(settings.backend.name, settings)
+    )
 
 
 def _episode_meta(
@@ -211,14 +212,20 @@ def _episode_meta(
     slack_id: int,
 ) -> dict[str, Any]:
     demand_real = bool(env.backend.demand_is_real)
+    pv_real = bool(env._last_state.pv_is_real)  # noqa: SLF001
     return {
         "policy": policy,
         "seed": seed,
-        "backend": resolve_backend_name(settings.backend.name, settings),
+        "backend": _resolved_backend_name(env, settings),
         "timestep_hours": settings.topology.timestep_hours,
         "demand_source": "historical trace" if demand_real else "synthetic sinusoid",
         "demand_is_real": demand_real,
+        "pv_source": "historical trace" if pv_real else "synthetic daylight curve",
+        "pv_is_real": pv_real,
         "demand_window_start_time": reset_info.get("demand_window_start_time"),
+        "telemetry_context_time": reset_info.get("telemetry_context_time"),
+        "telemetry_end_time": reset_info.get("telemetry_end_time"),
+        "telemetry_source_files": reset_info.get("telemetry_source_files"),
         "grid_connected": env.backend.grid_connected,
         "islanded": not env.backend.grid_connected,
         "diesel_enabled": env.diesel_enabled,
@@ -236,14 +243,31 @@ def _episode_meta(
 
 
 def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict[str, Any]:
-    env = MicrogridEnv(settings=settings)
+    # The MPC baseline needs the PyPSAOperationalBackend's rolling-horizon
+    # optimizer, so it forces that backend regardless of the config's own
+    # `backend.name` (its per-step physics match SimpleBackend exactly).
+    backend_name = "pypsa" if policy == "mpc" else None
+    env = MicrogridEnv(settings=settings, backend_name=backend_name)
     _, reset_info = env.reset(seed=seed)
     dt = settings.topology.timestep_hours
     slack_id = _slack_bus_id(settings)
 
+    controller = None
+    if policy in STATEFUL_POLICIES:
+        from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
+        from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+
+        if not isinstance(env.backend, PyPSAOperationalBackend):
+            raise ValueError(f"policy={policy!r} requires the pypsa backend")
+        controller = PyPSAMPCController(backend=env.backend)
+        controller.reset()
+
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        action = policy_action(env, policy)
+        if controller is not None:
+            action = env.encode_action(controller.act(env._last_state))  # noqa: SLF001
+        else:
+            action = policy_action(env, policy)
         _, reward, terminated, truncated, info = env.step(action)
         rows.append(_step_row(settings, env, step, reward, info, slack_id))
         if terminated or truncated:
@@ -310,25 +334,67 @@ def _totals(rows: list[dict[str, Any]], dt: float) -> dict[str, float]:
     def _sum(key: str) -> float:
         return float(sum(r.get(key) or 0.0 for r in rows))
 
+    soc_values = [
+        float(value)
+        for row in rows
+        if (value := row.get("soc_pct")) is not None and np.isfinite(float(value))
+    ]
+    soh_values = [
+        float(value)
+        for row in rows
+        if (value := row.get("soh_pct")) is not None and np.isfinite(float(value))
+    ]
     grid_kwh = _sum("grid_import_positive_kw") * dt
     grid_export_kwh = _sum("grid_export_kw") * dt
     diesel_kwh = _sum("diesel_kw") * dt
+    pv_available_kwh = _sum("pv_available_kw") * dt
+    battery_charge_kwh = _sum("battery_charge_kw") * dt
+    battery_charge_from_pv_kwh = _sum("battery_charge_from_pv_kw") * dt
+    battery_charge_from_grid_kwh = _sum("battery_charge_from_grid_kw") * dt
+    battery_charge_from_diesel_kwh = _sum("battery_charge_from_diesel_kw") * dt
+    battery_discharge_kwh = _sum("battery_discharge_kw") * dt
     blackout_steps = sum(1 for r in rows if r.get("blackout"))
+    load_kwh = _sum("load_kw") * dt
+    served_kwh = _sum("served_kw") * dt
+    pv_used_kwh = _sum("pv_used_kw") * dt
     return {
         "total_reward": _sum("reward"),
         "grid_import_kwh": grid_kwh,
         "grid_export_kwh": grid_export_kwh,
         "diesel_kwh": diesel_kwh,
-        "pv_used_kwh": _sum("pv_used_kw") * dt,
+        "pv_available_kwh": pv_available_kwh,
+        "pv_used_kwh": pv_used_kwh,
         "pv_wasted_kwh": _sum("pv_wasted_kw") * dt,
-        "load_kwh": _sum("load_kw") * dt,
-        "served_kwh": _sum("served_kw") * dt,
+        "pv_utilization_pct": 100.0 * pv_used_kwh / pv_available_kwh if pv_available_kwh else 0.0,
+        "battery_charge_kwh": battery_charge_kwh,
+        "battery_charge_from_pv_kwh": battery_charge_from_pv_kwh,
+        "battery_charge_from_grid_kwh": battery_charge_from_grid_kwh,
+        "battery_charge_from_diesel_kwh": battery_charge_from_diesel_kwh,
+        "battery_discharge_kwh": battery_discharge_kwh,
+        "battery_throughput_kwh": battery_charge_kwh + battery_discharge_kwh,
+        "load_kwh": load_kwh,
+        "served_kwh": served_kwh,
         "unserved_kwh": _sum("unserved_kw") * dt,
+        "served_energy_pct": 100.0 * served_kwh / load_kwh if load_kwh else 100.0,
         "blackout_steps": blackout_steps,
         "blackout_hours": blackout_steps * dt,
         "peak_unserved_kw": float(max((r["unserved_kw"] for r in rows), default=0.0)),
-        "peak_import_kw": float(max(r.get("grid_import_positive_kw", r["grid_import_kw"]) for r in rows)),
+        "peak_import_kw": float(
+            max(r.get("grid_import_positive_kw", r["grid_import_kw"]) for r in rows)
+        ),
         "peak_load_kw": float(max(r["load_kw"] for r in rows)),
-        "final_soc_pct": float(rows[-1]["soc_pct"] or 0.0),
+        "peak_pv_kw": float(max((r.get("pv_available_kw", 0.0) for r in rows), default=0.0)),
+        "excess_generation_kwh": _sum("excess_generation_kw") * dt,
+        "peak_excess_generation_kw": float(
+            max((r.get("excess_generation_kw", 0.0) for r in rows), default=0.0)
+        ),
+        "max_abs_power_balance_residual_kw": float(
+            max((abs(r.get("power_balance_residual_kw", 0.0)) for r in rows), default=0.0)
+        ),
+        "constraint_violation_events": int(_sum("constraint_violation_count")),
+        "min_soc_pct": min(soc_values, default=0.0),
+        "max_soc_pct": max(soc_values, default=0.0),
+        "final_soc_pct": soc_values[-1] if soc_values else 0.0,
+        "soh_loss_pct_points": 100.0 - (soh_values[-1] if soh_values else 100.0),
         "carbon_kg": _sum("carbon_kg"),
     }

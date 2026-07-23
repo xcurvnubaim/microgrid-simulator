@@ -51,6 +51,7 @@ class StreamRequest(SimulateRequest):
 
 
 def _base_settings() -> Settings:
+    """Use the shared default scenario, including explicit MGS_CONFIG overrides."""
     return load_settings()
 
 

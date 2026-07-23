@@ -1,0 +1,302 @@
+{
+  "experiment": "pymgrid-common-model-verification",
+  "comparison_policy": {
+    "scope": "matched lossless islanded scheduling contract",
+    "reference_implementation": "pymgrid",
+    "candidate_implementation": "microgrid-simulator",
+    "delta_convention": "candidate_minus_reference",
+    "on_mismatch": "fail_candidate_and_review_mapping_then_candidate_implementation",
+    "silent_output_substitution": false
+  },
+  "software": {
+    "microgrid-simulator": {
+      "version": "0.1.0",
+      "backend": "simple",
+      "license": "MIT"
+    },
+    "pymgrid": {
+      "distribution": "python-microgrid",
+      "version": "1.4.1",
+      "commit": "09089ccfaab3e95becfda1b26fbce6f9c6195f6a",
+      "license": "LGPL-3.0"
+    }
+  },
+  "plant": {
+    "timestep_hours": 1.0,
+    "battery_capacity_mwh": 1.0,
+    "battery_max_charge_mw": 0.3,
+    "battery_max_discharge_mw": 0.3,
+    "battery_soc_min": 0.1,
+    "battery_soc_max": 0.9,
+    "battery_soc_init": 0.5,
+    "diesel_min_mw": 0.1,
+    "diesel_max_mw": 0.4
+  },
+  "fixtures": [
+    {
+      "name": "pv_equals_load",
+      "load_mw": 0.2,
+      "pv_available_mw": 0.2,
+      "battery_p_mw": 0.0,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "charge_request_clipped",
+      "load_mw": 0.2,
+      "pv_available_mw": 0.5,
+      "battery_p_mw": 0.4,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "discharge_request_clipped",
+      "load_mw": 0.4,
+      "pv_available_mw": 0.1,
+      "battery_p_mw": -0.4,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "discharge_toward_floor",
+      "load_mw": 0.6,
+      "pv_available_mw": 0.0,
+      "battery_p_mw": -0.3,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "discharge_hits_floor",
+      "load_mw": 0.4,
+      "pv_available_mw": 0.0,
+      "battery_p_mw": -0.3,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "discharge_at_floor",
+      "load_mw": 0.2,
+      "pv_available_mw": 0.0,
+      "battery_p_mw": -0.2,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "diesel_minimum_excess",
+      "load_mw": 0.05,
+      "pv_available_mw": 0.0,
+      "battery_p_mw": 0.0,
+      "diesel_on": true,
+      "diesel_setpoint_mw": 0.02,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "diesel_pv_charge",
+      "load_mw": 0.2,
+      "pv_available_mw": 0.3,
+      "battery_p_mw": 0.15,
+      "diesel_on": true,
+      "diesel_setpoint_mw": 0.1,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "charge_toward_ceiling_1",
+      "load_mw": 0.1,
+      "pv_available_mw": 0.7,
+      "battery_p_mw": 0.3,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "charge_toward_ceiling_2",
+      "load_mw": 0.1,
+      "pv_available_mw": 0.7,
+      "battery_p_mw": 0.3,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "charge_hits_ceiling",
+      "load_mw": 0.1,
+      "pv_available_mw": 0.7,
+      "battery_p_mw": 0.3,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "charge_at_ceiling",
+      "load_mw": 0.1,
+      "pv_available_mw": 0.7,
+      "battery_p_mw": 0.2,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.0
+    },
+    {
+      "name": "explicit_pv_curtailment",
+      "load_mw": 0.2,
+      "pv_available_mw": 0.4,
+      "battery_p_mw": 0.0,
+      "diesel_on": false,
+      "diesel_setpoint_mw": 0.0,
+      "pv_curtail": 0.5
+    },
+    {
+      "name": "diesel_maximum_clamp",
+      "load_mw": 0.4,
+      "pv_available_mw": 0.0,
+      "battery_p_mw": 0.0,
+      "diesel_on": true,
+      "diesel_setpoint_mw": 0.6,
+      "pv_curtail": 0.0
+    }
+  ],
+  "results": {
+    "1.00": {
+      "passed": true,
+      "disposition": "accepted",
+      "reference_implementation": "pymgrid",
+      "candidate_implementation": "microgrid-simulator",
+      "delta_convention": "candidate_minus_reference",
+      "steps": 14,
+      "implementation_summaries": {
+        "microgrid-simulator": {
+          "load_mwh": 3.25,
+          "served_mwh": 2.4499999999999997,
+          "unserved_mwh": 0.8000000000000002,
+          "pv_available_mwh": 4.3,
+          "pv_used_mwh": 2.3,
+          "pv_spill_mwh": 2.0,
+          "battery_charge_mwh": 1.1,
+          "battery_discharge_mwh": 0.7000000000000001,
+          "diesel_mwh": 0.6000000000000001,
+          "excess_mwh": 0.05,
+          "initial_soc": 0.5,
+          "final_soc": 0.9,
+          "max_abs_balance_residual_mw": 0.0
+        },
+        "pymgrid": {
+          "load_mwh": 3.25,
+          "served_mwh": 2.45,
+          "unserved_mwh": 0.8,
+          "pv_available_mwh": 4.3,
+          "pv_used_mwh": 2.3,
+          "pv_spill_mwh": 2.0,
+          "battery_charge_mwh": 1.0999999999999999,
+          "battery_discharge_mwh": 0.7,
+          "diesel_mwh": 0.6000000000000001,
+          "excess_mwh": 0.05,
+          "initial_soc": 0.5,
+          "final_soc": 0.9,
+          "max_abs_balance_residual_mw": 0.0
+        }
+      },
+      "max_abs_delta": {
+        "load_mw": 0.0,
+        "served_mw": 5.551115123125783e-17,
+        "unserved_mw": 5.551115123125783e-17,
+        "pv_available_mw": 0.0,
+        "pv_used_mw": 2.7755575615628914e-17,
+        "pv_spill_mw": 2.7755575615628914e-17,
+        "battery_p_mw": 5.551115123125783e-17,
+        "diesel_mw": 0.0,
+        "excess_mw": 0.0,
+        "stored_energy_mwh": 0.0,
+        "soc": 0.0,
+        "balance_residual_mw": 0.0
+      },
+      "aggregate_energy_delta_mwh": {
+        "unserved_mwh": 1.1102230246251565e-16,
+        "pv_spill_mwh": 0.0,
+        "diesel_mwh": 0.0,
+        "excess_mwh": 0.0
+      },
+      "failed_fields": [],
+      "failed_aggregate_fields": [],
+      "acceptance_criteria": {
+        "power_mw": 1e-09,
+        "stored_energy_mwh": 1e-09,
+        "soc": 1e-09,
+        "aggregate_energy_mwh": 1e-09
+      }
+    },
+    "0.96": {
+      "passed": true,
+      "disposition": "accepted",
+      "reference_implementation": "pymgrid",
+      "candidate_implementation": "microgrid-simulator",
+      "delta_convention": "candidate_minus_reference",
+      "steps": 14,
+      "implementation_summaries": {
+        "microgrid-simulator": {
+          "load_mwh": 3.25,
+          "served_mwh": 2.41048,
+          "unserved_mwh": 0.8395200000000002,
+          "pv_available_mwh": 4.3,
+          "pv_used_mwh": 2.3333333333333335,
+          "pv_spill_mwh": 1.9666666666666666,
+          "battery_charge_mwh": 1.1333333333333335,
+          "battery_discharge_mwh": 0.66048,
+          "diesel_mwh": 0.6000000000000001,
+          "excess_mwh": 0.05,
+          "initial_soc": 0.5,
+          "final_soc": 0.9,
+          "max_abs_balance_residual_mw": 0.0
+        },
+        "pymgrid": {
+          "load_mwh": 3.25,
+          "served_mwh": 2.41048,
+          "unserved_mwh": 0.83952,
+          "pv_available_mwh": 4.3,
+          "pv_used_mwh": 2.3333333333333335,
+          "pv_spill_mwh": 1.9666666666666666,
+          "battery_charge_mwh": 1.1333333333333333,
+          "battery_discharge_mwh": 0.66048,
+          "diesel_mwh": 0.6000000000000001,
+          "excess_mwh": 0.05,
+          "initial_soc": 0.5,
+          "final_soc": 0.9,
+          "max_abs_balance_residual_mw": 0.0
+        }
+      },
+      "max_abs_delta": {
+        "load_mw": 0.0,
+        "served_mw": 5.551115123125783e-17,
+        "unserved_mw": 5.551115123125783e-17,
+        "pv_available_mw": 0.0,
+        "pv_used_mw": 0.0,
+        "pv_spill_mw": 0.0,
+        "battery_p_mw": 5.551115123125783e-17,
+        "diesel_mw": 0.0,
+        "excess_mw": 0.0,
+        "stored_energy_mwh": 0.0,
+        "soc": 0.0,
+        "balance_residual_mw": 0.0
+      },
+      "aggregate_energy_delta_mwh": {
+        "unserved_mwh": 1.1102230246251565e-16,
+        "pv_spill_mwh": 0.0,
+        "diesel_mwh": 0.0,
+        "excess_mwh": 0.0
+      },
+      "failed_fields": [],
+      "failed_aggregate_fields": [],
+      "acceptance_criteria": {
+        "power_mw": 1e-09,
+        "stored_energy_mwh": 1e-09,
+        "soc": 1e-09,
+        "aggregate_energy_mwh": 1e-09
+      }
+    }
+  },
+  "overall_passed": true
+}

@@ -8,7 +8,7 @@ Implementations additionally expose these attributes, which the environment
 and dashboard rely on:
 
 * ``settings``       — the :class:`~microgrid_simulator.config.Settings` in force
-* ``battery``        — the :class:`BatteryModel` (SoC/SoH source of truth)
+* ``battery``        — the selected project or pymgrid battery state model
 * ``diesel``         — the :class:`DieselModel` (runtime/starts counters)
 * ``demand_trace``   — the loaded historical trace, or ``None``
 * ``grid_connected`` — False when the topology has no utility intertie
@@ -18,6 +18,8 @@ and dashboard rely on:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+
+import numpy as np
 
 from microgrid_simulator.config import Settings
 from microgrid_simulator.core.scenario import Scenario
@@ -53,11 +55,17 @@ class MicrogridBackend(ABC):
     settings: Settings
 
     @abstractmethod
-    def reset(self, scenario: Scenario | None = None, seed: int | None = None) -> GridState:
+    def reset(
+        self,
+        scenario: Scenario | None = None,
+        seed: int | None = None,
+        demand_window_mw: np.ndarray | None = None,
+        pv_window_mw: np.ndarray | None = None,
+    ) -> GridState:
         """Start a fresh episode and return the initial state.
 
-        ``scenario`` may carry new settings (topology rebuild) and/or a demand
-        window; ``None`` re-runs the scenario the backend was constructed with.
+        ``scenario`` may carry new settings (topology rebuild) and/or aligned
+        demand/PV windows; ``None`` re-runs the constructed scenario.
         """
 
     @abstractmethod

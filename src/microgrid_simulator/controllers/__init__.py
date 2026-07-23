@@ -12,6 +12,7 @@ from microgrid_simulator.controllers.base import Controller
 from microgrid_simulator.controllers.deterministic import DeterministicController
 from microgrid_simulator.controllers.greedy_peak_shaving import GreedyPeakShavingController
 from microgrid_simulator.controllers.idle import IdleController
+from microgrid_simulator.controllers.manual_schedule import ManualScheduleController
 from microgrid_simulator.controllers.rule_based import RuleBasedController
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "DeterministicController",
     "GreedyPeakShavingController",
     "IdleController",
+    "ManualScheduleController",
     "PyPSAMPCController",
     "RLPolicyController",
     "RuleBasedController",

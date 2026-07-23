@@ -1,0 +1,191 @@
+{
+  "scenario": {
+    "name": "islanded_72h_2026-01-15",
+    "description": "Measured campus load/PV replay with assumed BESS/diesel; controller varies by `--policy` (rule | mpc); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model."
+  },
+  "meta": {
+    "policy": "rule",
+    "seed": 0,
+    "backend": "simple",
+    "timestep_hours": 0.25,
+    "demand_source": "historical trace",
+    "demand_is_real": true,
+    "pv_source": "historical trace",
+    "pv_is_real": true,
+    "demand_window_start_time": "2026-01-15 00:00:00",
+    "telemetry_context_time": "2026-01-14 23:45:00",
+    "telemetry_end_time": "2026-01-17 23:45:00",
+    "telemetry_source_files": {
+      "load": "/home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx",
+      "pv": "/home/xcurv/teep-taiwan/data/PV_2025-12-01_2026-03-31.xlsx"
+    },
+    "grid_connected": false,
+    "islanded": true,
+    "diesel_enabled": true,
+    "topology": {
+      "buses": [
+        {
+          "id": 0,
+          "name": "Main distribution",
+          "vn_kv": 0.4,
+          "role": "main",
+          "x": 290.0,
+          "y": 150.0
+        },
+        {
+          "id": 1,
+          "name": "PV yard",
+          "vn_kv": 0.4,
+          "role": "pv",
+          "x": 520.0,
+          "y": 60.0
+        },
+        {
+          "id": 2,
+          "name": "Academic loads",
+          "vn_kv": 0.4,
+          "role": "load",
+          "x": 760.0,
+          "y": 150.0
+        },
+        {
+          "id": 3,
+          "name": "Battery storage",
+          "vn_kv": 0.4,
+          "role": "battery",
+          "x": 760.0,
+          "y": 240.0
+        }
+      ],
+      "lines": [
+        {
+          "name": "PV feeder",
+          "from_bus": 0,
+          "to_bus": 1,
+          "length_km": 0.18,
+          "max_i_ka": 1.0,
+          "kind": "line"
+        },
+        {
+          "name": "Academic feeder",
+          "from_bus": 0,
+          "to_bus": 2,
+          "length_km": 0.28,
+          "max_i_ka": 1.0,
+          "kind": "line"
+        },
+        {
+          "name": "Battery feeder",
+          "from_bus": 0,
+          "to_bus": 3,
+          "length_km": 0.16,
+          "max_i_ka": 1.0,
+          "kind": "line"
+        }
+      ],
+      "slack_bus": 0,
+      "battery_bus": 3,
+      "ev_bus": 3,
+      "diesel_bus": 0,
+      "pv_buses": [
+        1,
+        1
+      ],
+      "load_buses": [
+        2,
+        2,
+        2
+      ]
+    },
+    "steps": 288,
+    "diesel_starts": 3,
+    "diesel_runtime_hours": 60.0,
+    "evaluation_start_time": "2026-01-15 00:00:00",
+    "evaluation_end_exclusive": "2026-01-18 00:00:00"
+  },
+  "totals": {
+    "total_reward": -3035.9103467188593,
+    "grid_import_kwh": 0.0,
+    "grid_export_kwh": 0.0,
+    "diesel_kwh": 3616.943189120552,
+    "pv_available_kwh": 1903.5143678571428,
+    "pv_used_kwh": 1461.795144062156,
+    "pv_wasted_kwh": 441.719223794987,
+    "pv_utilization_pct": 76.79454217662425,
+    "battery_charge_kwh": 234.36440535902938,
+    "battery_charge_from_pv_kwh": 234.36440535902935,
+    "battery_charge_from_grid_kwh": 1.1384122811097797e-14,
+    "battery_charge_from_diesel_kwh": 0.0,
+    "battery_discharge_kwh": 0.0,
+    "battery_throughput_kwh": 234.36440535902938,
+    "load_kwh": 4553.500000000001,
+    "served_kwh": 4541.231851690346,
+    "unserved_kwh": 12.268148309654089,
+    "served_energy_pct": 99.73057761480938,
+    "blackout_steps": 14,
+    "blackout_hours": 3.5,
+    "peak_unserved_kw": 13.438809474405122,
+    "peak_import_kw": 0.0,
+    "peak_load_kw": 97.2,
+    "peak_pv_kw": 148.8587333333333,
+    "excess_generation_kwh": 303.14207613333207,
+    "peak_excess_generation_kw": 17.314006847286194,
+    "max_abs_power_balance_residual_kw": 2.1316282072803006e-14,
+    "constraint_violation_events": 14,
+    "min_soc_pct": 50.0,
+    "max_soc_pct": 95.0,
+    "final_soc_pct": 95.0,
+    "soh_loss_pct_points": 0.009901489912166994,
+    "carbon_kg": 2531.860232384386
+  },
+  "daily": [
+    {
+      "day": 1,
+      "date": "2026-01-15",
+      "load_kwh": 1649.7000000000003,
+      "served_pct": 99.76806534960893,
+      "unserved_kwh": 3.826225927501245,
+      "pv_used_kwh": 740.6465870109778,
+      "diesel_kwh": 1176.810477145973,
+      "battery_throughput_kwh": 163.51550017330612,
+      "carbon_kg": 823.767334002181,
+      "final_soc_pct": 81.39593406964755
+    },
+    {
+      "day": 2,
+      "date": "2026-01-16",
+      "load_kwh": 1537.2,
+      "served_pct": 99.6786932743622,
+      "unserved_kwh": 4.939126986504238,
+      "pv_used_kwh": 227.57635895777779,
+      "diesel_kwh": 1407.60195069443,
+      "battery_throughput_kwh": 0.0,
+      "carbon_kg": 985.321365486101,
+      "final_soc_pct": 81.39593406964755
+    },
+    {
+      "day": 3,
+      "date": "2026-01-17",
+      "load_kwh": 1366.6000000000001,
+      "served_pct": 99.74368539472789,
+      "unserved_kwh": 3.5027953956486053,
+      "pv_used_kwh": 493.5721980934003,
+      "diesel_kwh": 1032.5307612801491,
+      "battery_throughput_kwh": 70.84890518572325,
+      "carbon_kg": 722.7715328961043,
+      "final_soc_pct": 95.0
+    }
+  ],
+  "reward_penalty_totals": {
+    "penalty_autonomy": 0.0,
+    "penalty_carbon": 2531.860232384386,
+    "penalty_constraint": 0.0,
+    "penalty_health": 0.9901489912156672,
+    "penalty_unserved": 61.340741548270444,
+    "penalty_waste": 441.719223794987
+  },
+  "violation_interval_counts": {
+    "unserved": 14
+  },
+  "output_dir": "reports/experiments/islanded_72h_rule_2026-01-15"
+}

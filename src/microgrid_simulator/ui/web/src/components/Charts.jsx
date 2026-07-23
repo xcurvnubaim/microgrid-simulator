@@ -13,9 +13,9 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
-import { COLORS, fmt, hourLabel } from "../api.js";
+import { COLORS, THEME, fmt, hourLabel } from "../api.js";
 
-const axis = { stroke: "#5c7183", fontSize: 10.5, fontFamily: "IBM Plex Mono" };
+const axis = { stroke: THEME.faint, fontSize: 10.5, fontFamily: "IBM Plex Mono" };
 // Shared cursor: every chart carries the same syncId so hovering one shows the
 // tooltip + vertical cursor at the same time step on all of them. Match by the
 // `hour` value (not array index) so downsampled and full-resolution panels stay
@@ -23,15 +23,16 @@ const axis = { stroke: "#5c7183", fontSize: 10.5, fontFamily: "IBM Plex Mono" };
 const SYNC = { syncId: "microgrid", syncMethod: "value" };
 const tooltipStyle = {
   contentStyle: {
-    background: "#101722",
-    border: "1px solid #23344a",
+    background: THEME.panel,
+    border: `1px solid ${THEME.line}`,
+    color: THEME.text,
     borderRadius: 8,
     fontFamily: "IBM Plex Mono",
     fontSize: 11.5,
   },
   labelFormatter: (h) => `t = ${hourLabel(h)}`,
   formatter: (v, name) => [fmt(v, 1), name],
-  cursor: { stroke: "#8aa2b8", strokeWidth: 1, strokeDasharray: "3 3" },
+  cursor: { stroke: THEME.muted, strokeWidth: 1, strokeDasharray: "3 3" },
 };
 
 function Panel({ title, note, height = 260, children }) {
@@ -56,7 +57,7 @@ export function DispatchChart({ rows, peakKw }) {
       height={300}
     >
       <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={64} />
         <Tooltip {...tooltipStyle} />
@@ -109,7 +110,7 @@ export function DispatchChart({ rows, peakKw }) {
         <Line isAnimationActive={false}
           dataKey="load_kw"
           name="Campus demand"
-          stroke="#e9eff5"
+          stroke={THEME.text}
           strokeWidth={1.8}
           dot={false}
           type="monotone"
@@ -131,7 +132,7 @@ export function BatteryChart({ rows }) {
   return (
     <Panel title="Battery" note="SoC band vs power command">
       <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="soc" tick={axis} unit=" %" domain={[0, 100]} width={52} />
         <YAxis yAxisId="kw" orientation="right" tick={axis} unit=" kW" width={58} />
@@ -150,7 +151,7 @@ export function BatteryChart({ rows }) {
           yAxisId="soc"
           dataKey="soc_pct"
           name="SoC"
-          stroke="#e9eff5"
+          stroke={THEME.text}
           strokeWidth={1.8}
           dot={false}
           type="monotone"
@@ -165,7 +166,7 @@ export function PvSocChart({ rows }) {
   return (
     <Panel title="PV and battery SoC" note="PV availability/used vs storage level" height={280}>
       <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="kw" tick={axis} unit=" kW" width={64} />
         <YAxis yAxisId="soc" orientation="right" tick={axis} unit=" %" domain={[0, 100]} width={52} />
@@ -207,7 +208,7 @@ export function GridHealthChart({ rows }) {
   return (
     <Panel title="Grid health" note="voltage band 0.95–1.05 pu">
       <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="v" tick={axis} domain={[0.9, 1.1]} width={52} />
         <YAxis yAxisId="pct" orientation="right" tick={axis} unit=" %" width={52} />
@@ -283,7 +284,7 @@ export function GenerationChart({ rows, meta, fullRows }) {
   return (
     <Panel title="Demand vs power serving load" note={note} height={260}>
       <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
         <Tooltip {...tooltipStyle} />
@@ -335,7 +336,7 @@ export function GenerationChart({ rows, meta, fullRows }) {
         <Line isAnimationActive={false}
           dataKey="load_kw"
           name="Demand"
-          stroke="#e9eff5"
+          stroke={THEME.text}
           strokeWidth={1.8}
           dot={false}
           type="monotone"
@@ -384,7 +385,7 @@ export function OutageChart({ rows, meta, fullRows }) {
       </div>
       <ResponsiveContainer width="100%" height={240}>
         <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#1a2637" vertical={false} />
+          <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
           <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
           <YAxis tick={axis} unit=" kW" width={62} />
           <Tooltip {...tooltipStyle} />
@@ -418,7 +419,7 @@ export function OutageChart({ rows, meta, fullRows }) {
           <Line isAnimationActive={false}
             dataKey="load_kw"
             name="Demand"
-            stroke="#e9eff5"
+            stroke={THEME.text}
             strokeWidth={1.8}
             dot={false}
             type="monotone"
@@ -491,7 +492,7 @@ function BusChart({ bus, rows }) {
     return (
       <Panel title={title} note={`${role} · no assets — bus voltage`} height={220}>
         <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#1a2637" vertical={false} />
+          <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
           <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
           <YAxis tick={axis} unit=" pu" domain={[0.9, 1.1]} width={58} />
           <Tooltip {...tooltipStyle} formatter={(v, name) => [fmt(v, 4), name]} />
@@ -508,7 +509,7 @@ function BusChart({ bus, rows }) {
       height={220}
     >
       <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
         <Tooltip {...tooltipStyle} />
@@ -543,7 +544,7 @@ function BusChart({ bus, rows }) {
           <Line isAnimationActive={false} dataKey="battery_charge_kw" name="Battery charge" stroke={COLORS.battery} strokeWidth={1.5} strokeDasharray="5 3" dot={false} type="stepAfter" />
         )}
         {series.demand && (
-          <Line isAnimationActive={false} dataKey="demand_kw" name="Demand" stroke="#e9eff5" strokeWidth={1.8} dot={false} type="monotone" />
+          <Line isAnimationActive={false} dataKey="demand_kw" name="Demand" stroke={THEME.text} strokeWidth={1.8} dot={false} type="monotone" />
         )}
       </ComposedChart>
     </Panel>
@@ -581,7 +582,7 @@ export function RewardChart({ rows }) {
   return (
     <Panel title="Reward decomposition" note="stacked penalty magnitudes per tick (lower is better)">
       <AreaChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke="#1a2637" vertical={false} />
+        <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} width={64} />
         <Tooltip {...tooltipStyle} />

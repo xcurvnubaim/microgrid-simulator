@@ -91,13 +91,11 @@ def build_operational_network(
     )
 
     # Grid intertie (only when the topology has a utility bus).
-    grid_connected = any(
-        b.role.lower() in {"grid", "slack", "utility"} for b in settings.buses
-    )
+    grid_connected = any(b.role.lower() in {"grid", "slack", "utility"} for b in settings.buses)
     if grid_connected:
         import_limit = settings.intertie.max_import_mw
-        p_nom_grid = import_limit if import_limit is not None else max(
-            float(np.max(demand_mw)) * 2.0, 1.0
+        p_nom_grid = (
+            import_limit if import_limit is not None else max(float(np.max(demand_mw)) * 2.0, 1.0)
         )
         grid_cost = (
             reward.w_autonomy * reward.import_price
@@ -127,8 +125,7 @@ def build_operational_network(
             shut_down_cost=d.shut_down_cost,
             up_time_before=1 if diesel_on_init else 0,
             marginal_cost=(
-                d.fuel_cost_per_kwh * 1000.0
-                + reward.w_carbon * d.carbon_kg_per_kwh * 1000.0
+                d.fuel_cost_per_kwh * 1000.0 + reward.w_carbon * d.carbon_kg_per_kwh * 1000.0
             ),
         )
 
@@ -191,7 +188,7 @@ def optimize_dispatch(
     b = settings.battery
     gen = net.generators_t.p
     zeros = pd.Series(0.0, index=net.snapshots)
-    diesel_p = gen["diesel"] if "diesel" in gen else zeros
+    diesel_p = gen.get("diesel", zeros)
     if "diesel" in net.generators_t.status:
         diesel_on = net.generators_t.status["diesel"].astype(bool)
     else:
@@ -205,8 +202,8 @@ def optimize_dispatch(
             "diesel_on": diesel_on.to_numpy(),
             # PyPSA StorageUnit p > 0 means discharging into the bus.
             "battery_p_mw": -net.storage_units_t.p["battery"].to_numpy(),
-            "grid_import_mw": (gen["grid"] if "grid" in gen else zeros).to_numpy(),
-            "shed_mw": (gen["shed"] if "shed" in gen else zeros).to_numpy(),
+            "grid_import_mw": gen.get("grid", zeros).to_numpy(),
+            "shed_mw": gen.get("shed", zeros).to_numpy(),
             "soc": (soc_mwh / max(b.capacity_mwh, 1e-9) + b.soc_min).to_numpy(),
         }
     )
@@ -246,12 +243,15 @@ class PyPSAOperationalBackend(SimpleBackend):
         demand = np.empty(n_steps)
         pv = np.empty(n_steps)
         pos0 = self.demand.window_pos
+        pv_pos0 = self.pv.window_pos
         for k in range(n_steps):
             t = self.timestamp + (k + 1) * self.dt
             self.demand.window_pos = pos0 + k + 1
+            self.pv.window_pos = pv_pos0 + k + 1
             demand[k] = self.demand.total_demand_mw(t)
             pv[k] = self.pv.available_mw(t)
         self.demand.window_pos = pos0
+        self.pv.window_pos = pv_pos0
         return demand, pv
 
     def optimize_horizon(self, n_steps: int | None = None) -> pd.DataFrame:

@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from microgrid_simulator.components.battery import BatteryModel
+from microgrid_simulator.components.battery import BatteryModel, PymgridBatteryModel
 from microgrid_simulator.core.types import GridState
 
-__all__ = ["BatteryModel", "GridState", "PandapowerBackend"]
+__all__ = ["BatteryModel", "PymgridBatteryModel", "GridState", "PandapowerBackend"]
 
 
 def __getattr__(name: str) -> Any:

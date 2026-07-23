@@ -89,7 +89,7 @@ class DemandTrace:
         total = series.groupby(ts_col)[val_col].sum().sort_index()
 
         # Snap onto the simulator's regular grid; short gaps are interpolated.
-        freq = pd.Timedelta(hours=timestep_hours)
+        freq = pd.to_timedelta(timestep_hours, unit="h")
         regular = total.resample(freq).mean().interpolate(limit=8, limit_direction="both")
         regular = regular.dropna()
         if len(regular) < 4:
@@ -108,9 +108,7 @@ class DemandTrace:
     def __len__(self) -> int:
         return int(self.values_mw.shape[0])
 
-    def sample_window(
-        self, rng: np.random.Generator, n_steps: int
-    ) -> tuple[np.ndarray, int]:
+    def sample_window(self, rng: np.random.Generator, n_steps: int) -> tuple[np.ndarray, int]:
         """Draw a random contiguous window (plan decision 2: random, not sequential).
 
         Returns ``(window_mw, start_index)``. If the trace is shorter than the
@@ -125,7 +123,7 @@ class DemandTrace:
     def window_start_time(self, start_index: int) -> str | None:
         if self.start is None:
             return None
-        return str(self.start + pd.Timedelta(hours=start_index * self.step_hours))
+        return str(self.start + pd.to_timedelta(start_index * self.step_hours, unit="h"))
 
     # -- reporting (used by the dashboard API) --------------------------------
     def stats(self) -> dict[str, float | str | int | None]:

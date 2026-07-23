@@ -18,7 +18,9 @@ touching the rest of the simulator.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeAlias
 
+from microgrid_simulator.components.pymgrid_battery import PymgridBatteryModel
 from microgrid_simulator.config import BatteryCfg
 
 
@@ -40,8 +42,10 @@ class BatteryModel:
         self.soh = 1.0
         self.throughput_mwh = 0.0
 
-    def clamp_power(self, p_mw: float) -> float:
-        """Clamp requested power to charge/discharge limits."""
+    def clamp_power(self, p_mw: float, dt_hours: float = 1.0) -> float:
+        """Clamp requested terminal power to the project converter limits."""
+
+        del dt_hours
         return max(-self.cfg.max_discharge_mw, min(self.cfg.max_charge_mw, p_mw))
 
     def usable_capacity_mwh(self) -> float:
@@ -54,7 +58,7 @@ class BatteryModel:
         Returns ``(applied_p_mw, delta_soh)`` where ``applied_p_mw`` is the power
         actually realised after clamping to power *and* SoC headroom limits.
         """
-        p_mw = self.clamp_power(p_mw)
+        p_mw = self.clamp_power(p_mw, dt_hours)
         capacity = max(self.usable_capacity_mwh(), 1e-9)
 
         if p_mw >= 0.0:  # charging
@@ -86,6 +90,8 @@ class BatteryModel:
         SoC extremes (deep discharge / high charge stress). This is the
         ``physics`` term; add the learned ``NN_theta`` residual on top later.
         """
+        if not self.cfg.degradation_enabled:
+            return 0.0
         energy_mwh = abs(p_mw) * dt_hours
         # cycle-throughput wear: ~0.02% SoH per full-capacity MWh cycled
         cycle_wear = 2.0e-4 * energy_mwh / max(self.cfg.capacity_mwh, 1e-9)
@@ -99,3 +105,14 @@ class BatteryModel:
     def soc_violation(self) -> float:
         """Magnitude of SoC excursion outside the operating band (0 if inside)."""
         return max(0.0, self.cfg.soc_min - self.soc) + max(0.0, self.soc - self.cfg.soc_max)
+
+
+BatteryLike: TypeAlias = BatteryModel | PymgridBatteryModel
+
+
+def create_battery_model(cfg: BatteryCfg) -> BatteryLike:
+    """Instantiate the explicitly selected battery transition model."""
+
+    if cfg.model == "pymgrid":
+        return PymgridBatteryModel.from_cfg(cfg)
+    return BatteryModel.from_cfg(cfg)

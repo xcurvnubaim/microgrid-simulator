@@ -26,11 +26,14 @@ class RuleBasedController(Controller):
         s = self.settings
         hour = state.timestamp % 24.0
         islanded = state.islanded
-        residual_mw = max(0.0, state.load_demand_mw - state.pv_used_mw)
+        # Plan against available PV, not the previously dispatched/curtailed
+        # value. Using pv_used creates a feedback lock: diesel displaces PV,
+        # the next observation appears to have no PV, and diesel stays on.
+        residual_mw = max(0.0, state.load_demand_mw - state.pv_available_mw)
         battery_p_mw = 0.0
 
         if islanded:
-            surplus_mw = max(0.0, state.pv_used_mw - state.load_demand_mw)
+            surplus_mw = max(0.0, state.pv_available_mw - state.load_demand_mw)
             diesel_covered_mw = min(residual_mw, self._diesel_max_mw())
             battery_gap_mw = max(0.0, residual_mw - diesel_covered_mw)
             if surplus_mw > 0.0:

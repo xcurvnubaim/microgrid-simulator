@@ -61,7 +61,7 @@ def align_series(
             + ", ".join(f"{k}: {v.index[0]}..{v.index[-1]}" for k, v in series.items())
         )
 
-    freq = pd.Timedelta(hours=timestep_hours)
+    freq = pd.to_timedelta(timestep_hours, unit="h")
     aligned: dict[str, pd.Series] = {}
     for name, s in series.items():
         regular = s.resample(freq).mean().loc[start:end]

@@ -1,0 +1,114 @@
+# Disjoint held-out evaluation: 72 h measured load/PV replay, 15 min control.
+# The plant assumptions and controller settings intentionally match
+# islanded-baseline-72h.yaml; only the scenario identity and telemetry window differ.
+
+scenario:
+  name: islanded_heldout_72h_2026-03-08
+  description: Disjoint held-out measured campus load/PV replay with the same assumed BESS/diesel plant used by the January baseline.
+
+topology:
+  timestep_hours: 0.25
+  solver: balance
+  n_pv: 2
+  n_storage: 1
+  n_ev: 0
+  n_load: 3
+
+backend:
+  name: simple
+  validation_backend: pandapower
+
+episode:
+  horizon_hours: 72.0
+  start_hour: 0.0
+  # First evaluated interval; 2026-03-07 23:45 is context only.
+  telemetry_start: "2026-03-08 00:00:00"
+
+digital_twin:
+  fill_strategy: error
+  max_gap_steps: 0
+  max_missing_fraction: 0.0
+  measurements:
+    load:
+      file: /home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx
+      header_row: 1
+      timestamp_column: statstime
+      value_column: demand
+      unit: kw
+    pv:
+      file: /home/xcurv/teep-taiwan/data/PV_2025-12-01_2026-03-31.xlsx
+      header_row: 0
+      timestamp_column: 時間
+      value_column: p:avg
+      unit: kw
+
+demand:
+  enabled: false
+  file: null
+  random_window: false
+
+# Assumed scheduling-tier BESS values; the physical nameplate is unavailable.
+battery:
+  bus: 3
+  capacity_mwh: 0.50
+  charge_eff: 0.96
+  discharge_eff: 0.96
+  max_charge_mw: 0.25
+  max_discharge_mw: 0.25
+  soc_min: 0.10
+  soc_max: 0.95
+  soc_init: 0.50
+
+# Assumed scheduling-tier diesel values; the physical datasheet is unavailable.
+diesel:
+  enabled: true
+  bus: 0
+  max_kw: 150.0
+  min_kw: 45.0
+  ramp_kw_per_min: 30.0
+  min_up_time_min: 30.0
+  min_down_time_min: 15.0
+  carbon_kg_per_kwh: 0.70
+
+# Used only by the optional schedule policy; rule and MPC ignore it.
+diesel_schedule:
+  segments:
+    - {start_hour: 0.0,  end_hour: 9.0,  level: max}
+    - {start_hour: 9.0,  end_hour: 14.0, level: min}
+    - {start_hour: 14.0, end_hour: 24.0, level: max}
+
+reward:
+  w_carbon: 1.0
+  w_autonomy: 0.0
+  w_health: 1.0
+  w_waste: 1.0
+  w_unserved: 5.0
+  grid_carbon_kg_per_kwh: 0.45
+  diesel_carbon_kg_per_kwh: 0.70
+  import_price: 180.0
+  peak_threshold_mw: 0.35
+  peak_penalty: 200.0
+  voltage_penalty: 100.0
+  soc_violation_penalty: 50.0
+
+# No utility-role bus: the held-out scheduling episode is islanded.
+buses:
+  - {id: 0, name: Main distribution, vn_kv: 0.4, role: main, x: 290, y: 150}
+  - {id: 1, name: PV yard, vn_kv: 0.4, role: pv, x: 520, y: 60}
+  - {id: 2, name: Academic loads, vn_kv: 0.4, role: load, x: 760, y: 150}
+  - {id: 3, name: Battery storage, vn_kv: 0.4, role: battery, x: 760, y: 240}
+
+lines:
+  - {name: PV feeder, from_bus: 0, to_bus: 1, kind: line, length_km: 0.18, max_i_ka: 1.0}
+  - {name: Academic feeder, from_bus: 0, to_bus: 2, kind: line, length_km: 0.28, max_i_ka: 1.0}
+  - {name: Battery feeder, from_bus: 0, to_bus: 3, kind: line, length_km: 0.16, max_i_ka: 1.0}
+
+pv_arrays:
+  - {name: PV array 0, bus: 1, p_mw: 0.12}
+  - {name: PV array 1, bus: 1, p_mw: 0.08}
+
+# Measured total demand scales this assumed 3:2:2 allocation each interval.
+loads:
+  - {name: Academic load A, bus: 2, p_mw: 0.15, q_mvar: 0.030}
+  - {name: Academic load B, bus: 2, p_mw: 0.10, q_mvar: 0.020}
+  - {name: Academic load C, bus: 2, p_mw: 0.10, q_mvar: 0.020}

@@ -15,7 +15,7 @@ no solar, and keeps the battery healthy earns near-zero.
 
 from __future__ import annotations
 
-from microgrid_simulator.components.battery import BatteryModel
+from microgrid_simulator.components.battery import BatteryLike
 from microgrid_simulator.config import RewardCfg
 from microgrid_simulator.core.types import GridState, RewardBreakdown
 
@@ -24,7 +24,7 @@ __all__ = ["RewardBreakdown", "compute_reward"]
 
 def compute_reward(
     state: GridState,
-    battery: BatteryModel,
+    battery: BatteryLike,
     cfg: RewardCfg,
     dt_hours: float,
 ) -> tuple[float, RewardBreakdown]:
@@ -37,6 +37,9 @@ def compute_reward(
         # Infeasible grid: strong fixed penalty so the agent avoids it.
         b = RewardBreakdown(constraint=1000.0, total=-1000.0)
         return b.total, b
+
+    if cfg.mode == "pymgrid":
+        return _compute_pymgrid_reward(state, battery, cfg, dt_hours)
 
     import_mw = max(0.0, state.grid_import_mw)
     import_kwh = import_mw * dt_hours * 1000.0
@@ -64,9 +67,7 @@ def compute_reward(
     unserved = unserved_mw * dt_hours * 1000.0
 
     # Hard constraints: voltage band + SoC band violations.
-    voltage_excursion = sum(
-        max(0.0, 0.95 - v) + max(0.0, v - 1.05) for v in state.v_bus
-    )
+    voltage_excursion = sum(max(0.0, 0.95 - v) + max(0.0, v - 1.05) for v in state.v_bus)
     constraint = voltage_excursion * cfg.voltage_penalty
     constraint += battery.soc_violation() * cfg.soc_violation_penalty
 
@@ -86,4 +87,50 @@ def compute_reward(
         + breakdown.unserved
         + breakdown.constraint
     )
+    return breakdown.total, breakdown
+
+
+def _compute_pymgrid_reward(
+    state: GridState,
+    battery: BatteryLike,
+    cfg: RewardCfg,
+    dt_hours: float,
+) -> tuple[float, RewardBreakdown]:
+    """Reproduce pymgrid's additive native module costs in canonical units."""
+
+    battery_terminal_mwh = abs(state.battery_p_mw) * dt_hours
+    if state.battery_p_mw >= 0.0:
+        battery_internal_kwh = battery_terminal_mwh * battery.cfg.charge_eff * 1000.0
+    else:
+        battery_internal_kwh = battery_terminal_mwh / battery.cfg.discharge_eff * 1000.0
+
+    diesel_kwh = max(0.0, state.diesel_p_mw) * dt_hours * 1000.0
+    diesel_marginal_cost = cfg.pymgrid_genset_cost + (
+        cfg.pymgrid_co2_per_unit * cfg.pymgrid_cost_per_unit_co2
+    )
+    unserved_kwh = max(0.0, state.unserved_mw) * dt_hours * 1000.0
+
+    supply_mw = (
+        state.pv_used_mw
+        + state.diesel_p_mw
+        + max(0.0, -state.battery_p_mw)
+        + max(0.0, state.grid_import_mw)
+        + state.unserved_mw
+    )
+    sinks_mw = state.load_demand_mw + max(0.0, state.battery_p_mw) + max(0.0, -state.grid_import_mw)
+    excess_kwh = max(0.0, supply_mw - sinks_mw) * dt_hours * 1000.0
+
+    battery_cost = battery_internal_kwh * cfg.pymgrid_battery_cost_cycle
+    diesel_cost = diesel_kwh * diesel_marginal_cost
+    unserved_cost = unserved_kwh * cfg.pymgrid_loss_load_cost
+    excess_cost = excess_kwh * cfg.pymgrid_overgeneration_cost
+    breakdown = RewardBreakdown(
+        carbon=diesel_cost,
+        autonomy=0.0,
+        health=battery_cost,
+        waste=excess_cost,
+        unserved=unserved_cost,
+        constraint=0.0,
+    )
+    breakdown.total = -(battery_cost + diesel_cost + unserved_cost + excess_cost)
     return breakdown.total, breakdown

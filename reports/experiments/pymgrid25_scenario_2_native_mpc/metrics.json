@@ -1,0 +1,52 @@
+{
+  "experiment": "pymgrid25_scenario_2_native_controllers",
+  "verified_at": "2026-07-23",
+  "source_notebook": "/home/xcurv/teep-taiwan/notebook/pymgrid.ipynb",
+  "pymgrid_checkout": "/home/xcurv/teep-taiwan/python-microgrid",
+  "pymgrid_commit": "09089ccfaab3e95becfda1b26fbce6f9c6195f6a",
+  "scenario": 2,
+  "timestep_hours": 1.0,
+  "evaluated_steps": 8759,
+  "forecast_type": "oracle",
+  "mpc_horizon_steps": 24,
+  "numerical_zero_tolerance": 1e-08,
+  "controllers": {
+    "rbc": {
+      "load_met_total": 193033829.2968146,
+      "pv_available_total": 92503497.4462114,
+      "pv_used_total": 85618330.9381479,
+      "pv_curtailment_total": 6885166.508063512,
+      "genset_total": 0.0,
+      "loss_load_total": 109727236.81335342,
+      "loss_load_max": 38786.44722092175,
+      "loss_load_steps_above_tolerance": 6808,
+      "overgeneration_total": 0.0,
+      "overgeneration_max": 0.0,
+      "overgeneration_steps_above_tolerance": 0,
+      "final_soc": 0.2,
+      "module_reward_total": -1097710381.7354746
+    },
+    "mpc": {
+      "load_met_total": 193033829.2968146,
+      "pv_available_total": 92503497.4462114,
+      "pv_used_total": 85618330.9381479,
+      "pv_curtailment_total": 6885166.508063514,
+      "genset_total": 109733726.22541642,
+      "loss_load_total": 1.7024603948812e-09,
+      "loss_load_max": 1.8189894035458565e-11,
+      "loss_load_steps_above_tolerance": 0,
+      "overgeneration_total": 2.4047039914876223e-09,
+      "overgeneration_max": 1.4551915228366852e-11,
+      "overgeneration_steps_above_tolerance": 0,
+      "final_soc": 0.2,
+      "module_reward_total": -66279478.91000246
+    }
+  },
+  "interpretation": {
+    "mpc_loss_load": "numerical zero",
+    "mpc_overgeneration": "numerical zero",
+    "mpc_pv_curtailment": "nonzero",
+    "scope": "external pymgrid scenario; not campus telemetry",
+    "paper_table_2_reproduced": false
+  }
+}

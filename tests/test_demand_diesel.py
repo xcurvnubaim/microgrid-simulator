@@ -89,15 +89,25 @@ def test_diesel_action_dims_and_clamp() -> None:
     on[-3], on[-2], on[-1] = 1.0, 1.0, -1.0
     _, _, _, _, info = env.step(on)
     assert info["diesel_on"] is True
-    assert info["diesel_p_mw"] == pytest.approx(env.settings.diesel.max_kw / 1000.0)
+    # Start tick: 0.25 min crank/sync at 0, block-load to 45 kW, ramp to 150 kW
+    # in 3.5 min, hold — tick average (97.5*3.5 + 150*11.25)/15 = 135.25 kW.
+    assert info["diesel_p_mw"] == pytest.approx(0.13525)
 
     off = on.copy()
     off[-3] = -1.0
-    # 15 min after the start the min-up-time lockout still holds the genset on.
+    # 15 min after the start the min-up-time lockout still holds the genset on,
+    # now settled at full nameplate for the whole tick.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is True
+    assert info["diesel_p_mw"] == pytest.approx(env.settings.diesel.max_kw / 1000.0)
 
-    # After 30 min of runtime the off command goes through.
+    # After 30 min of runtime the off command goes through: soft unload from
+    # 150 to 45 kW takes 3.5 min, then the breaker opens -> 22.75 kW average.
+    _, _, _, _, info = env.step(off)
+    assert info["diesel_on"] is False
+    assert info["diesel_p_mw"] == pytest.approx(0.02275)
+
+    # The next tick the genset is fully offline.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is False
     assert info["diesel_p_mw"] == 0.0
@@ -115,19 +125,43 @@ def _diesel(**overrides):
 def test_diesel_min_stable_load_clamp() -> None:
     d = _diesel(min_kw=45.0, max_kw=150.0)
     # A 5 kW setpoint is below the minimum stable load -> clamped up to 45 kW.
+    # The start tick averages lower: 0.25 min of crank/sync produce nothing,
+    # then 14.75 min at 45 kW -> 44.25 kW average.
+    assert d.apply(True, 0.005, 0.25) == pytest.approx(0.04425)
+    assert d.p_end_mw == pytest.approx(0.045)
+    # Settled ticks sit exactly at min stable load.
     assert d.apply(True, 0.005, 0.25) == pytest.approx(0.045)
 
 
 def test_diesel_ramp_limits_output_change() -> None:
     d = _diesel(min_kw=45.0, max_kw=150.0, ramp_kw_per_min=30.0)
-    dt = 1.0 / 60.0  # 1-minute ticks, where the ramp actually binds
-    # Start tick: sync at min load + one tick of ramp = 45 + 30 = 75 kW.
-    assert d.apply(True, 0.150, dt) == pytest.approx(0.075)
-    assert d.apply(True, 0.150, dt) == pytest.approx(0.105)
-    assert d.apply(True, 0.150, dt) == pytest.approx(0.135)
+    dt = 1.0 / 60.0  # 1-minute ticks, where the ramp binds across ticks
+    # Start tick: 0.25 min crank/sync at 0, block-load to 45 kW, then ramp at
+    # 30 kW/min for 0.75 min -> ends at 67.5 kW, tick average 42.1875 kW.
+    assert d.apply(True, 0.150, dt) == pytest.approx(0.0421875)
+    assert d.p_end_mw == pytest.approx(0.0675)
+    # Steady ramp: averages are the trapezoid midpoints of each 30 kW climb.
+    assert d.apply(True, 0.150, dt) == pytest.approx(0.0825)
+    assert d.apply(True, 0.150, dt) == pytest.approx(0.1125)
+    # Reaches 150 kW after 0.75 min, holds for the rest of the tick.
+    assert d.apply(True, 0.150, dt) == pytest.approx(0.1415625)
+    assert d.p_end_mw == pytest.approx(0.150)
     assert d.apply(True, 0.150, dt) == pytest.approx(0.150)
     # Ramping down is limited too, and never below min stable load.
-    assert d.apply(True, 0.0, dt) == pytest.approx(0.120)
+    assert d.apply(True, 0.0, dt) == pytest.approx(0.135)
+    assert d.p_end_mw == pytest.approx(0.120)
+
+
+def test_diesel_stop_soft_unloads_before_breaker_opens() -> None:
+    d = _diesel(min_kw=45.0, max_kw=150.0, ramp_kw_per_min=30.0, min_up_time_min=0.0)
+    d.apply(True, 0.150, 0.25)
+    assert d.p_end_mw == pytest.approx(0.150)
+    # Off tick: unload 150 -> 45 kW at 30 kW/min (3.5 min), breaker opens,
+    # rest of the 15 min tick is silent -> 97.5 * 3.5 / 15 = 22.75 kW average.
+    assert d.apply(False, 0.0, 0.25) == pytest.approx(0.02275)
+    assert d.is_on is False
+    assert d.p_end_mw == 0.0
+    assert d.apply(False, 0.0, 0.25) == 0.0
 
 
 def test_diesel_min_up_and_down_time_lockouts() -> None:
@@ -148,7 +182,7 @@ def test_diesel_min_up_and_down_time_lockouts() -> None:
 
 
 def test_diesel_ramp_zero_means_unlimited() -> None:
-    d = _diesel(min_kw=0.0, ramp_kw_per_min=0.0, min_up_time_min=0.0)
+    d = _diesel(min_kw=0.0, ramp_kw_per_min=0.0, start_delay_min=0.0, min_up_time_min=0.0)
     assert d.apply(True, 0.150, 1.0 / 60.0) == pytest.approx(0.150)
 
 

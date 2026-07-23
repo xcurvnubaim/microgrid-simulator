@@ -1,6 +1,8 @@
 import React from "react";
 import { COLORS } from "../api.js";
 import { Num, Check } from "./fields.jsx";
+import ScheduleGraph from "./ScheduleGraph.jsx";
+import BatteryScheduleGraph, { DEFAULT_BATTERY_SEGMENTS } from "./BatteryScheduleGraph.jsx";
 
 function Section({ title, accent, children }) {
   return (
@@ -73,6 +75,16 @@ export function BusAssets({ bus, settings, onPatch }) {
             <Num label="SoC min" value={settings.battery.soc_min} min={0} max={1} onChange={(v) => patchSection("battery", { soc_min: v })} />
             <Num label="SoC max" value={settings.battery.soc_max} min={0} max={1} onChange={(v) => patchSection("battery", { soc_max: v })} />
           </div>
+          <Check
+            label="Manual timetable (schedule policy)"
+            checked={(settings.battery_schedule?.segments ?? []).length > 0}
+            onChange={(v) =>
+              onPatch({ battery_schedule: { segments: v ? DEFAULT_BATTERY_SEGMENTS : [] } })
+            }
+          />
+          {(settings.battery_schedule?.segments ?? []).length > 0 && (
+            <BatteryScheduleGraph settings={settings} onPatch={onPatch} />
+          )}
         </Section>
       )}
 
@@ -84,6 +96,12 @@ export function BusAssets({ bus, settings, onPatch }) {
             <Num label="Min stable (kW)" value={settings.diesel.min_kw} step={5} min={0} onChange={(v) => patchSection("diesel", { min_kw: v })} />
           </div>
           <Num label="Carbon (kgCO₂/kWh)" value={settings.reward.diesel_carbon_kg_per_kwh} step={0.05} min={0} onChange={(v) => patchSection("reward", { diesel_carbon_kg_per_kwh: v })} />
+          {settings.diesel.enabled && (
+            <>
+              <div className="asset-section-head" style={{ marginTop: 4 }}>Manual timetable</div>
+              <ScheduleGraph settings={settings} onPatch={onPatch} />
+            </>
+          )}
         </Section>
       )}
 

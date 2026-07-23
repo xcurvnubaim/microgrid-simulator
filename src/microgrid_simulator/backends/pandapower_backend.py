@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pandapower as pp
 
-from microgrid_simulator.components import BatteryModel, DieselModel
+from microgrid_simulator.components import DieselModel, create_battery_model
 from microgrid_simulator.config import BusCfg, LineCfg, Settings
 from microgrid_simulator.core.backend import MicrogridBackend
 from microgrid_simulator.core.scenario import Scenario
@@ -49,13 +49,14 @@ class PandapowerBackend(MicrogridBackend):
         self.solver = str(getattr(self.topo, "solver", "ac")).lower()
         self._warm = False  # previous AC solution available for warm start
 
-        self.battery = BatteryModel.from_cfg(settings.battery)
+        self.battery = create_battery_model(settings.battery)
         self.diesel = DieselModel.from_cfg(settings.diesel)
         self.ev_soc = [settings.ev.soc_init for _ in range(self.topo.n_ev)]
 
         # Real demand trace. None -> synthetic curve.
         self.demand_trace = DemandTrace.from_file(settings.demand, self.dt)
         self._demand_window: np.ndarray | None = None
+        self._pv_window: np.ndarray | None = None
         self._window_pos: int = 0
 
         self.bus_lookup: dict[int, int] = {}
@@ -87,6 +88,7 @@ class PandapowerBackend(MicrogridBackend):
         scenario: Scenario | None = None,
         seed: int | None = None,
         demand_window_mw: np.ndarray | None = None,
+        pv_window_mw: np.ndarray | None = None,
     ) -> GridState:
         """Reset physics; optionally install new settings and/or a demand window.
 
@@ -97,12 +99,15 @@ class PandapowerBackend(MicrogridBackend):
             self._configure(scenario.settings)
             if demand_window_mw is None:
                 demand_window_mw = scenario.demand_window_mw
+            if pv_window_mw is None:
+                pv_window_mw = scenario.pv_window_mw
         self.timestamp = float(self.settings.episode.start_hour)
         self._warm = False
         self.battery.reset()
         self.diesel.reset()
         self.ev_soc = [self.settings.ev.soc_init for _ in range(self.topo.n_ev)]
         self._demand_window = demand_window_mw
+        self._pv_window = pv_window_mw
         self._window_pos = 0
         self._apply_profiles(battery_p_mw=0.0, ev_p_mw=[0.0] * self.topo.n_ev, curtail_pv=0.0)
         ok = self._run_power_flow()
@@ -349,6 +354,17 @@ class PandapowerBackend(MicrogridBackend):
 
         return solar_factor(self.timestamp)
 
+    @property
+    def pv_is_real(self) -> bool:
+        return self._pv_window is not None
+
+    def current_pv_available_mw(self) -> float:
+        """Measured PV availability when replaying, otherwise synthetic PV."""
+        if self._pv_window is not None and len(self._pv_window) > 0:
+            pos = min(self._window_pos, len(self._pv_window) - 1)
+            return float(self._pv_window[pos])
+        return self.solar_factor() * sum(self.pv_bases_mw)
+
     def load_factor(self) -> float:
         from microgrid_simulator.components.load import load_factor
 
@@ -371,13 +387,7 @@ class PandapowerBackend(MicrogridBackend):
             return float(self._demand_window[pos])
         return base_total * self.load_factor()
 
-    def _apply_profiles(
-        self, battery_p_mw: float, ev_p_mw: list[float], curtail_pv: float
-    ) -> None:
-        pv_scale = self.solar_factor() * (1.0 - curtail_pv)
-        for idx, base in zip(self.pv_indices, self.pv_bases_mw, strict=False):
-            self.net.sgen.at[idx, "p_mw"] = base * pv_scale
-
+    def _apply_profiles(self, battery_p_mw: float, ev_p_mw: list[float], curtail_pv: float) -> None:
         # Scale all static loads by one factor so their sum hits the target
         # total while relative shares (and buses) stay untouched.
         base_total = sum(p for p, _ in self.load_bases)
@@ -387,13 +397,22 @@ class PandapowerBackend(MicrogridBackend):
         ev_p_mw = list(ev_p_mw)
 
         demand_mw = sum(static_p_mw) + sum(ev_p_mw)
+        pv_base_total = sum(self.pv_bases_mw)
+        pv_used_mw = self.current_pv_available_mw() * (1.0 - curtail_pv)
+        if not self.grid_connected:
+            pv_used_mw = min(
+                pv_used_mw,
+                max(0.0, demand_mw + battery_p_mw - self.diesel.p_mw),
+            )
+        pv_scale = pv_used_mw / pv_base_total if pv_base_total > 1e-12 else 0.0
+        for idx, base in zip(self.pv_indices, self.pv_bases_mw, strict=False):
+            self.net.sgen.at[idx, "p_mw"] = base * pv_scale
+
         if self.grid_connected or demand_mw <= 1e-12:
             served_fraction = 1.0
         else:
             supply_for_load = (
-                float(self.net.sgen.loc[self.pv_indices, "p_mw"].sum())
-                if self.pv_indices
-                else 0.0
+                float(self.net.sgen.loc[self.pv_indices, "p_mw"].sum()) if self.pv_indices else 0.0
             )
             supply_for_load += self.diesel.p_mw - battery_p_mw
             served_fraction = min(1.0, max(0.0, supply_for_load / demand_mw))
@@ -422,13 +441,19 @@ class PandapowerBackend(MicrogridBackend):
         self, action: ControlAction, ev_p_mw: list[float] | None = None
     ) -> float:
         requested = float(action.battery_p_mw)
-        if self.grid_connected or requested <= 0.0:
+        if self.grid_connected:
             return requested
 
-        pv_mw = self.solar_factor() * (1.0 - action.pv_curtail) * sum(self.pv_bases_mw)
+        pv_mw = self.current_pv_available_mw() * (1.0 - action.pv_curtail)
         demand_mw = self.current_demand_mw() + sum(ev_p_mw or [])
-        surplus_mw = max(0.0, pv_mw + self.diesel.p_mw - demand_mw)
-        return min(requested, surplus_mw)
+        local_without_battery_mw = pv_mw + self.diesel.p_mw
+
+        if requested >= 0.0:
+            surplus_mw = max(0.0, local_without_battery_mw - demand_mw)
+            return min(requested, surplus_mw)
+
+        residual_mw = max(0.0, demand_mw - local_without_battery_mw)
+        return max(requested, -residual_mw)
 
     def _run_power_flow(self) -> bool:
         if self.solver == "balance":
@@ -483,14 +508,18 @@ class PandapowerBackend(MicrogridBackend):
             return GridState(
                 solver_ok=False,
                 timestamp=self.timestamp,
+                soc=[self.battery.soc],
+                soh=[self.battery.soh],
+                ev_soc=list(self.ev_soc),
                 battery_p_mw=battery_p_mw,
                 diesel_p_mw=self.diesel.p_mw,
                 diesel_on=self.diesel.is_on,
                 demand_is_real=self.demand_is_real,
+                pv_is_real=self.pv_is_real,
                 islanded=not self.grid_connected,
             )
 
-        pv_available = self.solar_factor() * sum(self.pv_bases_mw)
+        pv_available = self.current_pv_available_mw()
         pv_used = float(net.sgen.loc[self.pv_indices, "p_mw"].sum()) if self.pv_indices else 0.0
         static_demand = (
             sum(self._profile_static_p_mw)
@@ -525,11 +554,7 @@ class PandapowerBackend(MicrogridBackend):
             served = demand * self._served_load_fraction
             unserved = demand - served
 
-        v_bus = (
-            [1.0] * len(self.bus_lookup)
-            if balance
-            else [float(v) for v in net.res_bus.vm_pu]
-        )
+        v_bus = [1.0] * len(self.bus_lookup) if balance else [float(v) for v in net.res_bus.vm_pu]
         line_loading = (
             []
             if balance
@@ -564,6 +589,7 @@ class PandapowerBackend(MicrogridBackend):
             diesel_p_mw=self.diesel.p_mw,
             diesel_on=self.diesel.is_on,
             demand_is_real=self.demand_is_real,
+            pv_is_real=self.pv_is_real,
             solver_ok=True,
             timestamp=self.timestamp,
             violations=self._electrical_violations(v_bus, line_loading),

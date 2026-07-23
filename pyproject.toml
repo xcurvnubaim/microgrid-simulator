@@ -12,6 +12,7 @@ dependencies = [
     "pandapower>=2.14",
     "numpy>=1.24",
     "pandas>=2.0",
+    "matplotlib>=3.8",
     # --- RL contract + agent ---
     "gymnasium>=0.29",
     "stable-baselines3>=2.3",
@@ -41,6 +42,12 @@ dev = [
 logging = [
     "tensorboard>=2.16",
 ]
+# External benchmark only: LGPL-3.0 library loaded through the comparison
+# adapter; it is not part of the campus simulator's production backend stack.
+pymgrid = [
+    # PyPI 1.4.1 predates the upstream NumPy-2 compatibility fixes.
+    "python-microgrid @ git+https://github.com/ahalev/python-microgrid.git@09089cc",
+]
 
 [project.scripts]
 microgrid-sim = "microgrid_simulator.cli:app"
@@ -48,6 +55,9 @@ microgrid-sim = "microgrid_simulator.cli:app"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/microgrid_simulator"]

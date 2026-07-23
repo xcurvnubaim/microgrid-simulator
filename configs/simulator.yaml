@@ -113,10 +113,21 @@ diesel:
 #   max_kw: 150.0
 #   min_kw: 45.0              # minimum stable load (~30%; wet stacking below)
 #   ramp_kw_per_min: 30.0     # ~20% of nameplate per minute; 0 = unlimited
+#   start_delay_min: 0.25     # crank + synchronise (~15 s) at zero output before loading
 #   min_up_time_min: 30.0     # must run this long once started (anti-cycling)
 #   min_down_time_min: 15.0   # cool-down before a restart is allowed
 #   bus: 0
 #   carbon_kg_per_kwh: 0.70
+
+# --- clock-driven battery timetable (schedule policy) ---
+# Empty/omitted keeps the schedule policy's reactive battery (charge on PV
+# surplus, discharge to backstop diesel). Charge windows are binary on/off at
+# full max_charge_mw (the backend clips by SOC and resolves the PV→diesel→grid
+# source split); discharge windows take a continuous level ("max" or kW).
+# battery_schedule:
+#   segments:
+#     - {start_hour: 10.0, end_hour: 15.0, mode: charge}
+#     - {start_hour: 18.0, end_hour: 22.0, mode: discharge, level: 80.0}
 
 # --- real historical demand trace (demand-driver swap) ---
 # Point `file` at the campus net-load export, e.g.

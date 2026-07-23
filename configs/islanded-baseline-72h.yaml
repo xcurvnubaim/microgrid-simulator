@@ -1,0 +1,146 @@
+# Deterministic paper baseline: 72 h measured load/PV replay, 15 min control.
+# ISLANDED PV + battery + diesel, load-serving purpose.
+#
+# PROVENANCE — this scenario is the Python implementation of the executable scheduling
+# derivative and shares its documented topology and scheduling parameters:
+#   Model  : Microgrid-Simscape/Models/CampusMicrogridScheduling.slx
+#   Runner : Microgrid-Simscape/Campus/runCampusSchedulingModel72h.m
+#   Record : Microgrid-Simscape/Campus/PROVENANCE.md  (subsystem evidence labels)
+#
+# Alignment note: values below are tagged MEASURED / ASSUMED to match that record.
+# Physical BESS and diesel ratings have no site nameplate and stay ASSUMED. The retained
+# Simscape artifacts establish ancestry only and are not executed in the active scope.
+
+scenario:
+  name: islanded_72h_2026-01-15
+  description: Measured campus load/PV replay with assumed BESS/diesel; controller varies by `--policy` (rule | mpc); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model.
+
+topology:
+  timestep_hours: 0.25
+  solver: balance
+  n_pv: 2
+  n_storage: 1
+  n_ev: 0
+  n_load: 3
+
+backend:
+  name: simple
+  validation_backend: pandapower
+
+episode:
+  horizon_hours: 72.0
+  start_hour: 0.0
+  # First evaluated interval; 2026-01-14 23:45 is loaded only as controller context.
+  # Training/baseline window; the disjoint held-out config starts on 2026-03-08.
+  telemetry_start: "2026-01-15 00:00:00"
+
+digital_twin:
+  fill_strategy: error
+  max_gap_steps: 0
+  max_missing_fraction: 0.0
+  measurements:
+    load:
+      file: /home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx
+      header_row: 1
+      timestamp_column: statstime
+      value_column: demand
+      unit: kw
+    pv:
+      file: /home/xcurv/teep-taiwan/data/PV_2025-12-01_2026-03-31.xlsx
+      header_row: 0
+      timestamp_column: 時間
+      value_column: p:avg
+      unit: kw
+
+# Disable the older independent demand-window loader: fixed digital-twin replay above
+# supplies both demand and PV on the same timestamp grid and fails closed.
+demand:
+  enabled: false
+  file: null
+  random_window: false
+
+# BESS — MATLAB grid-forming converter keeps its stock 1 MVA base; the 250 kW below is a
+# DISPATCH reference, not a converter rating (BESS.pRef2 = 0.25 pu of 1 MVA). The EMT DC
+# source is ideal, so energy capacity / efficiency / SOC are ASSUMED scheduling values
+# that live only in this reduced-order layer.
+battery:
+  bus: 3
+  capacity_mwh: 0.50          # ASSUMED; physical nameplate unavailable
+  charge_eff: 0.96            # ASSUMED
+  discharge_eff: 0.96         # ASSUMED
+  max_charge_mw: 0.25         # = MATLAB BESS.pRef2 0.25 pu on 1 MVA base (250 kW dispatch cap)
+  max_discharge_mw: 0.25      # same 250 kW dispatch cap
+  soc_min: 0.10               # ASSUMED operating band
+  soc_max: 0.95
+  soc_init: 0.50              # ASSUMED initial SOC (no SOC state exists in the EMT model)
+
+# Diesel — the EMT machine retains the stock 125.5 kVA synchronous machine
+# (microgrid.dieselRatedPower = 125500); an electrical rescale to 150 kW was unstable.
+# 150 kW here is the ASSUMED scheduling nameplate, inside the same assumption band.
+diesel:
+  enabled: true
+  bus: 0
+  max_kw: 150.0               # ASSUMED scheduling nameplate; EMT retains stock 125.5 kVA machine
+  min_kw: 45.0               # ASSUMED 30% minimum stable load
+  ramp_kw_per_min: 30.0      # ASSUMED
+  min_up_time_min: 30.0      # ASSUMED
+  min_down_time_min: 15.0    # ASSUMED
+  carbon_kg_per_kwh: 0.70    # ASSUMED emissions proxy (no MATLAB counterpart; techno-econ used $1.1/L)
+
+# Clock-driven diesel timetable for the `schedule` policy only (`--policy schedule`;
+# rule/mpc ignore it). DESIGNED from this window's 3-day hourly load/PV profile: PV
+# covers most demand 09:00-14:00 (hold min stable load — a first cut with `off` here
+# lost to the rule baseline because PV swings ~47 kW within one 15-min step); full
+# nameplate everywhere else so no PV dip or load spike outruns diesel within a tick.
+# level: max | min | off | explicit kW (clamped to [min_kw, max_kw]); uncovered
+# hours = off; start_hour > end_hour wraps past midnight.
+diesel_schedule:
+  segments:
+    - {start_hour: 0.0,  end_hour: 9.0,  level: max}
+    - {start_hour: 9.0,  end_hour: 14.0, level: min}
+    - {start_hour: 14.0, end_hour: 24.0, level: max}
+
+reward:
+  w_carbon: 1.0
+  w_autonomy: 0.0             # islanded: no utility exchange exists
+  w_health: 1.0
+  w_waste: 1.0
+  w_unserved: 5.0             # load service is the scenario's primary objective
+  # Grid-connected terms below are INERT in this islanded scenario (no grid-role bus);
+  # retained so grid-connected scenario variants can reuse the same reward block.
+  grid_carbon_kg_per_kwh: 0.45
+  diesel_carbon_kg_per_kwh: 0.70
+  import_price: 180.0
+  peak_threshold_mw: 0.35
+  peak_penalty: 200.0
+  voltage_penalty: 100.0
+  soc_violation_penalty: 50.0
+
+# No utility-role bus: the complete scheduling episode is islanded.
+buses:
+  - {id: 0, name: Main distribution, vn_kv: 0.4, role: main, x: 290, y: 150}
+  - {id: 1, name: PV yard, vn_kv: 0.4, role: pv, x: 520, y: 60}
+  - {id: 2, name: Academic loads, vn_kv: 0.4, role: load, x: 760, y: 150}
+  - {id: 3, name: Battery storage, vn_kv: 0.4, role: battery, x: 760, y: 240}
+
+lines:
+  - {name: PV feeder, from_bus: 0, to_bus: 1, kind: line, length_km: 0.18, max_i_ka: 1.0}
+  - {name: Academic feeder, from_bus: 0, to_bus: 2, kind: line, length_km: 0.28, max_i_ka: 1.0}
+  - {name: Battery feeder, from_bus: 0, to_bus: 3, kind: line, length_km: 0.16, max_i_ka: 1.0}
+
+# 200 kWp total = MATLAB Microgrid.PVMVA 0.2 (panel parallel strings scaled 10 -> 4).
+# Measured PV power replays onto these arrays; night standby readings clip to zero.
+pv_arrays:
+  - {name: PV array 0, bus: 1, p_mw: 0.12}
+  - {name: PV array 1, bus: 1, p_mw: 0.08}
+
+# Campus MG2 static loads = MATLAB pLoad21 / pLoad22 / pLoad33 (CampusMicrogridInputData.m
+# load override): 150/100/100 kW, a 3:2:2 split of the ~350 kW observed peak, with
+# Q = 0.2 P (pf 0.981). Measured total demand scales these bases at every 15-min interval.
+# All three sit on the Academic-loads bus, matching the grouped MG2 load network; the
+# MATLAB HVAC/ProcessingMotorLoad (0.15 MVA) is bookkeeping-only and disconnected in the
+# islanded snapshot, so it is intentionally absent here.
+loads:
+  - {name: Academic load A, bus: 2, p_mw: 0.15, q_mvar: 0.030}   # MATLAB pLoad21, 150 kW / 30 kvar
+  - {name: Academic load B, bus: 2, p_mw: 0.10, q_mvar: 0.020}   # MATLAB pLoad22, 100 kW / 20 kvar
+  - {name: Academic load C, bus: 2, p_mw: 0.10, q_mvar: 0.020}   # MATLAB pLoad33, 100 kW / 20 kvar

@@ -10,14 +10,23 @@ follow any load — but the realised output is shaped by genset physics:
 * **Minimum stable load** (``min_kw``, ~30 % of nameplate): sustained operation
   below it causes wet stacking, so while on the output is clamped up to it.
 * **Ramp limit** (``ramp_kw_per_min``): output moves toward the setpoint at a
-  bounded rate. Diesels ramp fast (tens of %/min), so this only binds at fine
-  timesteps.
+  bounded rate.
+* **Start sequence**: crank + synchronise for ``start_delay_min`` at zero
+  output, then the breaker closes onto the minimum stable load (gensets accept
+  a block step) and the governor ramps toward the setpoint.
+* **Stop sequence**: the governor soft-unloads down to min stable load at the
+  ramp limit, then the breaker opens — output never teleports to zero from
+  high load, but the drop from min load is a genuine breaker-opening step.
 * **Minimum up/down time** (``min_up_time_min`` / ``min_down_time_min``): the
   genset controller ignores an off command until the engine has run long
   enough, and an on command until it has cooled down — real controllers lock
   out rapid cycling because starts dominate engine wear.
-* **Start transient**: on the start tick the unit synchronises and picks up at
-  most min load plus one tick of ramp, not an arbitrary jump to full power.
+
+Because simulation ticks (15 min by default) are much longer than these
+transients, the trajectory is integrated *within* the tick and ``apply``
+returns the tick-average power — the energy-correct value for the power
+balance and carbon accounting — while ``p_end_mw`` keeps the instantaneous
+end-of-tick output so ramping stays continuous across ticks.
 
 No real nameplate rating exists yet; ``max_kw`` defaults to ~150 kW (roughly
 half the 352.8 kW observed historical peak) until the actual generator spec is
@@ -39,7 +48,8 @@ class DieselModel:
 
     cfg: DieselCfg
     is_on: bool = False
-    p_mw: float = 0.0
+    p_mw: float = 0.0  # tick-average output (energy-correct for the power balance)
+    p_end_mw: float = 0.0  # instantaneous output at tick end (ramp continuity)
     runtime_hours: float = 0.0
     starts: int = 0
     # Time spent in the current on/off state; starts at inf so a fresh genset
@@ -48,11 +58,12 @@ class DieselModel:
 
     @classmethod
     def from_cfg(cls, cfg: DieselCfg) -> DieselModel:
-        return cls(cfg=cfg)
+        return cls(cfg=cfg, is_on=cfg.initial_on)
 
     def reset(self) -> None:
-        self.is_on = False
+        self.is_on = self.cfg.initial_on
         self.p_mw = 0.0
+        self.p_end_mw = 0.0
         self.runtime_hours = 0.0
         self.starts = 0
         self.hours_in_state = math.inf
@@ -71,12 +82,31 @@ class DieselModel:
             return math.inf  # 0 disables the ramp limit
         return self.cfg.ramp_kw_per_min * 60.0 / 1000.0
 
+    def _ramp_toward(self, p0: float, target: float, duration_h: float) -> tuple[float, float]:
+        """Ramp-limited move from ``p0`` toward ``target`` over ``duration_h``.
+
+        Returns ``(energy_mwh, p_end_mw)`` — the integral of the piecewise-
+        linear trajectory and the instantaneous output when time runs out.
+        """
+        if duration_h <= 0.0:
+            return 0.0, p0
+        rate = self.ramp_mw_per_hour
+        if math.isinf(rate):
+            return target * duration_h, target
+        reach_h = abs(target - p0) / rate
+        if reach_h >= duration_h:
+            p_end = p0 + math.copysign(rate * duration_h, target - p0)
+            return (p0 + p_end) / 2.0 * duration_h, p_end
+        ramp_mwh = (p0 + target) / 2.0 * reach_h
+        return ramp_mwh + target * (duration_h - reach_h), target
+
     def apply(self, on: bool, setpoint_mw: float, dt_hours: float) -> float:
-        """Advance one tick; returns the realised output in MW.
+        """Advance one tick; returns the tick-average output in MW.
 
         The realised on/off state and output may differ from the command:
-        min up/down lockouts can override the switch, and the min-load /
-        ramp clamps can override the setpoint.
+        min up/down lockouts can override the switch, and the start/stop
+        sequences, min-load clamp, and ramp limit shape the within-tick
+        trajectory that the returned average integrates.
         """
         if not self.cfg.enabled:
             on = False
@@ -86,21 +116,45 @@ class DieselModel:
             on = False  # min down time: still cooling down
 
         starting = on and not self.is_on
+        stopping = self.is_on and not on
         if starting:
             self.starts += 1
         self.hours_in_state = dt_hours if on != self.is_on else self.hours_in_state + dt_hours
         self.is_on = bool(on)
 
         if not self.is_on:
-            self.p_mw = 0.0
-            return 0.0
+            energy_mwh = 0.0
+            if stopping and self.p_end_mw > 0.0:
+                # Soft unload to min stable load at the ramp limit, then the
+                # breaker opens; the tail of the tick produces nothing. If the
+                # unload can't finish inside the tick the breaker trips at the
+                # tick end regardless.
+                rate = self.ramp_mw_per_hour
+                unload_h = (
+                    0.0
+                    if math.isinf(rate)
+                    else min(dt_hours, max(0.0, self.p_end_mw - self.min_mw) / rate)
+                )
+                p_open = self.p_end_mw - (0.0 if math.isinf(rate) else rate * unload_h)
+                energy_mwh = (self.p_end_mw + p_open) / 2.0 * unload_h
+            self.p_end_mw = 0.0
+            self.p_mw = energy_mwh / dt_hours if dt_hours > 0 else 0.0
+            return self.p_mw
 
-        ramp_mw = self.ramp_mw_per_hour * dt_hours
         target = max(self.min_mw, min(self.max_mw, float(setpoint_mw)))
         if starting:
-            # Synchronise and pick up load: min load plus one tick of ramp.
-            self.p_mw = min(target, min(self.max_mw, self.min_mw + ramp_mw))
+            # Crank + synchronise at zero output, breaker closes onto min
+            # stable load, then ramp toward the setpoint.
+            sync_h = min(dt_hours, max(0.0, self.cfg.start_delay_min) / 60.0)
+            energy_mwh, p_end = self._ramp_toward(self.min_mw, target, dt_hours - sync_h)
+            if dt_hours - sync_h <= 0.0:
+                p_end = 0.0  # still synchronising at tick end
         else:
-            self.p_mw = max(self.p_mw - ramp_mw, min(self.p_mw + ramp_mw, target))
+            # p_end below min only if the whole start tick was consumed by the
+            # sync delay; the breaker then closes onto min load now.
+            p0 = max(self.p_end_mw, self.min_mw)
+            energy_mwh, p_end = self._ramp_toward(p0, target, dt_hours)
+        self.p_end_mw = p_end
+        self.p_mw = energy_mwh / dt_hours if dt_hours > 0 else 0.0
         self.runtime_hours += dt_hours
         return self.p_mw

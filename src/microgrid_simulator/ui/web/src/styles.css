@@ -1,25 +1,31 @@
 /* ── Microgrid Control Room ─────────────────────────────────────────────
-   Palette: deep petrol console + one hue per energy source, used
-   consistently across diagram, charts, KPIs, and table.               */
+   Palette: cool daylight surfaces + one accessible hue per energy source,
+   used consistently across diagrams, charts, KPIs, and tables.        */
 
 :root {
-  --bg: #0d131c;
-  --panel: #141c28;
-  --panel-2: #101722;
-  --inset: #0b1119;
-  --line: #23344a;
-  --line-soft: #1a2637;
-  --text: #e9eff5;
-  --muted: #8ca0b3;
-  --faint: #5c7183;
+  color-scheme: light;
+  --bg: #f3f6f9;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+  --inset: #eef3f7;
+  --line: #c7d2dc;
+  --line-soft: #e0e7ee;
+  --text: #17212b;
+  --muted: #526779;
+  --faint: #65788a;
 
-  --solar: #f5b841;
-  --grid: #e4604e;
-  --battery: #3fd0b6;
-  --diesel: #d9822b;
-  --load: #9db2c7;
-  --volt: #8e7cf3;
-  --ok: #57c785;
+  --solar: #996400;
+  --grid: #bd4036;
+  --battery: #087d69;
+  --diesel: #a85612;
+  --load: #526a7d;
+  --volt: #6554bd;
+  --ok: #237c4b;
+  --unserved: #a83c78;
+  --accent: #326fa8;
+  --on-accent: #ffffff;
+  --shadow-soft: 0 8px 24px rgb(31 48 64 / 14%);
+  --shadow-modal: 0 28px 90px rgb(31 48 64 / 24%);
 
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -66,15 +72,15 @@ body {
 .badge.synthetic { color: var(--solar); border-color: color-mix(in srgb, var(--solar) 40%, transparent); }
 .badge.islanded { color: var(--diesel); border-color: color-mix(in srgb, var(--diesel) 45%, transparent); }
 .badge.blackout {
-  color: #f2a0c4;
-  border-color: color-mix(in srgb, #c76fa8 55%, transparent);
-  background: color-mix(in srgb, #c76fa8 14%, transparent);
+  color: var(--unserved);
+  border-color: color-mix(in srgb, var(--unserved) 55%, transparent);
+  background: color-mix(in srgb, var(--unserved) 10%, transparent);
 }
 
 .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .controls label { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-select, input[type="number"], input[type="text"] {
+select, input[type="number"], input[type="text"], input[type="time"] {
   background: var(--inset);
   border: 1px solid var(--line);
   color: var(--text);
@@ -84,6 +90,7 @@ select, input[type="number"], input[type="text"] {
   font-size: 12.5px;
   min-width: 0;
 }
+input[type="time"] { color-scheme: light; }
 select:focus, input:focus, button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--battery) 60%, transparent);
   outline-offset: 1px;
@@ -92,14 +99,14 @@ input[type="number"] { width: 84px; }
 
 .run-btn {
   background: var(--battery);
-  border: none; color: #05201a;
+  border: none; color: var(--on-accent);
   font-family: var(--sans); font-weight: 600; font-size: 13px;
   padding: 7px 18px; border-radius: 7px; cursor: pointer;
   transition: filter 0.12s ease;
 }
 .run-btn:hover { filter: brightness(1.08); }
 .run-btn:disabled { opacity: 0.55; cursor: wait; }
-.run-btn.stop { background: var(--grid); color: #2a0c07; }
+.run-btn.stop { background: var(--grid); color: var(--on-accent); }
 .ghost-btn {
   background: var(--inset); border: 1px solid var(--line); color: var(--text);
   font-family: var(--sans); font-size: 13px;
@@ -250,15 +257,15 @@ details.group[open] > summary { color: var(--text); }
 @media (max-width: 1100px) { .chart-grid { grid-template-columns: 1fr; } }
 .outage-events { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .outage-chip {
-  border: 1px solid color-mix(in srgb, #c76fa8 45%, transparent);
-  background: color-mix(in srgb, #c76fa8 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--unserved) 45%, transparent);
+  background: color-mix(in srgb, var(--unserved) 8%, transparent);
   border-radius: 999px;
   color: var(--muted);
   font-family: var(--mono);
   font-size: 11px;
   padding: 3px 10px;
 }
-.outage-chip b { color: #f2a0c4; font-weight: 600; }
+.outage-chip b { color: var(--unserved); font-weight: 600; }
 .bus-charts { margin-bottom: 16px; }
 .bus-charts > .panel-head { margin-bottom: 12px; }
 .bus-charts .chart-grid .panel { margin-bottom: 0; }
@@ -304,7 +311,7 @@ details.group[open] > summary { color: var(--text); }
 .error-dismiss:hover { color: var(--text); }
 .spin {
   width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid #05201a55; border-top-color: #05201a;
+  border: 2px solid rgb(255 255 255 / 45%); border-top-color: var(--on-accent);
   display: inline-block; vertical-align: -2px; margin-right: 7px;
   animation: spin 0.7s linear infinite;
 }
@@ -315,10 +322,10 @@ details.group[open] > summary { color: var(--text); }
 }
 @media (max-width: 860px) {
   .rail { position: fixed; inset: 0 auto 0 0; z-index: 20; transform: translateX(-100%); transition: transform 0.2s; }
-  .rail.open { transform: none; box-shadow: 20px 0 60px #0009; }
+  .rail.open { transform: none; box-shadow: 20px 0 60px rgb(31 48 64 / 24%); }
   .rail-toggle { display: inline-flex !important; }
   .rail-close { display: inline-block; }
-  .rail-backdrop { display: block; position: fixed; inset: 0; z-index: 19; background: #000a; }
+  .rail-backdrop { display: block; position: fixed; inset: 0; z-index: 19; background: rgb(31 48 64 / 32%); }
   .controls { width: 100%; }
 }
 .rail-toggle {
@@ -335,7 +342,7 @@ details.group[open] > summary { color: var(--text); }
 .topology-designer:focus { outline: none; }
 .topology-tools { display: grid; gap: 6px; }
 .topology-designer.wide {
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 28vw, 400px);
   grid-template-areas:
     "tools inspector"
     "canvas inspector"
@@ -564,6 +571,281 @@ a.mini-btn { text-decoration: none; display: inline-block; text-align: center; }
 .asset-hint.dim { border-top: 1px solid var(--line-soft); padding-top: 8px; }
 .asset-attach { display: flex; gap: 6px; }
 .mini-btn.danger:hover { border-color: var(--grid); color: var(--grid); }
+
+/* schedule timetable editor */
+.schedule-editor {
+  --schedule-accent: var(--battery);
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.schedule-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.schedule-toolbar-title {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.schedule-toolbar-title small {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+.schedule-actions, .schedule-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.schedule-actions .mini-btn,
+.schedule-modal-actions .mini-btn { white-space: nowrap; }
+.schedule-actions .mini-btn:disabled,
+.schedule-modal-actions .mini-btn:disabled,
+.schedule-delete-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.schedule-actions .mini-btn:hover,
+.schedule-modal-actions .mini-btn:hover { border-color: var(--schedule-accent); }
+.schedule-expand-btn { color: var(--schedule-accent); }
+
+.schedule-workspace,
+.schedule-graph-panel,
+.schedule-table-panel { min-width: 0; }
+.schedule-workspace { display: grid; gap: 9px; }
+.schedule-graph-panel {
+  display: grid;
+  gap: 6px;
+}
+.schedule-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--inset);
+  box-shadow: inset 0 0 0 1px rgb(31 48 64 / 8%);
+}
+.schedule-canvas-wrap:focus-within {
+  border-color: color-mix(in srgb, var(--schedule-accent) 72%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--schedule-accent) 18%, transparent);
+}
+.schedule-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+.schedule-first-hover-tip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  max-width: min(300px, calc(100% - 16px));
+  border: 1px solid color-mix(in srgb, var(--schedule-accent) 58%, var(--line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  pointer-events: none;
+}
+.schedule-legend {
+  display: grid;
+  gap: 2px;
+  border-left: 2px solid color-mix(in srgb, var(--schedule-accent) 62%, transparent);
+  padding-left: 7px;
+}
+.schedule-legend b { color: var(--muted); font-family: var(--mono); font-weight: 500; }
+.schedule-domain-hint {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 6px;
+}
+
+.schedule-table-panel {
+  display: grid;
+  gap: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--inset);
+  padding: 6px;
+}
+.schedule-table-title { gap: 8px; }
+.schedule-table-title span:last-child {
+  text-align: right;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.schedule-segment-table {
+  display: grid;
+  min-width: 296px;
+  gap: 3px;
+}
+.schedule-table-row {
+  display: grid;
+  grid-template-columns: minmax(66px, 0.68fr) minmax(66px, 0.68fr) minmax(108px, 1.25fr) 27px;
+  gap: 5px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.schedule-table-row:not(.schedule-table-header):hover { background: var(--panel-2); }
+.schedule-table-row.selected {
+  border-color: color-mix(in srgb, var(--schedule-accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--schedule-accent) 7%, var(--panel-2));
+}
+.schedule-table-header {
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding-top: 1px;
+  padding-bottom: 4px;
+  text-transform: uppercase;
+}
+.schedule-table-cell { min-width: 0; }
+.schedule-table-cell input,
+.schedule-table-cell select {
+  width: 100%;
+  min-width: 0;
+  height: 29px;
+  padding: 4px 5px;
+  font-size: 10.5px;
+}
+.schedule-table-cell input:disabled,
+.schedule-table-cell select:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+.schedule-value-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+.schedule-kw-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+.schedule-delete-cell { display: flex; justify-content: center; }
+.schedule-delete-btn {
+  width: 25px;
+  height: 27px;
+  color: var(--muted);
+}
+.schedule-delete-btn:not(:disabled):hover { border-color: var(--grid); color: var(--grid); }
+
+.schedule-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(31 48 64 / 36%);
+  backdrop-filter: blur(3px);
+}
+.schedule-modal {
+  --schedule-accent: var(--battery);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1240px, calc(100vw - 36px));
+  height: min(850px, calc(100vh - 36px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--schedule-accent);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow-modal);
+}
+.schedule-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--panel-2);
+  padding: 12px 15px;
+}
+.schedule-modal-head h2 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.schedule-modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.schedule-workspace.is-expanded {
+  grid-template-columns: minmax(0, 1.45fr) minmax(370px, 0.75fr);
+  gap: 16px;
+  align-items: start;
+}
+.schedule-workspace.is-expanded .schedule-canvas-wrap {
+  height: min(58vh, 520px);
+  min-height: 360px;
+}
+.schedule-workspace.is-expanded .schedule-table-panel {
+  max-height: calc(100vh - 126px);
+  overflow: auto;
+  padding: 8px;
+}
+.schedule-workspace.is-expanded .schedule-segment-table { min-width: 360px; }
+.schedule-workspace.is-expanded .schedule-table-row {
+  grid-template-columns: minmax(72px, 0.65fr) minmax(72px, 0.65fr) minmax(172px, 1.5fr) 28px;
+  gap: 7px;
+}
+.schedule-workspace.is-expanded .schedule-value-fields {
+  grid-template-columns: minmax(92px, 1fr) minmax(78px, 0.8fr);
+}
+.schedule-workspace.is-expanded .schedule-table-cell input,
+.schedule-workspace.is-expanded .schedule-table-cell select {
+  height: 31px;
+  font-size: 11px;
+}
+
+@media (max-width: 940px) {
+  .schedule-modal { width: calc(100vw - 24px); height: calc(100vh - 24px); }
+  .schedule-workspace.is-expanded { grid-template-columns: 1fr; }
+  .schedule-workspace.is-expanded .schedule-canvas-wrap {
+    height: min(48vh, 430px);
+    min-height: 300px;
+  }
+  .schedule-workspace.is-expanded .schedule-table-panel { max-height: none; }
+}
+
+@media (max-width: 560px) {
+  .schedule-modal-backdrop { padding: 0; }
+  .schedule-modal { width: 100vw; height: 100vh; border-radius: 0; }
+  .schedule-modal-head { align-items: flex-start; padding: 10px; }
+  .schedule-modal-body { padding: 10px; }
+  .schedule-modal-actions { justify-content: flex-end; }
+  .schedule-workspace.is-expanded .schedule-canvas-wrap { min-height: 250px; }
+}
 
 /* device directory (empty selection) */
 .asset-directory { display: grid; gap: 6px; }

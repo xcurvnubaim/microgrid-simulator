@@ -1,0 +1,158 @@
+# Generated from native pymgrid YAML; do not hand-edit mapped plant values.
+# Regenerate with microgrid_simulator.experiments.pymgrid_scenario_import.
+scenario:
+  name: pymgrid25-scenario-2
+  description: Simulator translation of the native pymgrid25 islanded scenario; pymgrid
+    is authoritative for the declared shared contract.
+external_reference:
+  implementation: pymgrid
+  benchmark: pymgrid25
+  scenario_number: 2
+  source_yaml: /home/xcurv/teep-taiwan/python-microgrid/src/pymgrid/data/scenario/pymgrid25/microgrid_2/microgrid_2.yaml
+  source_commit: 09089ccfaab3e95becfda1b26fbce6f9c6195f6a
+  reference_priority: true
+  native_parameters:
+    rows: 8760
+    final_step: 8759
+    battery_max_capacity_kwh: 66116.0
+    battery_min_capacity_kwh: 13223.2
+    battery_max_charge_internal_kwh_per_step: 16529.0
+    battery_max_discharge_internal_kwh_per_step: 16529.0
+    battery_efficiency: 0.9
+    battery_cost_cycle: 0.02
+    genset_min_kwh_per_step: 2429.2000000000003
+    genset_max_kwh_per_step: 43725.6
+    genset_cost: 0.4
+    genset_co2_per_unit: 2.0
+    genset_cost_per_unit_co2: 0.1
+    loss_load_cost: 10.0
+    overgeneration_cost: 1.0
+topology:
+  timestep_hours: 1.0
+  solver: balance
+  n_pv: 1
+  n_storage: 1
+  n_ev: 0
+  n_load: 1
+backend:
+  name: simple
+  timestep_hours: 1.0
+buses:
+- id: 0
+  name: Pymgrid main distribution
+  vn_kv: 20.0
+  role: main
+  x: 290
+  y: 150
+- id: 1
+  name: Pymgrid PV yard
+  vn_kv: 20.0
+  role: pv
+  x: 520
+  y: 60
+- id: 2
+  name: Pymgrid load
+  vn_kv: 20.0
+  role: load
+  x: 760
+  y: 150
+- id: 3
+  name: Pymgrid battery storage
+  vn_kv: 20.0
+  role: battery
+  x: 760
+  y: 240
+lines:
+- name: Pymgrid PV feeder
+  from_bus: 0
+  to_bus: 1
+  kind: line
+  length_km: 0.18
+  max_i_ka: 2.0
+- name: Pymgrid load feeder
+  from_bus: 0
+  to_bus: 2
+  kind: line
+  length_km: 0.28
+  max_i_ka: 2.0
+- name: Pymgrid battery feeder
+  from_bus: 0
+  to_bus: 3
+  kind: line
+  length_km: 0.16
+  max_i_ka: 2.0
+pv_arrays:
+- name: pymgrid renewable
+  bus: 1
+  p_mw: 54.219
+loads:
+- name: pymgrid load
+  bus: 2
+  p_mw: 43.725
+  q_mvar: 0.0
+battery:
+  model: pymgrid
+  bus: 3
+  capacity_mwh: 66.116
+  charge_eff: 0.9
+  discharge_eff: 0.9
+  limit_basis: internal_energy_per_step
+  max_charge_internal_mwh_per_step: 16.529
+  max_discharge_internal_mwh_per_step: 16.529
+  soc_min: 0.2
+  soc_max: 1.0
+  soc_init: 0.2
+  degradation_enabled: false
+diesel:
+  enabled: true
+  bus: 0
+  min_kw: 2429.2000000000003
+  max_kw: 43725.6
+  ramp_kw_per_min: 0.0
+  start_delay_min: 0.0
+  min_up_time_min: 0.0
+  min_down_time_min: 0.0
+  initial_on: true
+  carbon_kg_per_kwh: 2.0
+  fuel_cost_per_kwh: 0.4
+demand:
+  enabled: false
+  file: null
+  random_window: false
+digital_twin:
+  fill_strategy: error
+  max_gap_steps: 0
+  max_missing_fraction: 0.0
+  measurements:
+    load:
+      file: /home/xcurv/teep-taiwan/python-microgrid/src/pymgrid/data/scenario/pymgrid25/microgrid_2/data/cls_params/LoadModule/time_series.csv.gz
+      timestamp_column: null
+      value_column: '0'
+      unit: kwh_per_step
+      header_row: 0
+      value_multiplier: -1.0
+      synthetic_start: '2000-01-01T00:00:00'
+      synthetic_step_hours: 1.0
+      prepend_first_as_context: true
+    pv:
+      file: /home/xcurv/teep-taiwan/python-microgrid/src/pymgrid/data/scenario/pymgrid25/microgrid_2/data/cls_params/RenewableModule/time_series.csv.gz
+      timestamp_column: null
+      value_column: '0'
+      unit: kwh_per_step
+      header_row: 0
+      value_multiplier: 1.0
+      synthetic_start: '2000-01-01T00:00:00'
+      synthetic_step_hours: 1.0
+      prepend_first_as_context: true
+episode:
+  telemetry_start: '2000-01-01T00:00:00'
+  start_hour: 0.0
+  horizon_hours: 24.0
+reward:
+  mode: pymgrid
+  pymgrid_battery_cost_cycle: 0.02
+  pymgrid_genset_cost: 0.4
+  pymgrid_co2_per_unit: 2.0
+  pymgrid_cost_per_unit_co2: 0.1
+  pymgrid_loss_load_cost: 10.0
+  pymgrid_overgeneration_cost: 1.0

@@ -21,17 +21,22 @@ from __future__ import annotations
 import numpy as np
 
 from microgrid_simulator.components import (
-    BatteryModel,
     DemandModel,
     DieselModel,
     GridIntertieModel,
     PVFleetModel,
+    create_battery_model,
 )
 from microgrid_simulator.config import Settings
 from microgrid_simulator.core.backend import MicrogridBackend
 from microgrid_simulator.core.scenario import Scenario
 from microgrid_simulator.core.time_series import DemandTrace
-from microgrid_simulator.core.types import ConstraintViolation, ControlAction, GridState
+from microgrid_simulator.core.types import (
+    UNSERVED_TOLERANCE_MW,
+    ConstraintViolation,
+    ControlAction,
+    GridState,
+)
 
 _GRID_ROLES = {"grid", "slack", "utility"}
 
@@ -49,7 +54,7 @@ class SimpleBackend(MicrogridBackend):
         self.topo = settings.topology
         self.dt = float(self.topo.timestep_hours)
         self.timestamp = float(settings.episode.start_hour)
-        self.battery = BatteryModel.from_cfg(settings.battery)
+        self.battery = create_battery_model(settings.battery)
         self.diesel = DieselModel.from_cfg(settings.diesel)
         self.ev_soc = [settings.ev.soc_init for _ in range(self.topo.n_ev)]
         self.pv = PVFleetModel.from_settings(settings)
@@ -65,16 +70,20 @@ class SimpleBackend(MicrogridBackend):
         scenario: Scenario | None = None,
         seed: int | None = None,
         demand_window_mw: np.ndarray | None = None,
+        pv_window_mw: np.ndarray | None = None,
     ) -> GridState:
         if scenario is not None:
             self._configure(scenario.settings)
             if demand_window_mw is None:
                 demand_window_mw = scenario.demand_window_mw
+            if pv_window_mw is None:
+                pv_window_mw = scenario.pv_window_mw
         self.timestamp = float(self.settings.episode.start_hour)
         self.battery.reset()
         self.diesel.reset()
         self.ev_soc = [self.settings.ev.soc_init for _ in range(self.topo.n_ev)]
         self.demand.reset(demand_window_mw)
+        self.pv.reset(pv_window_mw)
         self._last_state = self._snapshot(ControlAction(), applied_battery_mw=0.0)
         return self._last_state
 
@@ -93,6 +102,7 @@ class SimpleBackend(MicrogridBackend):
 
         self.timestamp += self.dt
         self.demand.advance()
+        self.pv.advance()
         battery_request = self._feasible_battery_request(action, ev_applied)
         applied_bp, delta_soh = self.battery.apply(battery_request, self.dt)
         state = self._snapshot(action, applied_battery_mw=applied_bp, ev_p_mw=ev_applied)
@@ -156,6 +166,16 @@ class SimpleBackend(MicrogridBackend):
                 grid_import = flow
             served = demand_mw - unserved
         else:
+            # An island has no export path. After the battery request is
+            # realized, curtail PV that cannot serve load or battery charging.
+            # Any remaining overgeneration is therefore attributable to an
+            # inflexible source such as diesel minimum stable output.
+            pv_absorption_limit = max(0.0, demand_mw + applied_battery_mw - self.diesel.p_mw)
+            if pv_used > pv_absorption_limit:
+                pre_spill = pv_used
+                pv_used = pv_absorption_limit
+                scale = pv_used / pre_spill if pre_spill > 1e-12 else 0.0
+                pv_per_array = [p * scale for p in pv_per_array]
             # Islanded: local sources must cover demand; the shortfall is shed.
             # Served stays in [0, demand]: shedding cannot exceed the demand
             # itself, even if the commanded battery charge outstrips generation.
@@ -164,7 +184,7 @@ class SimpleBackend(MicrogridBackend):
             served = min(demand_mw, max(0.0, supply_for_load))
             unserved = demand_mw - served
 
-        if unserved > 1e-9:
+        if unserved > UNSERVED_TOLERANCE_MW:
             violations.append(
                 ConstraintViolation(
                     kind="unserved",
@@ -193,6 +213,7 @@ class SimpleBackend(MicrogridBackend):
             diesel_p_mw=self.diesel.p_mw,
             diesel_on=self.diesel.is_on,
             demand_is_real=self.demand_is_real,
+            pv_is_real=self.pv.pv_is_real,
             solver_ok=True,
             timestamp=self.timestamp,
             violations=violations,
@@ -203,23 +224,28 @@ class SimpleBackend(MicrogridBackend):
     def _feasible_battery_request(
         self, action: ControlAction, ev_p_mw: list[float] | None = None
     ) -> float:
-        """Clamp islanded battery charging to surplus after serving load.
+        """Clamp islanded battery power to current load balance.
 
-        A battery charge command is flexible demand. In islanded operation it
-        must not steal power from firm campus load and create an artificial
-        blackout, so charge only from current local surplus. Discharge commands
-        remain controlled by the battery model's SoC and power limits.
+        Battery charging is flexible demand and can only use local surplus.
+        Battery discharging is flexible supply and should not exceed the
+        residual campus demand unless the model exposes an explicit sink.
         """
         requested = float(action.battery_p_mw)
-        if self.grid_connected or requested <= 0.0:
+        if self.grid_connected:
             return requested
 
         ev_mw = sum(ev_p_mw or [])
         static_mw = sum(p for p, _ in self.demand.per_load_mw(self.timestamp))
         demand_mw = static_mw + ev_mw
         pv_mw = sum(self.pv.per_array_mw(self.timestamp, action.pv_curtail))
-        surplus_mw = max(0.0, pv_mw + self.diesel.p_mw - demand_mw)
-        return min(requested, surplus_mw)
+        local_without_battery_mw = pv_mw + self.diesel.p_mw
+
+        if requested >= 0.0:
+            surplus_mw = max(0.0, local_without_battery_mw - demand_mw)
+            return min(requested, surplus_mw)
+
+        residual_mw = max(0.0, demand_mw - local_without_battery_mw)
+        return max(requested, -residual_mw)
 
     def _electrical_snapshot(self, state: GridState) -> None:
         """Hook for subclasses that add an electrical validation solve

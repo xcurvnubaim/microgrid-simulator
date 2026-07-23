@@ -74,7 +74,7 @@ export default function ConfigRail({ settings, setSettings, demand, setDemand, o
         </button>
       </div>
 
-      <Group title="Episode" accent="#6fa8dc" open>
+      <Group title="Episode" accent={COLORS.accent} open>
         <div className="field-row">
           <Num label="Horizon (h)" value={settings.episode.horizon_hours} step={1} min={1} max={168} onChange={(v) => patch("episode", { horizon_hours: v })} />
           <label className="field">

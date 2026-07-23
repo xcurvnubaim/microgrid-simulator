@@ -1,8 +1,8 @@
 """Command-line entrypoint: `microgrid-sim train | eval | play`.
 
-    microgrid-sim train --algo ppo --timesteps 50000 --config configs/simulator.yaml
-    microgrid-sim eval  --algo ppo --artifact artifacts/ppo_microgrid.zip
-    microgrid-sim play  --steps 96          # rule-of-thumb rollout, no policy
+microgrid-sim train --algo ppo --timesteps 50000
+microgrid-sim eval  --algo ppo --artifact artifacts/ppo_microgrid.zip
+microgrid-sim play  --steps 24          # one default hourly scenario day
 """
 
 from __future__ import annotations
@@ -25,11 +25,20 @@ def _load_settings(config: Path | None) -> Settings:
     return load_settings(config)
 
 
+def _replay_output_dir(settings: Settings, policy: str) -> Path:
+    """Return a collision-free default directory for a fixed telemetry replay."""
+    start = settings.episode.telemetry_start
+    if not start:
+        raise ValueError("fixed telemetry replay requires episode.telemetry_start")
+    date = start.split()[0].split("T")[0]
+    return Path("reports/experiments") / f"islanded_72h_{policy}_{date}"
+
+
 @app.command()
 def train(
     algo: str = typer.Option("ppo", help="ppo | sac"),
     timesteps: int = typer.Option(50_000, help="total training timesteps"),
-    config: Path | None = typer.Option(None, help="path to simulator.yaml"),
+    config: Path | None = typer.Option(None, help="scenario YAML (default: pymgrid25 scenario 2)"),
     artifact_dir: Path = typer.Option(Path("artifacts"), help="where to save the policy"),
     tensorboard: Path | None = typer.Option(None, help="TensorBoard log dir"),
     seed: int = typer.Option(0),
@@ -66,7 +75,7 @@ def eval(
 
 @app.command()
 def play(
-    steps: int = typer.Option(96, help="number of ticks (96 = 24h @ 15min)"),
+    steps: int = typer.Option(24, help="number of ticks (24 = one default hourly scenario day)"),
     config: Path | None = typer.Option(None),
     policy: str = typer.Option("rule", help="rule | random | idle | deterministic"),
 ) -> None:
@@ -102,6 +111,30 @@ def play(
 
 
 @app.command()
+def replay(
+    config: Path = typer.Option(
+        Path("configs/islanded-baseline-72h.yaml"), help="fixed telemetry scenario YAML"
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        help="paper report, metrics JSON, and interval CSV directory "
+        "(default: reports/experiments/islanded_72h_<policy>_<telemetry-date>)",
+    ),
+    policy: str = typer.Option("rule", help="paper baseline controller (rule | mpc | schedule)"),
+    seed: int = typer.Option(0, help="recorded reproducibility seed"),
+) -> None:
+    """Run a strict 72-hour measured load/PV baseline and export its report."""
+    from microgrid_simulator.experiments.telemetry_replay import run_telemetry_replay
+
+    settings = _load_settings(config)
+    if output_dir is None:
+        output_dir = _replay_output_dir(settings, policy)
+    metrics = run_telemetry_replay(settings, config, output_dir, policy=policy, seed=seed)
+    typer.echo(json.dumps(metrics["totals"], indent=2))
+    typer.echo(f"report: {output_dir / 'report.md'}")
+
+
+@app.command()
 def dashboard(
     port: int = typer.Option(8501, help="local dashboard port"),
     host: str = typer.Option("127.0.0.1", help="bind address"),
@@ -111,6 +144,7 @@ def dashboard(
 
     typer.echo(f"Microgrid control room -> http://{host}:{port}")
     uvicorn.run("microgrid_simulator.ui.server:app", host=host, port=port, log_level="info")
+
 
 if __name__ == "__main__":
     app()

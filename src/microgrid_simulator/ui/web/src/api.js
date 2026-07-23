@@ -60,14 +60,26 @@ export async function uploadDemand(file) {
 }
 
 export const COLORS = {
-  solar: "#f5b841",
-  grid: "#e4604e",
-  battery: "#3fd0b6",
-  diesel: "#d9822b",
-  load: "#9db2c7",
-  volt: "#8e7cf3",
-  ok: "#57c785",
-  unserved: "#c76fa8",
+  solar: "var(--solar)",
+  grid: "var(--grid)",
+  battery: "var(--battery)",
+  diesel: "var(--diesel)",
+  load: "var(--load)",
+  volt: "var(--volt)",
+  ok: "var(--ok)",
+  unserved: "var(--unserved)",
+  accent: "var(--accent)",
+};
+
+export const THEME = {
+  panel: "var(--panel)",
+  panelAlt: "var(--panel-2)",
+  inset: "var(--inset)",
+  line: "var(--line)",
+  lineSoft: "var(--line-soft)",
+  text: "var(--text)",
+  muted: "var(--muted)",
+  faint: "var(--faint)",
 };
 
 export const fmt = (v, d = 1) =>

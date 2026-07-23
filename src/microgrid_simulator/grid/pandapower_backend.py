@@ -7,9 +7,12 @@ lazily because it does require pandapower.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from microgrid_simulator.core.types import GridState
+
+if TYPE_CHECKING:
+    from microgrid_simulator.backends.pandapower_backend import PandapowerBackend
 
 __all__ = ["GridState", "PandapowerBackend"]
 

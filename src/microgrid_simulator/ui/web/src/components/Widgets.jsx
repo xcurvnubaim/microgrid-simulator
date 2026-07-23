@@ -4,7 +4,7 @@ import { COLORS, fmt } from "../api.js";
 export function KpiStrip({ totals, meta }) {
   if (!totals) return null;
   const items = [
-    ["Episode reward", fmt(totals.total_reward, 0), "", "#6fa8dc"],
+    ["Episode reward", fmt(totals.total_reward, 0), "", COLORS.accent],
     ["Grid import", fmt(totals.grid_import_kwh, 0), "kWh", COLORS.grid],
     ["Diesel energy", fmt(totals.diesel_kwh, 0), "kWh", COLORS.diesel],
     ["PV used", fmt(totals.pv_used_kwh, 0), "kWh", COLORS.solar],

@@ -34,6 +34,7 @@ from microgrid_simulator.backends import create_backend
 from microgrid_simulator.config import Settings, load_settings
 from microgrid_simulator.core.backend import MicrogridBackend
 from microgrid_simulator.core.types import ControlAction, GridState
+from microgrid_simulator.digital_twin.replay import TelemetryWindow, load_fixed_telemetry_window
 from microgrid_simulator.model.reward import compute_reward
 
 
@@ -130,6 +131,9 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self.render_mode = render_mode
         self.dt = float(settings.topology.timestep_hours)
         self.max_steps = int(round(settings.episode.horizon_hours / self.dt))
+        self.telemetry_window: TelemetryWindow | None = load_fixed_telemetry_window(
+            settings, self.max_steps
+        )
 
         self.backend = backend if backend is not None else create_backend(settings, backend_name)
         self.n_ev = settings.topology.n_ev
@@ -159,9 +163,21 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         # Draw a fresh random window of the real demand trace per episode
         # (never walk the file sequentially).
         window = None
+        pv_window = None
         info_extra: dict[str, Any] = {}
         trace = self.backend.demand_trace
-        if trace is not None:
+        if self.telemetry_window is not None:
+            window = self.telemetry_window.demand_mw
+            pv_window = self.telemetry_window.pv_mw
+            info_extra = {
+                "demand_window_start_index": 0,
+                "demand_window_start_time": str(self.telemetry_window.first_evaluated_timestamp),
+                "telemetry_context_time": str(self.telemetry_window.context_timestamp),
+                "telemetry_end_time": str(self.telemetry_window.last_evaluated_timestamp),
+                "telemetry_source_files": self.telemetry_window.source_files,
+                "pv_is_real": True,
+            }
+        elif trace is not None:
             if self.settings.demand.random_window:
                 window, start_idx = trace.sample_window(self.np_random, self.max_steps)
             else:
@@ -171,13 +187,13 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
                 "demand_window_start_time": trace.window_start_time(start_idx),
             }
 
-        self._last_state = self.backend.reset(seed=seed, demand_window_mw=window)
+        self._last_state = self.backend.reset(
+            seed=seed, demand_window_mw=window, pv_window_mw=pv_window
+        )
         obs = self._build_obs(self._last_state)
         return obs, {"timestamp": self._last_state.timestamp, **info_extra}
 
-    def step(
-        self, action: np.ndarray
-    ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         control = self._decode_action(action)
         state = self.backend.step(control)
         self._last_state = state
@@ -200,6 +216,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "diesel_p_mw": state.diesel_p_mw,
             "diesel_on": state.diesel_on,
             "demand_is_real": state.demand_is_real,
+            "pv_is_real": state.pv_is_real,
             **breakdown.as_info(),
         }
         return obs, float(reward), terminated, truncated, info
@@ -209,9 +226,9 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             return None
         s = self._last_state
         return (
-            f"t={s.timestamp:6.2f}h  import={s.grid_import_mw*1000:7.2f}kW  "
+            f"t={s.timestamp:6.2f}h  import={s.grid_import_mw * 1000:7.2f}kW  "
             f"soc={self.backend.battery.soc:5.2f}  soh={self.backend.battery.soh:6.4f}  "
-            f"pv={s.pv_used_mw*1000:6.2f}/{s.pv_available_mw*1000:6.2f}kW"
+            f"pv={s.pv_used_mw * 1000:6.2f}/{s.pv_available_mw * 1000:6.2f}kW"
         )
 
     def close(self) -> None:

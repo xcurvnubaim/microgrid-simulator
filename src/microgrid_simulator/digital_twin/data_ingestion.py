@@ -18,7 +18,14 @@ from microgrid_simulator.config import DigitalTwinCfg, MeasurementCfg
 LOGGER = logging.getLogger(__name__)
 
 # Multiplier to the canonical unit (MW for power, fraction for SOC).
-UNIT_SCALES = {"w": 1e-6, "kw": 1e-3, "mw": 1.0, "pct": 0.01, "percent": 0.01, "fraction": 1.0}
+UNIT_SCALES = {
+    "w": 1e-6,
+    "kw": 1e-3,
+    "mw": 1.0,
+    "pct": 0.01,
+    "percent": 0.01,
+    "fraction": 1.0,
+}
 _MEAN_UNITS = {"pct", "percent", "fraction"}  # levels average; powers sum
 
 
@@ -29,8 +36,10 @@ def load_series(cfg: MeasurementCfg) -> pd.Series:
         raise FileNotFoundError(f"measurement file not found: {path}")
 
     unit = cfg.unit.lower()
-    if unit not in UNIT_SCALES:
-        raise ValueError(f"unknown unit {cfg.unit!r}; expected one of {sorted(UNIT_SCALES)}")
+    energy_units = {"kwh_per_step", "mwh_per_step"}
+    if unit not in UNIT_SCALES and unit not in energy_units:
+        expected = sorted([*UNIT_SCALES, *energy_units])
+        raise ValueError(f"unknown unit {cfg.unit!r}; expected one of {expected}")
 
     if path.suffix.lower() in {".xlsx", ".xlsm", ".xls"}:
         frame = pd.read_excel(
@@ -39,22 +48,55 @@ def load_series(cfg: MeasurementCfg) -> pd.Series:
     else:
         frame = pd.read_csv(path, header=cfg.header_row)
 
-    missing = {cfg.timestamp_column, cfg.value_column} - set(frame.columns)
+    required_columns = {cfg.value_column}
+    if cfg.timestamp_column is not None:
+        required_columns.add(cfg.timestamp_column)
+    missing = required_columns - set(frame.columns)
     if missing:
         raise ValueError(
             f"{path.name}: missing column(s) {sorted(missing)}; found {list(frame.columns)}"
         )
 
-    ts = pd.to_datetime(frame[cfg.timestamp_column], errors="coerce")
+    if cfg.timestamp_column is None:
+        if cfg.synthetic_start is None or cfg.synthetic_step_hours is None:
+            raise ValueError(
+                f"{path.name}: positional series requires synthetic_start and synthetic_step_hours"
+            )
+        ts = pd.date_range(
+            cfg.synthetic_start,
+            periods=len(frame),
+            freq=pd.to_timedelta(cfg.synthetic_step_hours, unit="h"),
+        )
+    else:
+        ts = pd.to_datetime(frame[cfg.timestamp_column], errors="coerce")
     values = pd.to_numeric(frame[cfg.value_column], errors="coerce")
-    series = pd.Series(values.to_numpy(), index=ts).dropna()
+    series = pd.Series(values.to_numpy() * cfg.value_multiplier, index=ts).dropna()
     series = series[series.index.notna()]
     if series.empty:
         raise ValueError(f"{path.name}: no usable rows after parsing timestamps/values")
 
     agg = "mean" if unit in _MEAN_UNITS else "sum"
     series = series.groupby(level=0).agg(agg).sort_index()
-    return series * UNIT_SCALES[unit]
+    if unit == "kwh_per_step":
+        if not cfg.synthetic_step_hours or cfg.synthetic_step_hours <= 0:
+            raise ValueError(f"{path.name}: kwh_per_step requires positive synthetic_step_hours")
+        scale = 1e-3 / cfg.synthetic_step_hours
+    elif unit == "mwh_per_step":
+        if not cfg.synthetic_step_hours or cfg.synthetic_step_hours <= 0:
+            raise ValueError(f"{path.name}: mwh_per_step requires positive synthetic_step_hours")
+        scale = 1.0 / cfg.synthetic_step_hours
+    else:
+        scale = UNIT_SCALES[unit]
+    series = series * scale
+    if cfg.prepend_first_as_context:
+        if not cfg.synthetic_step_hours or cfg.synthetic_step_hours <= 0:
+            raise ValueError(
+                f"{path.name}: prepend_first_as_context requires positive synthetic_step_hours"
+            )
+        context_timestamp = series.index[0] - pd.to_timedelta(cfg.synthetic_step_hours, unit="h")
+        context = pd.Series([series.iloc[0]], index=pd.DatetimeIndex([context_timestamp]))
+        series = pd.concat([context, series])
+    return series
 
 
 def load_measurements(cfg: DigitalTwinCfg) -> dict[str, pd.Series]:
@@ -67,7 +109,10 @@ def load_measurements(cfg: DigitalTwinCfg) -> dict[str, pd.Series]:
     for name, spec in cfg.measurements.items():
         out[name] = load_series(spec)
         LOGGER.info(
-            "Loaded %s: %d samples, %s .. %s", name, len(out[name]),
-            out[name].index[0], out[name].index[-1],
+            "Loaded %s: %d samples, %s .. %s",
+            name,
+            len(out[name]),
+            out[name].index[0],
+            out[name].index[-1],
         )
     return out
