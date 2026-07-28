@@ -134,6 +134,9 @@ def generate_forecast_cache(
                 X_future["month"] = [ts.month for ts in future_timestamps]
 
                 pv_pred_kw = lgbm_pv_model.predict(X_future).clip(min=0)
+                # Physical solar rule: Solar PV generation must be exactly 0 kW when shortwave radiation is 0 (night-time)
+                sw_rad = X_future["shortwave_radiation"].to_numpy()
+                pv_pred_kw = np.where(sw_rad <= 0.0, 0.0, pv_pred_kw)
                 pv_pred_mw = tuple(float(val) / 1000.0 for val in pv_pred_kw)
 
                 # Combine LightGBM PV (best) + Chronos Demand (best)
