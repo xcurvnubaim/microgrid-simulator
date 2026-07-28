@@ -77,8 +77,8 @@ def generate_forecast_cache(
 
         if mode == "http" and http_client:
             # Send past 24h context to Chronos HTTP forecaster
-            past_pv = tuple(float(val) for val in pv_mw[i-96:i:4])
-            past_demand = tuple(float(val) for val in demand_mw[i-96:i:4])
+            past_pv = tuple(max(0.0, float(val)) for val in pv_mw[i-96:i:4])
+            past_demand = tuple(max(0.0, float(val)) for val in demand_mw[i-96:i:4])
             ctx = ForecastContext(
                 source_id=settings.scenario.name,
                 frequency_hours=1.0,
