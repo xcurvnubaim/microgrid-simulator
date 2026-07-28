@@ -40,11 +40,12 @@ def generate_forecast_cache(
     output: Path = typer.Option(Path("data/forecasts.jsonl"), help="output JSONL file path"),
     config: Path | None = typer.Option(None, help="scenario YAML configuration"),
     manifest: Path | None = typer.Option(Path("data/forecast_manifest.json"), help="output manifest file path"),
+    mode: str = typer.Option("persistence", help="persistence (24h past repetition) | http (call chronos service)"),
 ) -> None:
-    """Pre-generate a 24-hour forecast JSONL cache across telemetry ranges."""
+    """Pre-generate a leakage-free 24-hour forecast JSONL cache across telemetry ranges."""
     from microgrid_simulator.digital_twin.data_ingestion import load_measurements
     from microgrid_simulator.digital_twin.alignment import align_series
-    from microgrid_simulator.forecast import ForecastCache, ForecastSnapshot
+    from microgrid_simulator.forecast import ForecastCache, ForecastSnapshot, ForecastClient, ForecastContext
 
     settings = _load_settings(config)
     measurements = load_measurements(settings.digital_twin)
@@ -65,55 +66,60 @@ def generate_forecast_cache(
     demand_mw = load_series.to_numpy()
     n_samples = len(timestamps)
 
-    typer.echo(f"Generating forecast cache for {n_samples} aligned 15-min telemetry timestamps...")
+    typer.echo(f"Generating leakage-free ({mode}) forecast cache for {n_samples} aligned timestamps...")
 
     records: dict[str, ForecastSnapshot] = {}
+    http_client = ForecastClient(settings.forecast) if mode == "http" else None
 
-    for i in range(0, n_samples, 4):  # hourly steps
+    # Step through hourly indices, requiring at least 24h (96 steps) of past context
+    for i in range(96, n_samples, 4):  
         issued_at = pd.Timestamp(timestamps[i]).isoformat()
-        horizon_pv = []
-        horizon_demand = []
-        ts_list = []
-        for h in range(24):
-            idx_start = i + h * 4
-            idx_end = min(idx_start + 4, n_samples)
-            if idx_start < n_samples:
-                pv_avg = float(np.mean(pv_mw[idx_start:idx_end]))
-                demand_avg = float(np.mean(demand_mw[idx_start:idx_end]))
-                horizon_pv.append(pv_avg)
-                horizon_demand.append(demand_avg)
-                ts_list.append(pd.Timestamp(timestamps[idx_start]).isoformat())
-            else:
-                horizon_pv.append(0.0)
-                horizon_demand.append(0.0)
-                ts_list.append(pd.Timestamp(timestamps[-1]).isoformat())
 
-        records[issued_at] = ForecastSnapshot(
-            issued_at=issued_at,
-            horizon_hours=24,
-            frequency_hours=1.0,
-            model_version="telemetry-oracle-cached",
-            pv_target="pv_avg",
-            demand_target="demand",
-            timestamps=tuple(ts_list),
-            pv_values_mw=tuple(horizon_pv),
-            demand_values_mw=tuple(horizon_demand),
-            source_id=settings.scenario.name,
-            context_time=issued_at,
-            context_steps=i + 1,
-            cold_start=False,
-            covariate_mode="oracle",
-        )
+        if mode == "http" and http_client:
+            # Send past 24h context to Chronos HTTP forecaster
+            past_pv = tuple(float(val) for val in pv_mw[i-96:i:4])
+            past_demand = tuple(float(val) for val in demand_mw[i-96:i:4])
+            ctx = ForecastContext(
+                source_id=settings.scenario.name,
+                frequency_hours=1.0,
+                pv_values_mw=past_pv,
+                demand_values_mw=past_demand,
+            )
+            snapshot = http_client.fetch(ctx, issued_at=issued_at)
+            records[issued_at] = snapshot
+        else:
+            # Mode = persistence baseline: use the past 24 hours of observed data as the forecast horizon for the next 24 hours
+            past_pv_horizon = [float(np.mean(pv_mw[i - 96 + h * 4 : i - 96 + (h + 1) * 4])) for h in range(24)]
+            past_demand_horizon = [float(np.mean(demand_mw[i - 96 + h * 4 : i - 96 + (h + 1) * 4])) for h in range(24)]
+            ts_list = [pd.Timestamp(timestamps[i]).isoformat() + f"+{h}h" for h in range(24)]
+
+            records[issued_at] = ForecastSnapshot(
+                issued_at=issued_at,
+                horizon_hours=24,
+                frequency_hours=1.0,
+                model_version="persistence-24h-cached",
+                pv_target="pv_avg",
+                demand_target="demand",
+                timestamps=tuple(ts_list),
+                pv_values_mw=tuple(past_pv_horizon),
+                demand_values_mw=tuple(past_demand_horizon),
+                source_id=settings.scenario.name,
+                context_time=issued_at,
+                context_steps=i,
+                cold_start=False,
+                covariate_mode="persistence",
+            )
 
     cache = ForecastCache(records)
     output.parent.mkdir(parents=True, exist_ok=True)
     cache.to_jsonl(str(output))
-    typer.echo(f"Saved {len(cache)} forecast snapshot records to {output}")
+    typer.echo(f"Saved {len(cache)} leakage-free forecast snapshot records to {output}")
 
     if manifest:
         manifest_data = {
             "cache_version": "1.0",
             "source_id": settings.scenario.name,
+            "mode": mode,
             "total_records": len(cache),
             "horizon_hours": 24,
             "frequency_hours": 1.0,
