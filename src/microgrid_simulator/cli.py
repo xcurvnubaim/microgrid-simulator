@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import typer
 
 from microgrid_simulator.config import Settings, load_settings
@@ -32,6 +33,99 @@ def _replay_output_dir(settings: Settings, policy: str) -> Path:
         raise ValueError("fixed telemetry replay requires episode.telemetry_start")
     date = start.split()[0].split("T")[0]
     return Path("reports/experiments") / f"islanded_72h_{policy}_{date}"
+
+
+@app.command()
+def generate_forecast_cache(
+    output: Path = typer.Option(Path("data/forecasts.jsonl"), help="output JSONL file path"),
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    manifest: Path | None = typer.Option(Path("data/forecast_manifest.json"), help="output manifest file path"),
+) -> None:
+    """Pre-generate a 24-hour forecast JSONL cache across telemetry ranges."""
+    from microgrid_simulator.digital_twin.data_ingestion import load_measurements
+    from microgrid_simulator.digital_twin.alignment import align_series
+    from microgrid_simulator.forecast import ForecastCache, ForecastSnapshot
+
+    settings = _load_settings(config)
+    measurements = load_measurements(settings.digital_twin)
+    if "load" not in measurements or "pv" not in measurements:
+        typer.echo("Error: digital_twin config must specify load and pv measurement sources.", err=True)
+        raise typer.Exit(code=1)
+
+    aligned = align_series(measurements, timestep_hours=0.25, max_gap_steps=1000, max_missing_fraction=0.50)
+    load_series = aligned["load"].dropna()
+    pv_series = aligned["pv"].dropna()
+
+    common_idx = load_series.index.intersection(pv_series.index)
+    load_series = load_series.reindex(common_idx)
+    pv_series = pv_series.reindex(common_idx)
+
+    timestamps = list(common_idx)
+    pv_mw = pv_series.to_numpy()
+    demand_mw = load_series.to_numpy()
+    n_samples = len(timestamps)
+
+    typer.echo(f"Generating forecast cache for {n_samples} aligned 15-min telemetry timestamps...")
+
+    records: dict[str, ForecastSnapshot] = {}
+
+    for i in range(0, n_samples, 4):  # hourly steps
+        issued_at = pd.Timestamp(timestamps[i]).isoformat()
+        horizon_pv = []
+        horizon_demand = []
+        ts_list = []
+        for h in range(24):
+            idx_start = i + h * 4
+            idx_end = min(idx_start + 4, n_samples)
+            if idx_start < n_samples:
+                pv_avg = float(np.mean(pv_mw[idx_start:idx_end]))
+                demand_avg = float(np.mean(demand_mw[idx_start:idx_end]))
+                horizon_pv.append(pv_avg)
+                horizon_demand.append(demand_avg)
+                ts_list.append(pd.Timestamp(timestamps[idx_start]).isoformat())
+            else:
+                horizon_pv.append(0.0)
+                horizon_demand.append(0.0)
+                ts_list.append(pd.Timestamp(timestamps[-1]).isoformat())
+
+        records[issued_at] = ForecastSnapshot(
+            issued_at=issued_at,
+            horizon_hours=24,
+            frequency_hours=1.0,
+            model_version="telemetry-oracle-cached",
+            pv_target="pv_avg",
+            demand_target="demand",
+            timestamps=tuple(ts_list),
+            pv_values_mw=tuple(horizon_pv),
+            demand_values_mw=tuple(horizon_demand),
+            source_id=settings.scenario.name,
+            context_time=issued_at,
+            context_steps=i + 1,
+            cold_start=False,
+            covariate_mode="oracle",
+        )
+
+    cache = ForecastCache(records)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    cache.to_jsonl(str(output))
+    typer.echo(f"Saved {len(cache)} forecast snapshot records to {output}")
+
+    if manifest:
+        manifest_data = {
+            "cache_version": "1.0",
+            "source_id": settings.scenario.name,
+            "total_records": len(cache),
+            "horizon_hours": 24,
+            "frequency_hours": 1.0,
+            "splits": {
+                "train": {"start": "2025-12-02T00:00:00", "end": "2026-01-29T23:45:00"},
+                "val": {"start": "2026-02-06T00:00:00", "end": "2026-02-24T23:45:00", "exclude_gaps": ["2026-02-04"]},
+                "test": {"start": "2026-03-01T00:00:00", "end": "2026-03-31T23:45:00"},
+            },
+        }
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps(manifest_data, indent=2))
+        typer.echo(f"Saved manifest to {manifest}")
 
 
 @app.command()
