@@ -151,6 +151,20 @@ episode:
   horizon_hours: 24.0        # one day per episode
   start_hour: 0.0
 
+# --- Chronos PV + demand forecast observation (separate forecaster service) ---
+# Enable after starting `uv run forecaster serve` in ../microgrid-forecaster.
+# Scenario-aligned history is sent in kW; responses must carry the same source
+# id and are converted once to MW for the observation. They never replace plant inputs.
+forecast:
+  enabled: false
+  service_url: http://127.0.0.1:8000
+  horizon_hours: 24          # user-selectable 1..168 h look-ahead
+  target: pv_avg
+  demand_target: demand
+  source_unit: kw
+  timeout_seconds: 30.0
+  refresh_each_step: true      # request a fresh N-hour curve before each next decision
+
 # --- reward weights (the five terms from the diagram) ---
 reward:
   w_carbon: 1.0              # grid + diesel carbon intensity x kWh

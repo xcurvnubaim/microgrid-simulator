@@ -323,6 +323,24 @@ class EpisodeCfg(BaseModel):
     telemetry_start: str | None = None
 
 
+class ForecastCfg(BaseModel):
+    """Chronos service connection and observation horizon.
+
+    The service forecasts hourly PV and demand in kW. The simulator converts
+    both to MW before appending them to the Gym observation; neither forecast
+    substitutes for the plant's measured or synthetic trajectories.
+    """
+
+    enabled: bool = False
+    service_url: str = "http://127.0.0.1:8000"
+    horizon_hours: int = Field(default=24, ge=1, le=168)
+    target: str = "pv_avg"  # PV target; retained for config compatibility
+    demand_target: str = "demand"
+    source_unit: Literal["kw", "mw"] = "kw"
+    timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
+    refresh_each_step: bool = True
+
+
 class RewardCfg(BaseModel):
     mode: Literal["project", "pymgrid"] = "project"
     w_carbon: float = 1.0
@@ -387,6 +405,7 @@ class Settings(BaseSettings):
     battery_schedule: BatteryScheduleCfg = Field(default_factory=BatteryScheduleCfg)
     demand: DemandCfg = Field(default_factory=DemandCfg)
     episode: EpisodeCfg = Field(default_factory=EpisodeCfg)
+    forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     reward: RewardCfg = Field(default_factory=RewardCfg)
     buses: list[BusCfg] = Field(default_factory=_default_buses)
     lines: list[LineCfg] = Field(default_factory=_default_lines)

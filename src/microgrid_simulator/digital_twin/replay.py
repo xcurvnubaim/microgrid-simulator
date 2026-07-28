@@ -22,13 +22,19 @@ REQUIRED_REPLAY_SERIES = ("load", "pv")
 
 @dataclass(frozen=True)
 class TelemetryWindow:
-    """One aligned episode window in canonical units (MW)."""
+    """One aligned episode window in canonical units (MW).
+
+    ``timestamps_are_observed`` distinguishes real meter timestamps from an
+    artificial clock assigned to positional reference data. Only observed
+    timestamps can safely anchor a historical forecaster request.
+    """
 
     demand_mw: np.ndarray
     pv_mw: np.ndarray
     timestamps: pd.DatetimeIndex
     first_evaluated_timestamp: pd.Timestamp
     source_files: dict[str, str]
+    timestamps_are_observed: bool = True
 
     @property
     def context_timestamp(self) -> pd.Timestamp:
@@ -97,10 +103,15 @@ def load_fixed_telemetry_window(settings: Settings, n_steps: int) -> TelemetryWi
     source_files = {
         name: settings.digital_twin.measurements[name].file for name in REQUIRED_REPLAY_SERIES
     }
+    timestamps_are_observed = all(
+        settings.digital_twin.measurements[name].timestamp_column is not None
+        for name in REQUIRED_REPLAY_SERIES
+    )
     return TelemetryWindow(
         demand_mw=frame["load"].to_numpy(dtype=np.float64),
         pv_mw=frame["pv"].to_numpy(dtype=np.float64),
         timestamps=pd.DatetimeIndex(frame.index),
         first_evaluated_timestamp=first,
         source_files=source_files,
+        timestamps_are_observed=timestamps_are_observed,
     )

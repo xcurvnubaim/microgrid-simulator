@@ -12,9 +12,7 @@ from microgrid_simulator.config import Settings
 from microgrid_simulator.rl.env import MicrogridEnv
 
 
-def make_env_fn(
-    settings: Settings, backend_name: str | None = None
-) -> Callable[[], MicrogridEnv]:
+def make_env_fn(settings: Settings, backend_name: str | None = None) -> Callable[[], MicrogridEnv]:
     def _init() -> MicrogridEnv:
         return MicrogridEnv(settings=settings, backend_name=backend_name)
 

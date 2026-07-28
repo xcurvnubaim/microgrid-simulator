@@ -78,12 +78,8 @@ def test_explicit_kw_level_is_clamped_to_stable_band() -> None:
     d = settings.diesel
     assert controller.act(_state(hour=6.0)).diesel_setpoint_mw == pytest.approx(0.080)
     # Below min stable load clamps up; above nameplate clamps down.
-    assert controller.act(_state(hour=15.0)).diesel_setpoint_mw == pytest.approx(
-        d.min_kw / 1000.0
-    )
-    assert controller.act(_state(hour=21.0)).diesel_setpoint_mw == pytest.approx(
-        d.max_kw / 1000.0
-    )
+    assert controller.act(_state(hour=15.0)).diesel_setpoint_mw == pytest.approx(d.min_kw / 1000.0)
+    assert controller.act(_state(hour=21.0)).diesel_setpoint_mw == pytest.approx(d.max_kw / 1000.0)
 
 
 def test_overnight_wraparound_segment() -> None:

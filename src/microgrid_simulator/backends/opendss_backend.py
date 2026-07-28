@@ -66,9 +66,7 @@ class OpenDSSBackend(SimpleBackend):
         self._bus_order = [int(b.id) for b in buses]
         by_id = {int(b.id): b for b in buses}
 
-        ref = next(
-            (b for b in buses if b.role.lower() in {"grid", "slack", "utility"}), buses[0]
-        )
+        ref = next((b for b in buses if b.role.lower() in {"grid", "slack", "utility"}), buses[0])
         self._cmd("clear")
         self._cmd(
             f"new circuit.microgrid bus1=bus{ref.id} basekv={ref.vn_kv} pu=1.0 phases=3 mvasc3=200"
@@ -103,9 +101,7 @@ class OpenDSSBackend(SimpleBackend):
             )
         for i, pv in enumerate(s.pv_arrays[: self.topo.n_pv]):
             kv = by_id.get(int(pv.bus), ref).vn_kv
-            self._cmd(
-                f"new generator.pv_{i} bus1=bus{pv.bus} phases=3 kv={kv} kw=0 pf=1 model=1"
-            )
+            self._cmd(f"new generator.pv_{i} bus1=bus{pv.bus} phases=3 kv={kv} kw=0 pf=1 model=1")
         if s.diesel.enabled:
             kv = by_id.get(int(s.diesel.bus), ref).vn_kv
             self._cmd(
@@ -117,9 +113,7 @@ class OpenDSSBackend(SimpleBackend):
         # EV chargers aggregate into one load at the EV bus.
         kv = by_id.get(int(s.ev.bus), ref).vn_kv
         self._cmd(f"new load.ev bus1=bus{s.ev.bus} phases=3 kv={kv} kw=0 kvar=0 model=1")
-        self._cmd(
-            f"new load.dump bus1=bus{ref.id} phases=3 kv={ref.vn_kv} kw=0 kvar=0 model=1"
-        )
+        self._cmd(f"new load.dump bus1=bus{ref.id} phases=3 kv={ref.vn_kv} kw=0 kvar=0 model=1")
 
         kvs = sorted({b.vn_kv for b in buses})
         self._cmd(f"set voltagebases={kvs}")
@@ -132,22 +126,12 @@ class OpenDSSBackend(SimpleBackend):
             return
         dss = self._dss
         served_fraction = (
-            state.load_served_mw / state.load_demand_mw
-            if state.load_demand_mw > 1e-12
-            else 1.0
+            state.load_served_mw / state.load_demand_mw if state.load_demand_mw > 1e-12 else 1.0
         )
         served_fraction = max(0.0, min(1.0, served_fraction))
         for i, p_mw in enumerate(state.p_load):
-            q_base = (
-                self.settings.loads[i].q_mvar
-                if i < len(self.settings.loads)
-                else 0.0
-            )
-            p_base = (
-                self.settings.loads[i].p_mw
-                if i < len(self.settings.loads)
-                else 0.0
-            )
+            q_base = self.settings.loads[i].q_mvar if i < len(self.settings.loads) else 0.0
+            p_base = self.settings.loads[i].p_mw if i < len(self.settings.loads) else 0.0
             q_mvar = q_base * (p_mw / p_base) if p_base > 1e-12 else 0.0
             self._cmd(
                 f"edit load.static_{i} kw={p_mw * served_fraction * 1000.0} "

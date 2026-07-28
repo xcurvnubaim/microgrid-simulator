@@ -14,8 +14,13 @@ def _battery() -> BatteryModel:
 
 def test_reward_is_non_positive() -> None:
     state = GridState(
-        v_bus=[1.0, 1.0], grid_import_mw=0.1, pv_available_mw=0.1, pv_used_mw=0.1,
-        load_demand_mw=0.2, load_served_mw=0.2, solver_ok=True,
+        v_bus=[1.0, 1.0],
+        grid_import_mw=0.1,
+        pv_available_mw=0.1,
+        pv_used_mw=0.1,
+        load_demand_mw=0.2,
+        load_served_mw=0.2,
+        solver_ok=True,
     )
     reward, _ = compute_reward(state, _battery(), RewardCfg(), dt_hours=0.25)
     assert reward <= 0.0
@@ -23,10 +28,12 @@ def test_reward_is_non_positive() -> None:
 
 def test_no_import_beats_high_import() -> None:
     cfg, dt = RewardCfg(), 0.25
-    good = GridState(v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1,
-                     pv_used_mw=0.1, solver_ok=True)
-    bad = GridState(v_bus=[1.0], grid_import_mw=0.5, pv_available_mw=0.1,
-                    pv_used_mw=0.1, solver_ok=True)
+    good = GridState(
+        v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1, pv_used_mw=0.1, solver_ok=True
+    )
+    bad = GridState(
+        v_bus=[1.0], grid_import_mw=0.5, pv_available_mw=0.1, pv_used_mw=0.1, solver_ok=True
+    )
     r_good, _ = compute_reward(good, _battery(), cfg, dt)
     r_bad, _ = compute_reward(bad, _battery(), cfg, dt)
     assert r_good > r_bad
@@ -34,10 +41,12 @@ def test_no_import_beats_high_import() -> None:
 
 def test_curtailed_solar_is_penalised() -> None:
     cfg, dt = RewardCfg(), 0.25
-    used = GridState(v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1,
-                     pv_used_mw=0.1, solver_ok=True)
-    wasted = GridState(v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1,
-                       pv_used_mw=0.0, solver_ok=True)
+    used = GridState(
+        v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1, pv_used_mw=0.1, solver_ok=True
+    )
+    wasted = GridState(
+        v_bus=[1.0], grid_import_mw=0.0, pv_available_mw=0.1, pv_used_mw=0.0, solver_ok=True
+    )
     _, b_used = compute_reward(used, _battery(), cfg, dt)
     _, b_wasted = compute_reward(wasted, _battery(), cfg, dt)
     assert b_wasted.waste > b_used.waste

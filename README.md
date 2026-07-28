@@ -55,6 +55,44 @@ default is the single-bus native pymgrid25 scenario 2 translation described belo
 | `a[-2]` | diesel setpoint | `[0, diesel_max_kw]` (diesel enabled only) |
 | `a[-1]` | PV curtailment | `[0, 1]` fraction |
 
+### Chronos PV and demand forecast observation
+
+Run the separately deployable forecaster, then enable `forecast.enabled` in a
+scenario YAML or in the dashboard's **PV + demand forecast** panel:
+
+```bash
+cd ../microgrid-forecaster
+uv sync --extra foundation
+uv run forecaster serve --config configs/forecaster.yaml
+```
+
+The default forecaster configuration is HTTP-only; no Redis process is required.
+
+At reset and, by default, after every simulator step, the simulator sends
+`POST /forecast` with the user-selected `forecast.horizon_hours` (1–168) and a
+scenario-aligned history context: `source_id`, sampling frequency, and only
+observed PV/demand values in kW. The forecaster must echo that source identity;
+a campus response is explicitly unavailable in a pymgrid rollout. Responses
+contain timestamp-aligned hourly `pv_avg` and `demand` curves in kW, converted
+once to MW for the rolling N-hour observation. Step metadata retains the
+shifted horizon, source, issue/context time, cold-start and covariate mode,
+plus fresh/stale age status; the dashboard shows these diagnostics alongside
+the PV and dispatch overlays.
+
+For fixed campus-telemetry replays, each request includes the exact observed
+step timestamp and the context ends at the solved step, so the forecaster
+cannot use future history. Positional external-reference data (such as pymgrid)
+has an artificial clock and deliberately omits that timestamp; it still sends
+its own context and runs without campus weather covariates. A repeated service
+issue time is marked stale and consumes the retained horizon until exhaustion,
+when availability becomes false rather than repeating element zero.
+
+Forecasts are controller information only: measured or synthetic PV and demand
+remain the plant inputs. If the service is unavailable, the flag is `0`, both
+forecast vectors are zero-filled, and the reason is exposed in rollout metadata.
+Because the horizon fixes the observation shape (`1 + N PV + N demand` appended
+values), train and evaluate a policy with the same horizon.
+
 ### Real demand + diesel
 
 Point `demand.file` at the campus net-load export
@@ -203,9 +241,9 @@ uv run mypy src
 
 Phase 3 of *How to Build the Microgrid Brain Simulator* — the RL agent training
 loop. It builds on the pandapower physics (Phase 1) and the five-term reward +
-SoC physics (Phase 2). Next up: the Digital Twin state store + EnKF (Phase 4)
-and wiring the forecaster's `forecaster:load` Redis feed into the observation.
-```
+SoC physics (Phase 2). The Chronos service is now wired into the observation
+through its horizon-aware HTTP endpoint. Next up is the Digital Twin state
+store + EnKF (Phase 4).
 
 ## Dashboard
 

@@ -65,6 +65,40 @@ export default function ConfigRail({ settings, setSettings, demand, setDemand, o
         </div>
       </Group>
 
+      <Group title="PV + demand forecast" accent={COLORS.solar} open>
+        <Check
+          label="Use Chronos forecast"
+          checked={settings.forecast.enabled}
+          onChange={(v) => patch("forecast", { enabled: v })}
+        />
+        <Num
+          label="Forecast horizon (h)"
+          value={settings.forecast.horizon_hours}
+          step={1}
+          min={1}
+          max={168}
+          onChange={(v) => patch("forecast", { horizon_hours: Math.round(v) })}
+        />
+        <Check
+          label="Refresh every simulator step"
+          checked={settings.forecast.refresh_each_step}
+          onChange={(v) => patch("forecast", { refresh_each_step: v })}
+        />
+        <label className="field">
+          <span>Forecaster service URL</span>
+          <input
+            type="url"
+            value={settings.forecast.service_url}
+            onChange={(e) => patch("forecast", { service_url: e.target.value })}
+            placeholder="http://127.0.0.1:8000"
+          />
+        </label>
+        <div style={{ fontSize: 11, color: "var(--faint)" }}>
+          Each step requests aligned N-hour PV and demand curves for the next
+          decision. They do not replace the plant&apos;s measured or synthetic inputs.
+        </div>
+      </Group>
+
       <Group title="Demand source" accent={COLORS.load} open>
         <label className="upload">
           <input type="file" accept=".xlsx,.xlsm,.xls,.csv" onChange={(e) => onFile(e.target.files?.[0])} />

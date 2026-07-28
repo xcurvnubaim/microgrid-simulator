@@ -195,9 +195,7 @@ class SimpleBackend(MicrogridBackend):
             )
 
         local_supply_mw = pv_used + self.diesel.p_mw + max(0.0, -applied_battery_mw)
-        named_sinks_mw = (
-            served + max(0.0, applied_battery_mw) + max(0.0, -grid_import)
-        )
+        named_sinks_mw = served + max(0.0, applied_battery_mw) + max(0.0, -grid_import)
         excess_generation_mw = max(
             0.0,
             local_supply_mw + max(0.0, grid_import) - named_sinks_mw,

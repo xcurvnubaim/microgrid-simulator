@@ -13,7 +13,9 @@ Action (continuous, normalised to [-1, 1] for SB3 compatibility):
 
 Observation (float32 vector): bus voltages, static loads, PV generation,
 battery SoC/SoH, EV SoCs, grid import, PV availability, diesel output, plus
-cyclical time-of-day features.
+cyclical time-of-day features. When forecasting is enabled, a forecast
+availability flag followed by the configured number of hourly Chronos PV and
+demand values in MW are appended.
 
 Episodes: when a real demand trace is configured (``demand.file``) each
 ``reset()`` draws a random 24h window from it, so the agent sees varied real
@@ -27,6 +29,7 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+import pandas as pd
 from gymnasium import spaces
 
 from microgrid_simulator.backends import create_backend
@@ -34,6 +37,13 @@ from microgrid_simulator.config import Settings, load_settings
 from microgrid_simulator.core.backend import MicrogridBackend
 from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.digital_twin.replay import TelemetryWindow, load_fixed_telemetry_window
+from microgrid_simulator.forecast import (
+    ForecastClient,
+    ForecastContext,
+    ForecastError,
+    ForecastSnapshot,
+    ForecastSourceError,
+)
 from microgrid_simulator.model.reward import compute_reward
 
 
@@ -92,7 +102,13 @@ def encode_action(
     return np.clip(a, -1.0, 1.0)
 
 
-def build_observation(state: GridState, diesel_enabled: bool) -> np.ndarray:
+def build_observation(
+    state: GridState,
+    diesel_enabled: bool,
+    pv_forecast_mw: np.ndarray | None = None,
+    demand_forecast_mw: np.ndarray | None = None,
+    forecast_available: bool = False,
+) -> np.ndarray:
     """Flatten a :class:`GridState` into the env's float32 observation vector."""
     hour = state.timestamp % 24.0
     time_feats = [np.sin(2 * np.pi * hour / 24.0), np.cos(2 * np.pi * hour / 24.0)]
@@ -107,6 +123,12 @@ def build_observation(state: GridState, diesel_enabled: bool) -> np.ndarray:
     if diesel_enabled:
         vals += [state.diesel_p_mw]
     vals += time_feats
+    if pv_forecast_mw is not None:
+        vals += [1.0 if forecast_available else 0.0]
+        vals += list(pv_forecast_mw)
+        vals += list(
+            demand_forecast_mw if demand_forecast_mw is not None else np.zeros_like(pv_forecast_mw)
+        )
     return np.asarray(vals, dtype=np.float32)
 
 
@@ -122,6 +144,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         render_mode: str | None = None,
         backend: MicrogridBackend | None = None,
         backend_name: str | None = None,
+        forecast_client: ForecastClient | None = None,
     ) -> None:
         super().__init__()
         if settings is None:
@@ -133,6 +156,14 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self.telemetry_window: TelemetryWindow | None = load_fixed_telemetry_window(
             settings, self.max_steps
         )
+        self._forecast_client = forecast_client or ForecastClient(settings.forecast)
+        self._forecast_snapshot: ForecastSnapshot | None = None
+        self._forecast_error: str | None = None
+        self._forecast_origin_step = 0
+        self._forecast_stale = False
+        self._forecast_response_source: str | None = None
+        self._forecast_pv_history_mw: list[float] = []
+        self._forecast_demand_history_mw: list[float] = []
 
         if backend is not None:
             raise ValueError(
@@ -163,6 +194,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
     ) -> tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
         self._steps = 0
+        self._reset_forecast_state()
 
         # Draw a fresh random window of the real demand trace per episode
         # (never walk the file sequentially).
@@ -194,8 +226,14 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self._last_state = self.backend.reset(
             seed=seed, demand_window_mw=window, pv_window_mw=pv_window
         )
+        self._initialize_forecast_history(self._last_state)
+        self._load_forecast()
         obs = self._build_obs(self._last_state)
-        return obs, {"timestamp": self._last_state.timestamp, **info_extra}
+        return obs, {
+            "timestamp": self._last_state.timestamp,
+            **info_extra,
+            **self._forecast_meta(),
+        }
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         control = self._decode_action(action)
@@ -207,10 +245,14 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         )
 
         self._steps += 1
+        self._append_forecast_history(state)
         terminated = not state.solver_ok
         truncated = self._steps >= self.max_steps
+        if self.settings.forecast.enabled and self.settings.forecast.refresh_each_step:
+            self._load_forecast()
 
         obs = self._build_obs(state)
+        pv_forecast, demand_forecast = self._forecast_vectors()
         info: dict[str, Any] = {
             "timestamp": state.timestamp,
             "grid_import_mw": state.grid_import_mw,
@@ -227,6 +269,20 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "reference_balance_mw": state.reference_balance_mw,
             "demand_is_real": state.demand_is_real,
             "pv_is_real": state.pv_is_real,
+            "pv_forecast_mw": self._current_pv_forecast_mw(),
+            "demand_forecast_mw": self._current_demand_forecast_mw(),
+            "forecast_available": self._forecast_is_available(),
+            "forecast_horizon_mw": (pv_forecast.tolist() if self._forecast_is_available() else []),
+            "demand_forecast_horizon_mw": (
+                demand_forecast.tolist() if self._forecast_is_available() else []
+            ),
+            "forecast_issued_at": (
+                self._forecast_snapshot.issued_at if self._forecast_snapshot else None
+            ),
+            "forecast_model_version": (
+                self._forecast_snapshot.model_version if self._forecast_snapshot else None
+            ),
+            **self._forecast_meta(),
             **breakdown.as_info(),
         }
         return obs, float(reward), terminated, truncated, info
@@ -252,4 +308,163 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         return encode_action(action, self.settings, self.n_ev, self.diesel_enabled)
 
     def _build_obs(self, state: GridState) -> np.ndarray:
-        return build_observation(state, self.diesel_enabled)
+        pv_forecast: np.ndarray | None
+        demand_forecast: np.ndarray | None
+        pv_forecast, demand_forecast = self._forecast_vectors()
+        if not self.settings.forecast.enabled:
+            pv_forecast = None
+            demand_forecast = None
+        return build_observation(
+            state,
+            self.diesel_enabled,
+            pv_forecast_mw=pv_forecast,
+            demand_forecast_mw=demand_forecast,
+            forecast_available=self._forecast_is_available(),
+        )
+
+    # -- forecast observation ---------------------------------------------
+    def _reset_forecast_state(self) -> None:
+        self._forecast_snapshot = None
+        self._forecast_error = None
+        self._forecast_origin_step = 0
+        self._forecast_stale = False
+        self._forecast_response_source = None
+        self._forecast_pv_history_mw = []
+        self._forecast_demand_history_mw = []
+
+    def _initialize_forecast_history(self, state: GridState) -> None:
+        """Start fallback history with exactly one preceding/current measurement."""
+        if self.telemetry_window is None:
+            self._forecast_pv_history_mw = [max(0.0, state.pv_available_mw)]
+            self._forecast_demand_history_mw = [max(0.0, state.load_demand_mw)]
+
+    def _append_forecast_history(self, state: GridState) -> None:
+        """Append only the solved current step; never inspect a later replay point."""
+        if self.telemetry_window is None:
+            self._forecast_pv_history_mw.append(max(0.0, state.pv_available_mw))
+            self._forecast_demand_history_mw.append(max(0.0, state.load_demand_mw))
+
+    def _forecast_context(self) -> ForecastContext:
+        if self.telemetry_window is not None:
+            # Telemetry index zero is the preceding controller context.  At
+            # reset this slices one value; after step N it ends at N.
+            end = min(self._steps + 1, len(self.telemetry_window.demand_mw))
+            pv_history = tuple(float(value) for value in self.telemetry_window.pv_mw[:end])
+            demand_history = tuple(float(value) for value in self.telemetry_window.demand_mw[:end])
+        else:
+            pv_history = tuple(self._forecast_pv_history_mw)
+            demand_history = tuple(self._forecast_demand_history_mw)
+        return ForecastContext(
+            source_id=self.settings.scenario.name,
+            frequency_hours=self.dt,
+            pv_values_mw=pv_history,
+            demand_values_mw=demand_history,
+        )
+
+    def _load_forecast(self) -> None:
+        if not self.settings.forecast.enabled:
+            return
+        try:
+            snapshot = self._forecast_client.fetch(
+                self._forecast_context(), issued_at=self._forecast_request_timestamp()
+            )
+        except ForecastSourceError as exc:
+            # This is a correctness guard, not a transient outage: a campus
+            # curve must disappear immediately from a pymgrid rollout.
+            self._forecast_snapshot = None
+            self._forecast_error = str(exc)
+            self._forecast_stale = False
+            self._forecast_response_source = exc.actual_source
+            return
+        except ForecastError as exc:
+            # Preserve an unexhausted valid horizon through a transient error,
+            # but make the state visible rather than silently refreshing it.
+            self._forecast_error = str(exc)
+            self._forecast_stale = self._forecast_snapshot is not None
+            return
+
+        self._forecast_response_source = snapshot.source_id
+        if (
+            self._forecast_snapshot is not None
+            and snapshot.issued_at == self._forecast_snapshot.issued_at
+        ):
+            # Do not reset the origin.  The old horizon keeps advancing until
+            # it is exhausted, after which the availability mask turns off.
+            self._forecast_stale = True
+            self._forecast_error = None
+            return
+
+        self._forecast_snapshot = snapshot
+        self._forecast_origin_step = self._steps
+        self._forecast_stale = False
+        self._forecast_error = None
+
+    def _forecast_request_timestamp(self) -> str | None:
+        """Absolute replay time for leakage-free historical rolling forecasts."""
+        if self.telemetry_window is None or not self.telemetry_window.timestamps_are_observed:
+            return None
+        index = min(self._steps, len(self.telemetry_window.timestamps) - 1)
+        return str(pd.Timestamp(self.telemetry_window.timestamps[index]).isoformat())
+
+    def _forecast_offset(self) -> int:
+        snapshot = self._forecast_snapshot
+        frequency = snapshot.frequency_hours if snapshot else 1.0
+        elapsed_steps = max(0, self._steps - self._forecast_origin_step)
+        return int(np.floor((elapsed_steps * self.dt + 1e-12) / frequency))
+
+    def _forecast_is_available(self) -> bool:
+        snapshot = self._forecast_snapshot
+        return (
+            snapshot is not None
+            and self._forecast_offset() < len(snapshot.pv_values_mw)
+            and self._forecast_offset() < len(snapshot.demand_values_mw)
+        )
+
+    def _forecast_vectors(self) -> tuple[np.ndarray, np.ndarray]:
+        horizon = self.settings.forecast.horizon_hours
+        snapshot = self._forecast_snapshot
+        pv_vector = np.zeros(horizon, dtype=np.float32)
+        demand_vector = np.zeros(horizon, dtype=np.float32)
+        if snapshot is None:
+            return pv_vector, demand_vector
+        offset = self._forecast_offset()
+        pv_remaining = snapshot.pv_values_mw[offset : offset + horizon]
+        demand_remaining = snapshot.demand_values_mw[offset : offset + horizon]
+        pv_vector[: len(pv_remaining)] = pv_remaining
+        demand_vector[: len(demand_remaining)] = demand_remaining
+        return pv_vector, demand_vector
+
+    def _current_pv_forecast_mw(self) -> float | None:
+        if not self.settings.forecast.enabled or not self._forecast_is_available():
+            return None
+        return float(self._forecast_vectors()[0][0])
+
+    def _current_demand_forecast_mw(self) -> float | None:
+        if not self.settings.forecast.enabled or not self._forecast_is_available():
+            return None
+        return float(self._forecast_vectors()[1][0])
+
+    def _forecast_meta(self) -> dict[str, Any]:
+        cfg = self.settings.forecast
+        base: dict[str, Any] = {
+            "forecast_enabled": cfg.enabled,
+            "forecast_available": self._forecast_is_available(),
+            "forecast_requested_horizon_hours": cfg.horizon_hours,
+            "forecast_refresh_each_step": cfg.refresh_each_step,
+            "forecast_service_url": cfg.service_url,
+            "forecast_requested_source": self.settings.scenario.name,
+            "forecast_source": self._forecast_response_source,
+            "forecast_stale": self._forecast_stale,
+            "forecast_age_steps": max(0, self._steps - self._forecast_origin_step),
+            "forecast_uses_observed_replay_timestamp": bool(
+                self.telemetry_window is not None and self.telemetry_window.timestamps_are_observed
+            ),
+            "forecast_error": self._forecast_error,
+        }
+        if self._forecast_snapshot is not None:
+            base.update(self._forecast_snapshot.as_meta())
+            base["forecast_source"] = self._forecast_snapshot.source_id
+        # Snapshot metadata describes a valid response; availability also
+        # depends on whether its retained rolling horizon still has an element.
+        base["forecast_available"] = self._forecast_is_available()
+        return base

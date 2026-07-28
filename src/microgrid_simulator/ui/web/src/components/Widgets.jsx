@@ -1,6 +1,37 @@
 import React from "react";
 import { COLORS, fmt } from "../api.js";
 
+export function ForecastDiagnostics({ meta, rows }) {
+  if (!meta?.forecast_enabled) return null;
+  const current = rows?.[rows.length - 1] ?? meta;
+  const source = current.forecast_source ?? meta.forecast_source ?? "not returned";
+  const requested = current.forecast_requested_source ?? meta.forecast_requested_source;
+  const stale = current.forecast_stale ?? meta.forecast_stale;
+  const coldStart = current.forecast_cold_start ?? meta.forecast_cold_start;
+  const error = current.forecast_error ?? meta.forecast_error;
+  const contextTime = current.forecast_context_time ?? meta.forecast_context_time;
+  const issuedAt = current.forecast_issued_at ?? meta.forecast_issued_at;
+  const contextSteps = current.forecast_context_steps ?? meta.forecast_context_steps;
+  const age = current.forecast_age_steps ?? meta.forecast_age_steps;
+  const covariateMode = current.forecast_covariate_mode ?? meta.forecast_covariate_mode;
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <span className="eyebrow">Forecast diagnostics</span>
+        <span className="note">controller context only — never plant input</span>
+      </div>
+      <div className="demand-stats">
+        <span>source <b>{source}</b>{requested && ` · expected ${requested}`}</span>
+        <span>issue {issuedAt ?? "not returned"} · context {contextTime ?? "unanchored"}</span>
+        <span>{stale ? "stale — advancing retained horizon" : "fresh response"} · age {age ?? 0} step(s)</span>
+        <span>{coldStart ? "cold-start context" : "warm context"} · {contextSteps ?? 0} sample(s) · covariates {covariateMode ?? "unknown"}</span>
+        {error && <span style={{ color: "var(--grid)" }}>forecast error: <b>{error}</b></span>}
+      </div>
+    </div>
+  );
+}
+
 export function KpiStrip({ totals, meta }) {
   if (!totals) return null;
   const items = [
@@ -68,7 +99,9 @@ const TABLE_COLS = [
   ["requested_battery_kw", "batt request kW", 1],
   ["requested_diesel_kw", "diesel request kW", 1],
   ["load_kw", "load kW", 1],
+  ["demand_forecast_kw", "load forecast kW", 1],
   ["pv_used_kw", "pv kW", 1],
+  ["pv_forecast_kw", "forecast kW", 1],
   ["battery_kw", "batt kW", 1],
   ["diesel_kw", "diesel kW", 1],
   ["diesel_load_serving_kw", "diesel→load kW", 1],

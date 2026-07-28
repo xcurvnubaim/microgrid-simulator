@@ -115,6 +115,19 @@ export function DispatchChart({ rows, peakKw }) {
           dot={false}
           type="monotone"
         />
+        {rows.some((row) => row.demand_forecast_kw != null) && (
+          <Line
+            isAnimationActive={false}
+            dataKey="demand_forecast_kw"
+            name="Chronos demand forecast"
+            stroke={COLORS.accent}
+            strokeWidth={1.6}
+            strokeDasharray="6 4"
+            dot={false}
+            connectNulls={false}
+            type="stepAfter"
+          />
+        )}
         {peakKw > 0 && (
           <ReferenceLine
             y={peakKw}
@@ -163,8 +176,17 @@ export function BatteryChart({ rows }) {
 
 
 export function PvSocChart({ rows }) {
+  const hasForecast = rows.some((row) => row.pv_forecast_kw != null);
   return (
-    <Panel title="PV and battery SoC" note="PV availability/used vs storage level" height={280}>
+    <Panel
+      title="PV and battery SoC"
+      note={
+        hasForecast
+          ? "Chronos forecast vs PV availability/used and storage level"
+          : "PV availability/used vs storage level"
+      }
+      height={280}
+    >
       <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
@@ -190,6 +212,20 @@ export function PvSocChart({ rows }) {
           dot={false}
           type="monotone"
         />
+        {hasForecast && (
+          <Line
+            isAnimationActive={false}
+            yAxisId="kw"
+            dataKey="pv_forecast_kw"
+            name="Chronos PV forecast"
+            stroke={COLORS.accent}
+            strokeWidth={1.6}
+            strokeDasharray="6 4"
+            dot={false}
+            connectNulls={false}
+            type="stepAfter"
+          />
+        )}
         <Line isAnimationActive={false}
           yAxisId="soc"
           dataKey="soc_pct"

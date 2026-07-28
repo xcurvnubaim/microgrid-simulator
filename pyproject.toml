@@ -29,6 +29,9 @@ dependencies = [
     "python-multipart>=0.0.9",
     "pypsa>=0.35.2",
     "opendssdirect-py>=0.9.4",
+    "pvlib>=0.15.2",
+    "lightgbm>=4.7.0",
+    "scikit-learn>=1.7.2",
 ]
 
 [project.optional-dependencies]

@@ -57,12 +57,19 @@ def train(
 
     n_envs = rl.n_envs or (4 if algo == "ppo" else 1)  # SAC is off-policy, 1 env is fine
     vec_env = make_training_env(
-        settings, n_envs=n_envs, seed=seed, monitor_dir=run_dir / "monitor",
+        settings,
+        n_envs=n_envs,
+        seed=seed,
+        monitor_dir=run_dir / "monitor",
         backend_name=backend_name,
     )
     eval_env = make_training_env(
-        settings, n_envs=1, seed=seed + 10_000, monitor_dir=run_dir / "eval_monitor",
-        training=False, backend_name=backend_name,
+        settings,
+        n_envs=1,
+        seed=seed + 10_000,
+        monitor_dir=run_dir / "eval_monitor",
+        training=False,
+        backend_name=backend_name,
     )
 
     model_cls = cast(Any, ALGOS[algo])
@@ -73,8 +80,13 @@ def train(
         seed=seed,
         tensorboard_log=str(tensorboard_log) if tensorboard_log else None,
     )
-    LOGGER.info("Training %s for %d timesteps (%d envs) -> %s",
-                algo.upper(), total_timesteps, n_envs, run_dir)
+    LOGGER.info(
+        "Training %s for %d timesteps (%d envs) -> %s",
+        algo.upper(),
+        total_timesteps,
+        n_envs,
+        run_dir,
+    )
     model.learn(
         total_timesteps=total_timesteps,
         callback=build_callbacks(settings, eval_env, run_dir, algo),

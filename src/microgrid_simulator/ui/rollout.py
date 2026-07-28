@@ -155,9 +155,7 @@ def _per_bus_state(settings: Settings, s: Any, slack_id: int) -> dict[int, dict[
             "pv_kw": pv_mw * 1000.0,
             "battery_kw": s.battery_p_mw * 1000.0 if bus.id == settings.battery.bus else 0.0,
             "diesel_kw": s.diesel_p_mw * 1000.0 if on_diesel_bus else 0.0,
-            "diesel_excess_kw": (
-                s.diesel_overgeneration_mw * 1000.0 if on_diesel_bus else 0.0
-            ),
+            "diesel_excess_kw": (s.diesel_overgeneration_mw * 1000.0 if on_diesel_bus else 0.0),
             "diesel_on": bool(s.diesel_on) if on_diesel_bus else False,
             "grid_kw": s.grid_import_mw * 1000.0 if bus.id == slack_id else 0.0,
             "v_pu": round(s.v_bus[i], 5) if i < len(s.v_bus) else None,
@@ -221,6 +219,34 @@ def _step_row(
         "pv_is_real": bool(s.pv_is_real),
         "pv_available_kw": s.pv_available_mw * 1000.0,
         "pv_used_kw": s.pv_used_mw * 1000.0,
+        "pv_forecast_kw": (
+            float(info["pv_forecast_mw"]) * 1000.0
+            if info.get("pv_forecast_mw") is not None
+            else None
+        ),
+        "pv_forecast_horizon_kw": [
+            float(value) * 1000.0 for value in info.get("forecast_horizon_mw", [])
+        ],
+        "demand_forecast_kw": (
+            float(info["demand_forecast_mw"]) * 1000.0
+            if info.get("demand_forecast_mw") is not None
+            else None
+        ),
+        "demand_forecast_horizon_kw": [
+            float(value) * 1000.0 for value in info.get("demand_forecast_horizon_mw", [])
+        ],
+        "forecast_issued_at": info.get("forecast_issued_at"),
+        "forecast_model_version": info.get("forecast_model_version"),
+        "forecast_available": bool(info.get("forecast_available", False)),
+        "forecast_source": info.get("forecast_source"),
+        "forecast_requested_source": info.get("forecast_requested_source"),
+        "forecast_context_time": info.get("forecast_context_time"),
+        "forecast_context_steps": info.get("forecast_context_steps"),
+        "forecast_stale": bool(info.get("forecast_stale", False)),
+        "forecast_age_steps": info.get("forecast_age_steps"),
+        "forecast_cold_start": bool(info.get("forecast_cold_start", False)),
+        "forecast_covariate_mode": info.get("forecast_covariate_mode"),
+        "forecast_error": info.get("forecast_error"),
         "pv_wasted_kw": max(0.0, s.pv_available_mw - s.pv_used_mw) * 1000.0,
         "battery_kw": s.battery_p_mw * 1000.0,
         "battery_charge_kw": battery_charge_kw,
@@ -299,6 +325,29 @@ def _episode_meta(
         "telemetry_context_time": reset_info.get("telemetry_context_time"),
         "telemetry_end_time": reset_info.get("telemetry_end_time"),
         "telemetry_source_files": reset_info.get("telemetry_source_files"),
+        "forecast_enabled": bool(reset_info.get("forecast_enabled", False)),
+        "forecast_available": bool(reset_info.get("forecast_available", False)),
+        "forecast_error": reset_info.get("forecast_error"),
+        "forecast_service_url": reset_info.get("forecast_service_url"),
+        "forecast_requested_horizon_hours": reset_info.get("forecast_requested_horizon_hours"),
+        "forecast_refresh_each_step": bool(reset_info.get("forecast_refresh_each_step", False)),
+        "forecast_horizon_hours": reset_info.get("forecast_horizon_hours"),
+        "forecast_frequency_hours": reset_info.get("forecast_frequency_hours"),
+        "forecast_issued_at": reset_info.get("forecast_issued_at"),
+        "forecast_model_version": reset_info.get("forecast_model_version"),
+        "forecast_source": reset_info.get("forecast_source"),
+        "forecast_requested_source": reset_info.get("forecast_requested_source"),
+        "forecast_context_time": reset_info.get("forecast_context_time"),
+        "forecast_context_steps": reset_info.get("forecast_context_steps"),
+        "forecast_stale": bool(reset_info.get("forecast_stale", False)),
+        "forecast_age_steps": reset_info.get("forecast_age_steps"),
+        "forecast_cold_start": bool(reset_info.get("forecast_cold_start", False)),
+        "forecast_covariate_mode": reset_info.get("forecast_covariate_mode"),
+        "forecast_target": reset_info.get("forecast_target"),
+        "forecast_demand_target": reset_info.get("forecast_demand_target"),
+        "forecast_timestamps": reset_info.get("forecast_timestamps", []),
+        "forecast_values_kw": reset_info.get("forecast_values_kw", []),
+        "forecast_demand_values_kw": reset_info.get("forecast_demand_values_kw", []),
         "grid_connected": env.backend.grid_connected,
         "islanded": not env.backend.grid_connected,
         "diesel_enabled": env.diesel_enabled,
@@ -338,6 +387,21 @@ def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict
     totals = _totals(rows, dt)
     meta = {
         **_episode_meta(settings, env, policy, seed, reset_info, slack_id),
+        **{
+            key: env._forecast_meta().get(key)  # noqa: SLF001
+            for key in (
+                "forecast_available",
+                "forecast_error",
+                "forecast_source",
+                "forecast_requested_source",
+                "forecast_context_time",
+                "forecast_context_steps",
+                "forecast_stale",
+                "forecast_age_steps",
+                "forecast_cold_start",
+                "forecast_covariate_mode",
+            )
+        },
         "steps": len(rows),
         "diesel_starts": env.backend.diesel.starts,
         "diesel_runtime_hours": env.backend.diesel.runtime_hours,
@@ -386,6 +450,21 @@ def stream_rollout(
             "type": "end",
             "totals": _totals(rows, dt),
             "meta": {
+                **{
+                    key: env._forecast_meta().get(key)  # noqa: SLF001
+                    for key in (
+                        "forecast_available",
+                        "forecast_error",
+                        "forecast_source",
+                        "forecast_requested_source",
+                        "forecast_context_time",
+                        "forecast_context_steps",
+                        "forecast_stale",
+                        "forecast_age_steps",
+                        "forecast_cold_start",
+                        "forecast_covariate_mode",
+                    )
+                },
                 "steps": len(rows),
                 "diesel_starts": env.backend.diesel.starts,
                 "diesel_runtime_hours": env.backend.diesel.runtime_hours,
@@ -435,9 +514,7 @@ def _totals(rows: list[dict[str, Any]], dt: float) -> dict[str, float]:
         "diesel_load_serving_kwh": diesel_load_serving_kwh,
         "diesel_overgeneration_kwh": diesel_overgeneration_kwh,
         "diesel_useful_pct": (
-            100.0 * (diesel_kwh - diesel_overgeneration_kwh) / diesel_kwh
-            if diesel_kwh
-            else 100.0
+            100.0 * (diesel_kwh - diesel_overgeneration_kwh) / diesel_kwh if diesel_kwh else 100.0
         ),
         "pv_available_kwh": pv_available_kwh,
         "pv_used_kwh": pv_used_kwh,

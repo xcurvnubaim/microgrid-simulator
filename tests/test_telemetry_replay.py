@@ -60,9 +60,7 @@ def _telemetry_settings(tmp_path, *, horizon_hours: float = 1.0) -> Settings:
 
 def test_default_replay_output_uses_configured_telemetry_date(tmp_path) -> None:
     settings = _telemetry_settings(tmp_path)
-    assert _replay_output_dir(settings, "mpc").as_posix().endswith(
-        "islanded_72h_mpc_2026-01-15"
-    )
+    assert _replay_output_dir(settings, "mpc").as_posix().endswith("islanded_72h_mpc_2026-01-15")
 
 
 def test_heldout_scenario_changes_only_identity_and_telemetry_window() -> None:
@@ -79,6 +77,7 @@ def test_fixed_replay_uses_context_then_exact_evaluated_samples(tmp_path) -> Non
     settings = _telemetry_settings(tmp_path)
     window = load_fixed_telemetry_window(settings, n_steps=4)
     assert window is not None
+    assert window.timestamps_are_observed is True
     assert list(window.demand_mw * 1000.0) == pytest.approx([100, 101, 102, 103, 104])
     assert list(window.pv_mw * 1000.0) == pytest.approx([0, 0, 10, 20, 30])
 
@@ -93,6 +92,29 @@ def test_fixed_replay_uses_context_then_exact_evaluated_samples(tmp_path) -> Non
     assert env._last_state.demand_is_real is True  # noqa: SLF001
     assert env._last_state.pv_is_real is True  # noqa: SLF001
     env.close()
+
+
+def test_positional_reference_replay_marks_its_clock_as_synthetic(tmp_path) -> None:
+    settings = _telemetry_settings(tmp_path)
+    raw = settings.model_dump()
+    for name in ("load", "pv"):
+        path = tmp_path / f"{name}-positional.csv"
+        pd.DataFrame({"value": np.arange(8) + 1.0}).to_csv(path, index=False)
+        raw["digital_twin"]["measurements"][name] = {
+            "file": str(path),
+            "timestamp_column": None,
+            "value_column": "value",
+            "unit": "kw",
+            "synthetic_start": "2000-01-01T00:00:00",
+            "synthetic_step_hours": 0.25,
+            "prepend_first_as_context": True,
+        }
+    raw["episode"]["telemetry_start"] = "2000-01-01T00:00:00"
+
+    window = load_fixed_telemetry_window(Settings(**raw), n_steps=4)
+
+    assert window is not None
+    assert window.timestamps_are_observed is False
 
 
 def test_fixed_replay_fails_when_pv_measurement_is_not_configured(tmp_path) -> None:

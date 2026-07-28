@@ -4,7 +4,7 @@ import ConfigRail from "./components/ConfigRail.jsx";
 import SLD from "./components/SLD.jsx";
 import TopologyDesigner from "./components/TopologyDesigner.jsx";
 import { DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart, OvergenerationChart } from "./components/Charts.jsx";
-import { KpiStrip, StepTable } from "./components/Widgets.jsx";
+import { ForecastDiagnostics, KpiStrip, StepTable } from "./components/Widgets.jsx";
 import { applyTopologyChange } from "./topologySettings.js";
 
 // Keep the charts responsive on long runs: totals keep accumulating, but the
@@ -204,6 +204,7 @@ export default function App() {
             setTotals((t) => mergeTotals(t, ev.totals));
             setMeta((m) => ({
               ...m,
+              ...ev.meta,
               steps: (m?.steps ?? 0) + (ev.meta.steps ?? 0),
               diesel_starts: (m?.diesel_starts ?? 0) + (ev.meta.diesel_starts ?? 0),
               diesel_runtime_hours:
@@ -301,6 +302,20 @@ export default function App() {
         {meta?.backend && (
           <span className="badge" title="Physics engine that solved the last run. Runtime selection is temporarily locked.">
             ⚙ engine: {meta.backend}
+          </span>
+        )}
+        {meta?.forecast_enabled && (
+          <span
+            className={`badge ${meta.forecast_available ? "real" : "blackout"}`}
+            title={
+              meta.forecast_available
+                ? `${meta.forecast_source ?? "unknown source"} · ${meta.forecast_stale ? "stale" : "fresh"} · ${meta.forecast_model_version} · ${meta.forecast_horizon_hours} h hourly PV + demand forecast`
+                : meta.forecast_error || "Forecast service did not return a usable curve."
+            }
+          >
+            {meta.forecast_available
+              ? `◌ forecast: ${meta.forecast_stale ? "stale" : "fresh"}`
+              : "⚠ forecast unavailable"}
           </span>
         )}
         <span className={`badge ${islanded ? "islanded" : "real"}`} title={
@@ -441,6 +456,7 @@ export default function App() {
                 </div>
               )}
               <KpiStrip totals={displayTotals ?? {}} meta={meta} />
+              <ForecastDiagnostics meta={meta} rows={rows} />
               <SLD rows={rows} meta={meta} />
               <PvSocChart rows={chartRows} />
               <DispatchChart rows={chartRows} peakKw={(settings?.reward?.peak_threshold_mw ?? 0) * 1000} />
