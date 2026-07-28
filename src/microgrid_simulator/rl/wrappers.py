@@ -9,12 +9,21 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 
 from microgrid_simulator.config import Settings
+from microgrid_simulator.forecast import ForecastClient
 from microgrid_simulator.rl.env import MicrogridEnv
 
 
-def make_env_fn(settings: Settings, backend_name: str | None = None) -> Callable[[], MicrogridEnv]:
+def make_env_fn(
+    settings: Settings,
+    backend_name: str | None = None,
+    forecast_client: ForecastClient | None = None,
+) -> Callable[[], MicrogridEnv]:
     def _init() -> MicrogridEnv:
-        return MicrogridEnv(settings=settings, backend_name=backend_name)
+        return MicrogridEnv(
+            settings=settings,
+            backend_name=backend_name,
+            forecast_client=forecast_client,
+        )
 
     return _init
 
@@ -27,10 +36,11 @@ def make_training_env(
     normalize: bool | None = None,
     training: bool = True,
     backend_name: str | None = None,
+    forecast_client: ForecastClient | None = None,
 ) -> VecEnv:
     """Vectorised env with per-episode Monitor CSVs and optional VecNormalize."""
     vec = make_vec_env(
-        make_env_fn(settings, backend_name),
+        make_env_fn(settings, backend_name, forecast_client=forecast_client),
         n_envs=n_envs,
         seed=seed,
         monitor_dir=str(monitor_dir) if monitor_dir else None,
