@@ -40,7 +40,7 @@ def generate_forecast_cache(
     output: Path = typer.Option(Path("data/forecasts.jsonl"), help="output JSONL file path"),
     config: Path | None = typer.Option(None, help="scenario YAML configuration"),
     manifest: Path | None = typer.Option(Path("data/forecast_manifest.json"), help="output manifest file path"),
-    mode: str = typer.Option("hybrid", help="hybrid (LightGBM ECMWF for PV + Chronos HTTP for Demand) | http | persistence"),
+    mode: str = typer.Option("http", help="http (Chronos-2 for both PV and Demand) | hybrid | persistence"),
 ) -> None:
     """Pre-generate a leakage-free 24-hour forecast JSONL cache across telemetry ranges."""
     from microgrid_simulator.digital_twin.data_ingestion import load_measurements
@@ -69,7 +69,7 @@ def generate_forecast_cache(
 
     typer.echo(f"Generating leakage-free ({mode}) forecast cache for {n_samples} aligned timestamps...")
 
-    # Load ECMWF weather data for LightGBM PV forecaster
+    # Load ECMWF weather data if hybrid mode is requested
     ecmwf_path = Path("/home/xcurv/teep-taiwan/data/ecmwf-ifs.json")
     lgbm_pv_model = None
     ecmwf_df = None
@@ -83,13 +83,11 @@ def generate_forecast_cache(
         pv_hourly = (pv_series * 1000.0).resample("1h").mean().rename("pv_kw").dropna()
         df_train_all = pd.concat([pv_hourly, ecmwf_df.add_prefix("ecmwf_")], axis=1, join="inner").dropna()
 
-        # Train LightGBM on Dec - Jan split
         train_df = df_train_all.loc["2025-12-02":"2026-01-29"]
         features = ["shortwave_radiation", "direct_radiation", "diffuse_radiation", 
                     "direct_normal_irradiance", "temperature_2m", "cloud_cover"]
         df_train_all = pd.concat([pv_hourly, ecmwf_df[features]], axis=1, join="inner").dropna()
 
-        # Train LightGBM on Dec - Jan split
         train_df = df_train_all.loc["2025-12-02":"2026-01-29"]
 
         X_train = train_df[features].copy()
@@ -109,7 +107,7 @@ def generate_forecast_cache(
         issued_at_ts = pd.Timestamp(timestamps[i])
         issued_at = issued_at_ts.isoformat()
 
-        # Send past 500 steps (~20 days) context to Chronos HTTP forecaster for Demand
+        # Send past 500 steps (~20 days) context to Chronos HTTP forecaster
         ctx_start_idx = max(0, i - 500)
         past_pv = tuple(max(0.0, float(val)) for val in pv_mw[ctx_start_idx:i:4])
         past_demand = tuple(max(0.0, float(val)) for val in demand_mw[ctx_start_idx:i:4])
@@ -123,7 +121,6 @@ def generate_forecast_cache(
         chronos_snap = http_client.fetch(ctx, issued_at=issued_at)
 
         if mode == "hybrid" and lgbm_pv_model is not None and ecmwf_df is not None:
-            # Predict PV using LightGBM + ECMWF weather for the next 24 hours
             future_timestamps = [issued_at_ts + pd.Timedelta(hours=h+1) for h in range(24)]
             valid_ts = [ts for ts in future_timestamps if ts in ecmwf_df.index]
 
@@ -134,12 +131,8 @@ def generate_forecast_cache(
                 X_future["month"] = [ts.month for ts in future_timestamps]
 
                 pv_pred_kw = lgbm_pv_model.predict(X_future).clip(min=0)
-                # Physical solar rule: Solar PV generation must be exactly 0 kW when shortwave radiation is 0 (night-time)
-                sw_rad = X_future["shortwave_radiation"].to_numpy()
-                pv_pred_kw = np.where(sw_rad <= 0.0, 0.0, pv_pred_kw)
                 pv_pred_mw = tuple(float(val) / 1000.0 for val in pv_pred_kw)
 
-                # Combine LightGBM PV (best) + Chronos Demand (best)
                 records[issued_at] = ForecastSnapshot(
                     issued_at=issued_at,
                     horizon_hours=24,
@@ -164,7 +157,7 @@ def generate_forecast_cache(
     cache = ForecastCache(records)
     output.parent.mkdir(parents=True, exist_ok=True)
     cache.to_jsonl(str(output))
-    typer.echo(f"Saved {len(cache)} hybrid forecast snapshot records to {output}")
+    typer.echo(f"Saved {len(cache)} forecast snapshot records to {output}")
 
     if manifest:
         manifest_data = {
@@ -174,8 +167,8 @@ def generate_forecast_cache(
             "total_records": len(cache),
             "horizon_hours": 24,
             "frequency_hours": 1.0,
-            "pv_model": "LightGBM + ECMWF (MAE: 15.31 kW)",
-            "demand_model": "Chronos-2 Context 500 (MAE: 24.72 kW)",
+            "pv_model": "Chronos-2 Foundation Model" if mode != "hybrid" else "LightGBM + ECMWF",
+            "demand_model": "Chronos-2 Foundation Model",
             "splits": {
                 "train": {"start": "2025-12-02T00:00:00", "end": "2026-01-29T23:45:00"},
                 "val": {"start": "2026-02-06T00:00:00", "end": "2026-02-24T23:45:00", "exclude_gaps": ["2026-02-04"]},
