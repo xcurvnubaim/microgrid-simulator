@@ -132,17 +132,17 @@ diesel:
 #     - {start_hour: 10.0, end_hour: 15.0, mode: charge}
 #     - {start_hour: 18.0, end_hour: 22.0, mode: discharge, level: 80.0}
 
-# --- real historical demand trace (demand-driver swap) ---
-# Point `file` at the campus net-load export, e.g.
-#   /home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx
-# Header sits on row 2 (header_row: 1); columns include statstime + demand (kW).
+# --- reconstructed historical demand trace (demand-driver swap) ---
+# The campus profile uses the provenance-labelled weekly-seasonal demand candidate.
+# The raw workbook remains the measured telemetry baseline and is not silently changed.
+# The candidate is a regular 15-minute CSV with timestamp + demand_kw (kW).
 # When file is null or missing, the synthetic sinusoid drives the loads.
 demand:
   enabled: true
-  file: null
-  header_row: 1
-  timestamp_column: statstime
-  value_column: demand
+  file: /home/xcurv/teep-taiwan/data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
+  header_row: 0
+  timestamp_column: timestamp
+  value_column: demand_kw
   unit: kw
   random_window: true       # fresh random 24h slice per reset()
 

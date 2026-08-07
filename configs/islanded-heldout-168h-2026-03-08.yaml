@@ -1,0 +1,102 @@
+# Seven-day endurance replay. The preceding 15-minute sample is context only.
+scenario:
+  name: islanded_heldout_168h_2026-03-08
+  description: Fully measured March 8-14 seven-day endurance evaluation.
+
+topology:
+  timestep_hours: 0.25
+  solver: ac
+  n_pv: 2
+  n_storage: 1
+  n_ev: 0
+  n_load: 3
+
+backend:
+  name: pandapower
+  validation_backend: pandapower
+
+episode:
+  horizon_hours: 168.0
+  start_hour: 0.0
+  telemetry_start: "2026-03-08 00:00:00"
+  terminal_soc_tolerance: 0.01
+  terminal_soc_penalty: 100.0
+
+forecast:
+  enabled: true
+  horizon_hours: 24
+  refresh_each_step: true
+  strict_cache: true
+  cache_path: data/forecasts.jsonl
+  manifest_path: data/forecast_manifest.json
+  source_id: islanded_72h_2026-01-15
+
+rl:
+  algo: sac
+  total_timesteps: 50000
+  seed: 0
+  normalize: true
+  train_split: train
+  eval_split: val
+  forecast_mode: cached
+
+digital_twin:
+  fill_strategy: error
+  max_gap_steps: 0
+  max_missing_fraction: 0.0
+  measurements:
+    load:
+      file: /home/xcurv/teep-taiwan/data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
+      header_row: 0
+      timestamp_column: timestamp
+      value_column: demand_kw
+      unit: kw
+    pv:
+      file: /home/xcurv/teep-taiwan/data/processed/pv_15min_chronos_reconstruction_candidate.csv
+      header_row: 0
+      timestamp_column: timestamp
+      value_column: pv_kw
+      unit: kw
+
+demand:
+  enabled: false
+  file: null
+  random_window: false
+
+battery:
+  bus: 3
+  capacity_mwh: 0.50
+  charge_eff: 0.96
+  discharge_eff: 0.96
+  max_charge_mw: 0.25
+  max_discharge_mw: 0.25
+  soc_min: 0.10
+  soc_max: 0.95
+  soc_init: 0.50
+
+diesel:
+  enabled: true
+  bus: 0
+  max_kw: 150.0
+  min_kw: 45.0
+  ramp_kw_per_min: 30.0
+  min_up_time_min: 30.0
+  min_down_time_min: 15.0
+  carbon_kg_per_kwh: 0.70
+
+reward:
+  w_carbon: 4.0              # diesel is genuinely costly: fuel + carbon dominate
+  w_autonomy: 0.0
+  w_health: 0.5               # relax battery-degradation penalty so discharge is viable
+  w_waste: 1.0
+  w_excess: 1.0
+  w_unserved: 20.0
+  grid_carbon_kg_per_kwh: 0.45
+  diesel_carbon_kg_per_kwh: 0.70
+  diesel_fuel_cost_per_kwh: 0.40   # fuel cost added to the diesel penalty
+  diesel_start_cost: 1.0           # $ per start
+  import_price: 180.0
+  peak_threshold_mw: 0.35
+  peak_penalty: 200.0
+  voltage_penalty: 100.0
+  soc_violation_penalty: 50.0

@@ -21,8 +21,11 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from microgrid_simulator.components.battery import BatteryLike
+from microgrid_simulator.components.diesel import DieselModel
 from microgrid_simulator.config import Settings
 from microgrid_simulator.core.scenario import Scenario
+from microgrid_simulator.core.time_series import DemandTrace
 from microgrid_simulator.core.types import ControlAction, GridState
 
 
@@ -53,6 +56,23 @@ class MicrogridBackend(ABC):
     """Abstract simulation backend: one microgrid, stepped one tick at a time."""
 
     settings: Settings
+    # Runtime attributes documented in the module docstring above; every
+    # concrete backend exposes them at construction time (attribute or
+    # read-only property).
+    battery: BatteryLike
+    diesel: DieselModel
+    grid_connected: bool
+    timestamp: float
+
+    @property
+    def demand_trace(self) -> DemandTrace | None:
+        """The loaded historical demand trace, or ``None``."""
+        return None
+
+    @property
+    def demand_is_real(self) -> bool:
+        """Whether the active demand series comes from measured telemetry."""
+        return self.demand_trace is not None
 
     @abstractmethod
     def reset(

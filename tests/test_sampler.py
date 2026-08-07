@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from microgrid_simulator.config import Settings
 from microgrid_simulator.forecast import ForecastCache
@@ -60,3 +59,15 @@ def test_random_episode_sampler_splits() -> None:
     for start in test_sampler.valid_start_timestamps:
         end = start + pd.to_timedelta(settings.episode.horizon_hours, unit="h")
         assert start >= pd.Timestamp("2026-03-01") and end <= pd.Timestamp("2026-04-01")
+
+
+def test_random_episode_sampler_supports_seven_day_horizon() -> None:
+    settings = Settings()
+    settings.episode.horizon_hours = 168.0
+    settings.digital_twin.measurements = {}
+
+    # The default settings intentionally exercise the calendar fallback; this
+    # assertion protects the seven-day step calculation itself.
+    sampler = RandomEpisodeSampler(settings, split="train", seed=0)
+    assert sampler.valid_start_timestamps
+    assert sampler.valid_start_timestamps[-1] < pd.Timestamp("2026-02-01")

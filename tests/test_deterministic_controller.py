@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from microgrid_simulator.config import Settings
 from microgrid_simulator.controllers import DeterministicController
 from microgrid_simulator.core.types import GridState
@@ -78,3 +80,16 @@ def test_rollout_accepts_deterministic_policy() -> None:
     result = run_rollout(Settings(), policy="deterministic", seed=0)
     assert result["rows"]
     assert result["meta"]["policy"] == "deterministic"
+
+
+def test_policies_expose_rl() -> None:
+    from microgrid_simulator.ui.rollout import POLICIES
+
+    assert "rl" in POLICIES
+
+
+def test_rl_policy_requires_artifact() -> None:
+    from microgrid_simulator.ui.rollout import run_rollout
+
+    with pytest.raises(ValueError, match="rl"):
+        run_rollout(Settings(), policy="rl", seed=0)

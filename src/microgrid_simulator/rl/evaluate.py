@@ -3,6 +3,12 @@
 If VecNormalize statistics were saved next to the artifact
 (``<artifact>_vecnormalize.pkl``) they are restored so the policy sees the
 observation scaling it was trained with.
+
+Per-step rows are built from the authoritative step ``info``. Reading state
+after the auto-reset that :class:`~stable_baselines3.common.vec_env.DummyVecEnv`
+performs on a terminal step would report the fresh reset snapshot (e.g. a
+phantom unserved load on an early-terminated hard-unserved episode) instead of
+the episode's actual outcome.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 from microgrid_simulator.config import Settings
 from microgrid_simulator.rl.env import MicrogridEnv
+from microgrid_simulator.rl.sampler import RandomEpisodeSampler
 from microgrid_simulator.rl.train import ALGOS
 from microgrid_simulator.rl.wrappers import load_normalization
 
@@ -39,8 +46,19 @@ def evaluate(
     algo = (algo or settings.rl.algo).lower()
     model = cast(Any, ALGOS[algo]).load(str(artifact))
 
-    inner = MicrogridEnv(settings=settings, backend_name=backend_name)
-    env: Any = DummyVecEnv([lambda: inner])
+    # Sample a fresh random telemetry window per episode (val split) so
+    # evaluation is not a fixed-window artifact: with no sampler the env
+    # always replays the configured telemetry_start, which hides variation
+    # and can make a policy that memorised one window look perfect (or, for
+    # the hard-unserved scenario, fail identically on every seed).
+    def _make_env() -> MicrogridEnv:
+        return MicrogridEnv(
+            settings=settings,
+            backend_name=backend_name,
+            episode_sampler=RandomEpisodeSampler(settings, split="val", seed=None),
+        )
+
+    env: Any = DummyVecEnv([_make_env])
     stats = Path(str(artifact)).with_suffix("").as_posix() + "_vecnormalize.pkl"
     if Path(stats).exists():
         env = load_normalization(env, stats)
@@ -64,7 +82,6 @@ def evaluate(
             done = bool(dones[0])
             step += 1
             step_imports.append(max(0.0, info["grid_import_mw"]))
-            state = inner._last_state  # noqa: SLF001 - evaluation diagnostics
             rows.append(
                 {
                     "episode": episode,
@@ -75,8 +92,8 @@ def evaluate(
                     "soh": info["soh"],
                     "diesel_p_mw": info["diesel_p_mw"],
                     "pv_wasted_mw": info["pv_wasted_mw"],
-                    "unserved_mw": state.unserved_mw,
-                    "load_demand_mw": state.load_demand_mw,
+                    "unserved_mw": info["unserved_mw"],
+                    "load_demand_mw": info["load_demand_mw"],
                 }
             )
         ep_rewards.append(total)

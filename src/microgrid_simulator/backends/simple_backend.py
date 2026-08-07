@@ -219,6 +219,7 @@ class SimpleBackend(MicrogridBackend):
             battery_p_mw=applied_battery_mw,
             diesel_p_mw=self.diesel.p_mw,
             diesel_on=self.diesel.is_on,
+            diesel_starts=self.diesel.starts,
             excess_generation_mw=excess_generation_mw,
             dump_load_mw=excess_generation_mw,
             network_loss_mw=0.0,

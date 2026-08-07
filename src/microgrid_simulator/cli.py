@@ -182,17 +182,21 @@ def generate_forecast_cache(
 
 @app.command()
 def train(
-    algo: str = typer.Option("ppo", help="ppo | sac"),
+    algo: str = typer.Option("sac", help="sac | ppo"),
     timesteps: int = typer.Option(50_000, help="total training timesteps"),
     config: Path | None = typer.Option(None, help="scenario YAML (default: pymgrid25 scenario 2)"),
     artifact_dir: Path = typer.Option(Path("artifacts"), help="where to save the policy"),
     tensorboard: Path | None = typer.Option(None, help="TensorBoard log dir"),
     seed: int = typer.Option(0),
+    forecast_mode: str = typer.Option(
+        "cached", help="forecast ablation: cached | none | oracle"
+    ),
 ) -> None:
     """Train an SB3 agent against the microgrid environment."""
     from microgrid_simulator.model.agent import train as _train
 
     settings = _load_settings(config)
+    settings.rl.forecast_mode = forecast_mode  # type: ignore[assignment]
     path = _train(
         settings,
         algo=algo,
@@ -226,13 +230,14 @@ def play(
     policy: str = typer.Option("rule", help="rule | random | idle | deterministic"),
 ) -> None:
     """Roll out a non-learned controller for a sanity check (no training)."""
-    from microgrid_simulator.controllers import DeterministicController
+    from microgrid_simulator.controllers import DeterministicController, RuleBasedController
 
     settings = _load_settings(config)
     env = MicrogridEnv(settings=settings, render_mode="ansi")
     obs, _ = env.reset()
     total = 0.0
-    controller = DeterministicController(settings)
+    deterministic_controller = DeterministicController(settings)
+    rule_controller = RuleBasedController(settings)
 
     for _ in range(steps):
         if policy == "random":
@@ -240,12 +245,17 @@ def play(
         elif policy == "idle":
             action = np.zeros(env.action_dim, dtype=np.float32)
         elif policy == "deterministic":
-            action = env.encode_action(controller.act(env._last_state))  # noqa: SLF001
-        else:  # rule: charge battery when sun is up, discharge in evening peak
-            hour = env.backend.timestamp % 24.0
-            batt = 0.6 if 8 <= hour < 15 else (-0.6 if 18 <= hour < 22 else 0.0)
-            action = np.zeros(env.action_dim, dtype=np.float32)
-            action[0] = batt
+            action = env.encode_action(
+                deterministic_controller.act(env._last_state)  # noqa: SLF001
+            )
+        else:
+            action = env.encode_action(
+                rule_controller.act(
+                    env._last_state,  # noqa: SLF001
+                    pv_forecast_mw=env._current_pv_forecast_mw(),  # noqa: SLF001
+                    demand_forecast_mw=env._current_demand_forecast_mw(),  # noqa: SLF001
+                )
+            )
         obs, reward, terminated, truncated, info = env.step(action)
         total += reward
         typer.echo(env.render())

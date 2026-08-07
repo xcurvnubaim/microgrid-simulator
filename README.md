@@ -93,12 +93,13 @@ forecast vectors are zero-filled, and the reason is exposed in rollout metadata.
 Because the horizon fixes the observation shape (`1 + N PV + N demand` appended
 values), train and evaluate a policy with the same horizon.
 
-### Real demand + diesel
+### Reconstructed demand + diesel
 
-Point `demand.file` at the campus net-load export
-(`Total Load (net load)_*.xlsx`, header on row 2, 15-min `statstime` +
-`demand` in kW) and each `reset()` draws a **random 24h window** from the
-Dec–Apr history; the three static loads are scaled proportionally so their
+The campus profile points `demand.file` at the provenance-labelled weekly-seasonal
+candidate (`data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv`,
+15-min `timestamp` + `demand_kw` in kW). The fixed campus replay scenarios point their
+load and PV measurements at the reconstruction candidates. Each `reset()` draws a
+**random 24h window** from the Dec–Apr history; the three static loads are scaled proportionally so their
 sum tracks the real total (topology untouched). Without a file the original
 synthetic sinusoid drives the loads. The diesel genset (default 150 kW — a
 placeholder until the real nameplate spec exists) adds
@@ -112,9 +113,9 @@ The configured diesel-bus chart also overlays `Diesel excess (kW)` as a red dash
 series on its own right-side scale, keeping small surplus visible beside total output.
 
 For the deterministic paper baseline, `configs/islanded-baseline-72h.yaml` loads
-timestamp-aligned measured load and PV, fails on missing samples instead of falling back
+timestamp-aligned reconstruction candidates, fails on missing samples instead of falling back
 to synthetic data, and evaluates 288 intervals from 2026-01-15 through 2026-01-17.
-`configs/islanded-heldout-72h.yaml` uses the same plant assumptions on the disjoint
+`configs/islanded-heldout-72h.yaml` uses the same plant assumptions and candidates on the disjoint
 2026-03-08 through 2026-03-10 window for rule/MPC evaluation. The equations, units,
 signs, evidence labels, required outputs, and verification tolerances are frozen in
 [`BACKEND_CONTRACT.md`](BACKEND_CONTRACT.md).
@@ -208,25 +209,30 @@ obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
 ```
 src/microgrid_simulator/
   config.py                  typed settings (yaml + MGS_ env overrides)
-  grid/
-    battery.py               SoC physics + empirical degradation (PINN hook)
-    demand_trace.py          real net-load xlsx/csv -> random episode windows
-    diesel.py                diesel genset (on/off + clamped setpoint)
-    pandapower_backend.py    editable-bus campus network + power flow + profiles
-  model/
-    reward.py                the five-term reward / punish
-    agent.py                 SB3 PPO/SAC train + evaluate
-  env.py                     MicrogridEnv (Gymnasium reset/step/spaces)
+  core/                      backend contract, shared types, scenario, time series
+  components/                battery, diesel, PV, load, grid-intertie device models
+  backends/                  create_backend registry (runtime locked to pandapower AC)
+    simple_backend.py        fast lossless balance plant for RL
+    pandapower_backend/      AC power-flow plant: network / profiles / snapshot / backend
+    pypsa_backend.py         operational scheduling research utility
+    opendss_backend.py       OpenDSS skeleton
+  forecast/                  Chronos HTTP client + strict leakage-free JSONL cache
+  controllers/               idle / rule / deterministic / manual / MPC / RL policies
+  digital_twin/              measured-data ingestion, alignment, replay
+  model/reward.py            the multi-term reward / punish
+  rl/                        Gymnasium env, SB3 train/eval, episode sampler
+  experiments/               reproducible runners (telemetry replay, pymgrid verification)
+  grid/                      compatibility shims for the pre-backends layout
   ui/server.py               FastAPI dashboard API (+ demand upload)
   ui/rollout.py              rule / idle / random rollout runner
   ui/web/                    React control room (prebuilt in web/dist)
-  cli.py                     train | eval | play | dashboard
+  cli.py                     train | eval | play | replay | dashboard | generate-forecast-cache
 configs/pymgrid25-scenario-2.yaml  default native benchmark translation
 configs/simulator.yaml       alternate campus topology and project-model profile
-tests/                       battery, reward, env (mirrors src/)
+tests/                       battery, reward, env, accounting (mirrors src/)
 ```
 
-Layering (one-way imports): `env` → `model/` → `grid/` → `config`.
+Layering (one-way imports): `rl/` + `controllers/` → `backends/` → `components/` → `core/` → `config`.
 
 ## Dev
 

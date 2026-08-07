@@ -4,11 +4,11 @@ export async function getDefaults() {
   return res.json();
 }
 
-export async function simulate(settings, policy, seed) {
+export async function simulate(settings, policy, seed, rl = {}) {
   const res = await fetch("/api/simulate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ settings, policy, seed }),
+    body: JSON.stringify({ settings, policy, seed, ...rl }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -20,11 +20,11 @@ export async function simulate(settings, policy, seed) {
 /* Stream one episode tick-by-tick. Calls onEvent for every NDJSON event
    ({type:"meta"|"row"|"end", ...}); resolves when the episode finishes and
    rejects on network/server errors. Abort via an AbortController signal. */
-export async function simulateStream(settings, policy, seed, { signal, onEvent } = {}) {
+export async function simulateStream(settings, policy, seed, { signal, onEvent, rl = {} } = {}) {
   const res = await fetch("/api/simulate/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ settings, policy, seed }),
+    body: JSON.stringify({ settings, policy, seed, ...rl }),
     signal,
   });
   if (!res.ok || !res.body) {

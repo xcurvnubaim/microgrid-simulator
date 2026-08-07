@@ -1,14 +1,18 @@
 """Shared rollout runner for the dashboard API.
 
-Runs a non-learned controller (rule / idle / random / deterministic) through one episode and
+Runs a controller (rule / idle / random / deterministic / schedule / rl) through one episode and
 returns per-timestep rows the frontend can chart directly, plus episode meta
 (demand source, window start, totals). ``stream_rollout`` yields the same rows
 one tick at a time so the API can stream them to the UI as they are solved.
+The ``rl`` policy loads a trained SB3 artifact and predicts from the env's own
+observation builder, so training and dashboard evaluation see identical inputs.
 """
 
 from __future__ import annotations
 
+import pickle
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -24,16 +28,56 @@ from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.env import MicrogridEnv
 from microgrid_simulator.rl.env import decode_action
 
-POLICIES = ("rule", "idle", "random", "deterministic", "schedule")
+POLICIES = ("rule", "idle", "random", "deterministic", "schedule", "rl")
 
 
 def _rule_action(env: MicrogridEnv) -> np.ndarray:
     """Encode the canonical physical-unit rule controller for the Gym env."""
     controller = RuleBasedController(env.settings)
-    return env.encode_action(controller.act(env._last_state))  # noqa: SLF001
+    return env.encode_action(
+        controller.act(
+            env._last_state,  # noqa: SLF001
+            pv_forecast_mw=env._current_pv_forecast_mw(),  # noqa: SLF001
+            demand_forecast_mw=env._current_demand_forecast_mw(),  # noqa: SLF001
+        )
+    )
 
 
-def policy_action(env: MicrogridEnv, policy: str) -> np.ndarray:
+def _load_rl_model(
+    artifact: str | Path | None,
+    algo: str | None,
+    settings: Settings,
+) -> Any:
+    """Load a trained SB3 policy plus optional VecNormalize stats.
+
+    The model predicts directly on the env observation; VecNormalize
+    statistics are restored when saved next to the artifact so the policy
+    sees the same observation scaling it was trained with.
+    """
+    if not artifact:
+        raise ValueError("policy 'rl' requires a trained model artifact")
+    from microgrid_simulator.rl.train import ALGOS
+
+    algo = (algo or settings.rl.algo).lower()
+    if algo not in ALGOS:
+        raise ValueError(f"Unknown RL algo {algo!r}; choose from {sorted(ALGOS)}")
+    model = ALGOS[algo].load(str(artifact))
+
+    norm: Any = None
+    stats = Path(str(artifact)).with_suffix("").as_posix() + "_vecnormalize.pkl"
+    if Path(stats).exists():
+        with open(stats, "rb") as fh:
+            norm = pickle.load(fh).obs_rms
+    return model, norm
+
+
+def policy_action(
+    env: MicrogridEnv,
+    policy: str,
+    *,
+    rl_model: Any = None,
+    rl_norm: Any = None,
+) -> np.ndarray:
     if policy == "random":
         return env.action_space.sample()
     if policy == "deterministic":
@@ -45,10 +89,18 @@ def policy_action(env: MicrogridEnv, policy: str) -> np.ndarray:
     if policy == "idle":
         idle = np.zeros(env.action_dim, dtype=np.float32)
         if env.diesel_enabled:
-            idle[-3] = -1.0
-            idle[-2] = -1.0
+            idle[1 + env.n_ev] = -1.0  # diesel command: non-positive requests off
         idle[-1] = -1.0
         return idle
+    if policy == "rl":
+        if rl_model is None:
+            raise ValueError("policy 'rl' requires a trained model artifact")
+        obs = env._last_observation  # noqa: SLF001
+        if rl_norm is not None:
+            obs = (obs - rl_norm.mean) / (rl_norm.var + 1e-8) ** 0.5
+            obs = obs.clip(-10.0, 10.0).astype("float32")
+        action, _ = rl_model.predict(obs, deterministic=True)
+        return action
     return _rule_action(env)
 
 
@@ -98,6 +150,8 @@ def _dispatch_rule(
         return f"random sampled action: {battery}; {diesel}"
     if policy == "idle":
         return "idle rule: hold battery; diesel off; no PV curtailment"
+    if policy == "rl":
+        return f"trained RL policy: {battery}; {diesel}"
     return f"{policy} policy: {battery}; {diesel}"
 
 
@@ -106,6 +160,11 @@ def _dispatch_trace(env: MicrogridEnv, policy: str, action: np.ndarray) -> dict[
 
     state = env._last_state  # noqa: SLF001
     control = decode_action(action, env.settings, env.n_ev, env.diesel_enabled)
+    forecast_pv_mw = env._current_pv_forecast_mw()  # noqa: SLF001
+    forecast_demand_mw = env._current_demand_forecast_mw()  # noqa: SLF001
+    rule_used_forecast = (
+        policy == "rule" and forecast_pv_mw is not None and forecast_demand_mw is not None
+    )
     return {
         "dispatch_policy": policy,
         "dispatch_rule": _dispatch_rule(env.settings, policy, state, control),
@@ -113,6 +172,9 @@ def _dispatch_trace(env: MicrogridEnv, policy: str, action: np.ndarray) -> dict[
         "requested_diesel_on": bool(control.diesel_on),
         "requested_diesel_kw": control.diesel_setpoint_mw * 1000.0,
         "requested_pv_curtailment_pct": control.pv_curtail * 100.0,
+        "rule_forecast_considered": rule_used_forecast,
+        "rule_forecast_pv_kw": forecast_pv_mw * 1000.0 if rule_used_forecast else None,
+        "rule_forecast_demand_kw": forecast_demand_mw * 1000.0 if rule_used_forecast else None,
     }
 
 
@@ -364,12 +426,21 @@ def _episode_meta(
     }
 
 
-def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict[str, Any]:
+def run_rollout(
+    settings: Settings,
+    policy: str = "rule",
+    seed: int = 0,
+    rl_artifact: str | Path | None = None,
+    rl_algo: str | None = None,
+) -> dict[str, Any]:
     if policy not in POLICIES:
         raise ValueError(
             f"policy must be one of {POLICIES}; MPC is unavailable while "
             "runtime physics is locked to pandapower"
         )
+    rl_model, rl_norm = (
+        _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
+    )
     env = MicrogridEnv(settings=settings)
     _, reset_info = env.reset(seed=seed)
     dt = settings.topology.timestep_hours
@@ -377,7 +448,7 @@ def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict
 
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        action = policy_action(env, policy)
+        action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm)
         dispatch = _dispatch_trace(env, policy, action)
         _, reward, terminated, truncated, info = env.step(action)
         rows.append(_step_row(settings, env, step, reward, info, slack_id, dispatch))
@@ -385,7 +456,7 @@ def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict
             break
 
     totals = _totals(rows, dt)
-    meta = {
+    meta: dict[str, Any] = {
         **_episode_meta(settings, env, policy, seed, reset_info, slack_id),
         **{
             key: env._forecast_meta().get(key)  # noqa: SLF001
@@ -406,12 +477,19 @@ def run_rollout(settings: Settings, policy: str = "rule", seed: int = 0) -> dict
         "diesel_starts": env.backend.diesel.starts,
         "diesel_runtime_hours": env.backend.diesel.runtime_hours,
     }
+    if rl_artifact is not None:
+        meta["rl_artifact"] = str(rl_artifact)
+        meta["rl_algo"] = rl_algo or settings.rl.algo
     env.close()
     return {"rows": rows, "totals": totals, "meta": meta}
 
 
 def stream_rollout(
-    settings: Settings, policy: str = "rule", seed: int = 0
+    settings: Settings,
+    policy: str = "rule",
+    seed: int = 0,
+    rl_artifact: str | Path | None = None,
+    rl_algo: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield one episode as a sequence of events for the streaming API.
 
@@ -425,19 +503,26 @@ def stream_rollout(
             f"policy must be one of {POLICIES}; MPC is unavailable while "
             "runtime physics is locked to pandapower"
         )
+    rl_model, rl_norm = (
+        _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
+    )
     env = MicrogridEnv(settings=settings)
     try:
         _, reset_info = env.reset(seed=seed)
         dt = settings.topology.timestep_hours
         slack_id = _slack_bus_id(settings)
+        meta = _episode_meta(settings, env, policy, seed, reset_info, slack_id)
+        if rl_artifact is not None:
+            meta["rl_artifact"] = str(rl_artifact)
+            meta["rl_algo"] = rl_algo or settings.rl.algo
         yield {
             "type": "meta",
-            "meta": _episode_meta(settings, env, policy, seed, reset_info, slack_id),
+            "meta": meta,
         }
 
         rows: list[dict[str, Any]] = []
         for step in range(env.max_steps):
-            action = policy_action(env, policy)
+            action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm)
             dispatch = _dispatch_trace(env, policy, action)
             _, reward, terminated, truncated, info = env.step(action)
             row = _step_row(settings, env, step, reward, info, slack_id, dispatch)
@@ -446,30 +531,30 @@ def stream_rollout(
             if terminated or truncated:
                 break
 
-        yield {
-            "type": "end",
-            "totals": _totals(rows, dt),
-            "meta": {
-                **{
-                    key: env._forecast_meta().get(key)  # noqa: SLF001
-                    for key in (
-                        "forecast_available",
-                        "forecast_error",
-                        "forecast_source",
-                        "forecast_requested_source",
-                        "forecast_context_time",
-                        "forecast_context_steps",
-                        "forecast_stale",
-                        "forecast_age_steps",
-                        "forecast_cold_start",
-                        "forecast_covariate_mode",
-                    )
-                },
-                "steps": len(rows),
-                "diesel_starts": env.backend.diesel.starts,
-                "diesel_runtime_hours": env.backend.diesel.runtime_hours,
+        end_meta: dict[str, Any] = {
+            **{
+                key: env._forecast_meta().get(key)  # noqa: SLF001
+                for key in (
+                    "forecast_available",
+                    "forecast_error",
+                    "forecast_source",
+                    "forecast_requested_source",
+                    "forecast_context_time",
+                    "forecast_context_steps",
+                    "forecast_stale",
+                    "forecast_age_steps",
+                    "forecast_cold_start",
+                    "forecast_covariate_mode",
+                )
             },
+            "steps": len(rows),
+            "diesel_starts": env.backend.diesel.starts,
+            "diesel_runtime_hours": env.backend.diesel.runtime_hours,
         }
+        if rl_artifact is not None:
+            end_meta["rl_artifact"] = str(rl_artifact)
+            end_meta["rl_algo"] = rl_algo or settings.rl.algo
+        yield {"type": "end", "totals": _totals(rows, dt), "meta": end_meta}
     finally:
         env.close()
 

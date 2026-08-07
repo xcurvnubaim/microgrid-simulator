@@ -51,6 +51,12 @@ def compute_reward(
     carbon = cfg.grid_carbon_kg_per_kwh * import_kwh
     carbon += cfg.diesel_carbon_kg_per_kwh * diesel_kwh
 
+    # 1b. Diesel fuel cost — makes running the genset genuinely expensive so
+    #     the policy prefers the battery when it has usable energy. Start cost
+    #     is charged once per engine start (open-loop count).
+    fuel = cfg.diesel_fuel_cost_per_kwh * diesel_kwh
+    fuel += cfg.diesel_start_cost * getattr(state, "diesel_starts", 0)
+
     # 2. External-energy / autonomy penalty — economic cost of import + peak.
     autonomy = import_mw * dt_hours * cfg.import_price
     autonomy += max(0.0, import_mw - cfg.peak_threshold_mw) * cfg.peak_penalty
@@ -82,6 +88,7 @@ def compute_reward(
         waste=cfg.w_waste * waste,
         excess=cfg.w_excess * excess,
         unserved=cfg.w_unserved * unserved,
+        fuel=cfg.w_carbon * fuel,
         constraint=constraint,
     )
     breakdown.total = -(
@@ -91,6 +98,7 @@ def compute_reward(
         + breakdown.waste
         + breakdown.excess
         + breakdown.unserved
+        + breakdown.fuel
         + breakdown.constraint
     )
     return breakdown.total, breakdown

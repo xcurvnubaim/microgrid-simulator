@@ -95,6 +95,7 @@ class GridState:
     battery_p_mw: float = 0.0
     diesel_p_mw: float = 0.0
     diesel_on: bool = False
+    diesel_starts: int = 0
     # Non-load-serving generation is explicit instead of disappearing into a
     # solver slack. ``dump_load_mw`` is the modeled sink for that surplus;
     # ``network_loss_mw`` is kept separate so AC losses are never called waste.
@@ -226,6 +227,7 @@ class RewardBreakdown:
     waste: float = 0.0
     excess: float = 0.0
     unserved: float = 0.0
+    fuel: float = 0.0
     constraint: float = 0.0
     total: float = 0.0
 

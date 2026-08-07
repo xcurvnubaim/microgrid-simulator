@@ -22,12 +22,22 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecNormalize
 
 from microgrid_simulator.config import Settings
+from microgrid_simulator.forecast import ForecastCache, StrictCachedForecastClient
 from microgrid_simulator.rl.callbacks import build_callbacks
 from microgrid_simulator.rl.wrappers import make_training_env
 
 LOGGER = logging.getLogger(__name__)
 
 ALGOS: dict[str, type[BaseAlgorithm]] = {"ppo": PPO, "sac": SAC}
+
+
+def _resolve_device(device: str) -> str:
+    """Resolve the RL device string, honouring PyTorch CUDA availability."""
+    if device == "auto":
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return device
 
 
 def train(
@@ -51,6 +61,20 @@ def train(
     seed = seed if seed is not None else rl.seed
     artifact_dir = Path(artifact_dir) if artifact_dir is not None else Path(rl.artifact_dir)
 
+    forecast_client = None
+    forecast_mode = getattr(rl, "forecast_mode", "cached")
+    if settings.forecast.enabled and settings.forecast.strict_cache and forecast_mode == "cached":
+        if not settings.forecast.cache_path or not settings.forecast.manifest_path:
+            raise ValueError("strict cached forecasting requires cache_path and manifest_path")
+        source_id = settings.forecast.source_id or settings.scenario.name
+        cache = ForecastCache.load(
+            settings.forecast.cache_path,
+            settings.forecast.manifest_path,
+            expected_source_id=source_id,
+            action_interval_hours=settings.topology.timestep_hours,
+        )
+        forecast_client = StrictCachedForecastClient(settings.forecast, cache)
+
     run_dir = Path(rl.log_dir) / f"{algo}_{time.strftime('%Y%m%d-%H%M%S')}"
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.yaml").write_text(yaml.safe_dump(settings.model_dump(), sort_keys=False))
@@ -62,6 +86,8 @@ def train(
         seed=seed,
         monitor_dir=run_dir / "monitor",
         backend_name=backend_name,
+        split=rl.train_split,
+        forecast_client=forecast_client,
     )
     eval_env = make_training_env(
         settings,
@@ -70,6 +96,8 @@ def train(
         monitor_dir=run_dir / "eval_monitor",
         training=False,
         backend_name=backend_name,
+        split=rl.eval_split,
+        forecast_client=forecast_client,
     )
 
     model_cls = cast(Any, ALGOS[algo])
@@ -79,6 +107,7 @@ def train(
         verbose=1,
         seed=seed,
         tensorboard_log=str(tensorboard_log) if tensorboard_log else None,
+        device=_resolve_device(rl.device),
     )
     LOGGER.info(
         "Training %s for %d timesteps (%d envs) -> %s",

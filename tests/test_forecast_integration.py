@@ -246,7 +246,7 @@ def test_unavailable_forecast_is_masked_without_stopping_plant() -> None:
     env.close()
 
 
-def test_disabled_forecast_preserves_legacy_observation_shape() -> None:
+def test_disabled_forecast_preserves_shared_observation_shape() -> None:
     disabled = MicrogridEnv(settings=_settings(enabled=False))
     enabled = MicrogridEnv(
         settings=_settings(enabled=True),
@@ -256,7 +256,7 @@ def test_disabled_forecast_preserves_legacy_observation_shape() -> None:
     disabled_obs, _ = disabled.reset(seed=0)
     enabled_obs, _ = enabled.reset(seed=0)
 
-    assert len(enabled_obs) == len(disabled_obs) + 7
+    assert enabled_obs.shape == disabled_obs.shape
     disabled.close()
     enabled.close()
 
@@ -471,8 +471,9 @@ def test_stale_rollout_advances_then_reports_horizon_exhaustion(rollout_steps: i
 def test_forecast_cache_loading(tmp_path) -> None:
     jsonl_file = tmp_path / "forecasts.jsonl"
     jsonl_file.write_text(
-        '{"issued_at": "2026-01-15T08:00:00Z", "horizon_hours": 24, "frequency_hours": 1.0, '
-        '"pv_values_kw": [10.0, 20.0], "demand_values_kw": [100.0, 200.0], "source_id": "test_src"}\n'
+        '{"issued_at": "2026-01-15T08:00:00Z", "horizon_hours": 24, '
+        '"frequency_hours": 1.0, "pv_values_kw": [10.0, 20.0], '
+        '"demand_values_kw": [100.0, 200.0], "source_id": "test_src"}\n'
     )
 
     from microgrid_simulator.forecast import CachedForecastClient, ForecastCache
@@ -490,3 +491,66 @@ def test_forecast_cache_loading(tmp_path) -> None:
     fetched = client.fetch(ctx, issued_at="2026-01-15T08:00:00Z")
     assert fetched.pv_values_mw == pytest.approx((0.01, 0.02))
 
+
+def test_strict_cache_error_aborts_environment_reset() -> None:
+    settings = _settings(enabled=True)
+    settings.forecast.strict_cache = True
+    client = _StubForecastClient(error="cache gap")
+    env = MicrogridEnv(settings=settings, forecast_client=client)
+
+    with pytest.raises(ForecastError, match="cache gap"):
+        env.reset(seed=0)
+    env.close()
+
+
+def _telemetry_window(horizon: int = 3) -> TelemetryWindow:
+    timestamps = pd.date_range("2026-01-14 23:45:00", periods=30, freq="15min")
+    pv = np.linspace(0.05, 0.30, 30)
+    demand = np.linspace(0.10, 0.40, 30)
+    return TelemetryWindow(
+        demand_mw=demand,
+        pv_mw=pv,
+        timestamps=timestamps,
+        first_evaluated_timestamp=timestamps[1],
+        source_files={"load": "test", "pv": "test"},
+    )
+
+
+def test_none_forecast_mode_zeroes_observation_and_disables_availability() -> None:
+    settings = _settings(enabled=True, horizon=2)
+    settings.rl.forecast_mode = "none"
+    env = MicrogridEnv(settings=settings)
+    env.telemetry_window = _telemetry_window(horizon=2)
+
+    obs, reset_info = env.reset(seed=0)
+    base_obs_size = len(obs) - 5  # availability + 2 PV + 2 demand
+    assert obs[base_obs_size:].tolist() == pytest.approx([0.0, 0.0, 0.0, 0.0, 0.0])
+    assert reset_info["forecast_available"] is False
+    assert reset_info["forecast_source"] is None
+
+    _, _, _, _, step_info = env.step(np.zeros(env.action_dim, dtype=np.float32))
+    assert step_info["forecast_available"] is False
+    env.close()
+
+
+def test_oracle_forecast_mode_exposes_true_future_telemetry() -> None:
+    settings = _settings(enabled=True, horizon=2, timestep_hours=0.25)
+    settings.rl.forecast_mode = "oracle"
+    env = MicrogridEnv(settings=settings)
+    win = _telemetry_window(horizon=2)
+    env.telemetry_window = win
+
+    obs, reset_info = env.reset(seed=0)
+    assert reset_info["forecast_available"] is True
+    assert reset_info["forecast_model_version"] == "oracle"
+    assert reset_info["forecast_covariate_mode"] == "oracle"
+
+    # At reset (step 0), the oracle looks 4 steps (1 hour) ahead at hourly
+    # spacing: win indices 4, 8.
+    base_obs_size = len(obs) - 5  # availability + 2 PV + 2 demand
+    pv_expected = (win.pv_mw[4], win.pv_mw[8])
+    demand_expected = (win.demand_mw[4], win.demand_mw[8])
+    assert obs[base_obs_size:].tolist() == pytest.approx(
+        [1.0, pv_expected[0], pv_expected[1], demand_expected[0], demand_expected[1]]
+    )
+    env.close()

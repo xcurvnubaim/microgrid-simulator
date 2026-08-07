@@ -67,6 +67,8 @@ function liveTotals(rows, dt) {
     load_kwh: sum("load_kw") * dt,
     served_kwh: sum("served_kw") * dt,
     unserved_kwh: sum("unserved_kw") * dt,
+    served_energy_pct:
+      sum("load_kw") > 0 ? (100 * sum("served_kw")) / sum("load_kw") : 100,
     blackout_steps: blackoutSteps,
     blackout_hours: blackoutSteps * dt,
     peak_unserved_kw: Math.max(...rows.map((r) => r.unserved_kw ?? 0)),
@@ -83,9 +85,15 @@ function liveTotals(rows, dt) {
 
 export default function App() {
   const [settings, setSettings] = useState(null);
+  const [defaultSettings, setDefaultSettings] = useState(null);
+  const [rlSettings, setRlSettings] = useState(null);
   const [policies, setPolicies] = useState(["rule", "idle", "random", "deterministic"]);
+  const [rlPresets, setRlPresets] = useState([]);
   const [demand, setDemand] = useState(null);
   const [policy, setPolicy] = useState("rule");
+  const [rlArtifact, setRlArtifact] = useState("");
+  const [rlAlgo, setRlAlgo] = useState("sac");
+  const [rlPreset, setRlPreset] = useState("");
   const [seed, setSeed] = useState(0);
   const [error, setError] = useState(null);
   const [railOpen, setRailOpen] = useState(false);
@@ -115,7 +123,16 @@ export default function App() {
     getDefaults()
       .then((d) => {
         setSettings(d.settings);
+        setDefaultSettings(d.settings);
+        setRlSettings(d.policy_settings?.rl ?? null);
         setPolicies(d.policies);
+        setRlPresets(d.rl_presets ?? []);
+        const preset = d.rl_presets?.[0];
+        if (preset) {
+          setRlPreset(preset.label);
+          setRlArtifact(preset.artifact);
+          setRlAlgo(preset.algo);
+        }
         setDemand(d.demand);
       })
       .catch((e) => setError(e.message));
@@ -188,8 +205,13 @@ export default function App() {
     abortRef.current = controller;
     let failed = false;
     try {
+      const rl =
+        policy === "rl"
+          ? { rl_artifact: rlArtifact, rl_algo: rlAlgo }
+          : { rl_artifact: "", rl_algo: "" };
       await simulateStream(runSettings, policy, seed + episodeRef.current - 1, {
         signal: controller.signal,
+        rl,
         onEvent: (ev) => {
           if (ev.type === "meta") {
             setMeta((prev) => ({
@@ -261,14 +283,35 @@ export default function App() {
     }
     return sampled;
   }, [rows]);
-  const demandReal = demand?.available && settings?.demand?.file;
+  const demandReal = policy === "rl"
+    ? Boolean(settings?.digital_twin?.measurements?.load?.file)
+    : Boolean(demand?.available && settings?.demand?.file);
   const islanded =
     settings != null &&
     !(settings.buses ?? []).some((b) => String(b.role ?? "").toLowerCase() === "grid");
   const blackoutHours = displayTotals?.blackout_hours ?? 0;
+  const latestRow = rows[rows.length - 1];
+  const runProgress = meta?.steps
+    ? Math.min(100, (rows.length / Math.max(meta.steps, 1)) * 100)
+    : 0;
+  const modelLabel = policy === "rl"
+    ? rlArtifact.split("/").slice(-2).join(" / ")
+    : `${policy} controller`;
   const updateTopology = (topology) => {
     if (!settings) return;
     setSettings(applyTopologyChange(settings, topology));
+  };
+  const changePolicy = (nextPolicy) => {
+    if (nextPolicy === policy) return;
+    if (nextPolicy === "rl") {
+      setDefaultSettings(settings);
+      setSettings(rlSettings);
+    } else if (policy === "rl") {
+      setRlSettings(settings);
+      setSettings(defaultSettings);
+    }
+    setPolicy(nextPolicy);
+    reset();
   };
   const patchSettings = (part) => {
     setSettings((current) => {
@@ -338,13 +381,53 @@ export default function App() {
 
         <div className="controls">
           <label htmlFor="policy">policy</label>
-          <select id="policy" value={policy} onChange={(e) => setPolicy(e.target.value)} disabled={running}>
+          <select id="policy" value={policy} onChange={(e) => changePolicy(e.target.value)} disabled={running}>
             {policies.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
             ))}
           </select>
+          {policy === "rl" && (
+            <span className="rl-fields">
+              <select
+                id="rl-preset"
+                value={rlPreset}
+                disabled={running}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setRlPreset(value);
+                  const preset = rlPresets.find((item) => item.label === value);
+                  if (preset) {
+                    setRlArtifact(preset.artifact);
+                    setRlAlgo(preset.algo);
+                  }
+                }}
+                aria-label="RL model preset"
+              >
+                {rlPresets.map((preset) => (
+                  <option key={preset.label} value={preset.label}>{preset.label}</option>
+                ))}
+                <option value="custom artifact">custom artifact</option>
+              </select>
+              <input
+                id="rl-artifact"
+                type="text"
+                value={rlArtifact}
+                disabled={running}
+                onChange={(e) => {
+                  setRlPreset("custom artifact");
+                  setRlArtifact(e.target.value);
+                }}
+                placeholder="artifacts/.../model.zip"
+                size={28}
+              />
+              <select id="rl-algo" value={rlAlgo} onChange={(e) => setRlAlgo(e.target.value)} disabled={running}>
+                <option value="sac">sac</option>
+                <option value="ppo">ppo</option>
+              </select>
+            </span>
+          )}
           <label htmlFor="seed">seed</label>
           <input
             id="seed"
@@ -406,6 +489,33 @@ export default function App() {
                 ✕
               </button>
             </div>
+          )}
+
+          {settings && (
+            <section className="command-console" aria-label="Run command console">
+              <div className="console-intro">
+                <span className="eyebrow">Live experiment</span>
+                <strong>{modelLabel}</strong>
+                <span className="console-copy">
+                  {policy === "rl"
+                    ? "SAC acts on cached forecasts and the AC scheduling twin."
+                    : "Compare a transparent controller against the same plant assumptions."}
+                </span>
+              </div>
+              <div className="console-status">
+                <span className={`status-dot ${running ? "is-running" : hasRun ? "is-complete" : "is-ready"}`} />
+                <span>{running ? "solving live" : hasRun ? "run complete" : "ready"}</span>
+                {hasRun && <b>{rows.length} ticks</b>}
+              </div>
+              <div className="console-progress" aria-hidden="true">
+                <span style={{ width: `${running ? runProgress : hasRun ? 100 : 0}%` }} />
+              </div>
+              <div className="console-readout">
+                <span><small>latest time</small>{latestRow ? `${latestRow.hour?.toFixed(2)} h` : "—"}</span>
+                <span><small>SoC</small>{latestRow?.soc_pct != null ? `${latestRow.soc_pct.toFixed(1)}%` : "—"}</span>
+                <span><small>served</small>{displayTotals?.served_energy_pct != null ? `${displayTotals.served_energy_pct.toFixed(1)}%` : "pending"}</span>
+              </div>
+            </section>
           )}
 
           {settings && (

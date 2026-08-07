@@ -4,12 +4,17 @@ Wraps the temporarily hardcoded pandapower AC runtime behind the standard
 Gymnasium contract. Backend arguments remain API-compatible but are normalized
 by the backend factory while the lock is active.
 
-Action (continuous, normalised to [-1, 1] for SB3 compatibility):
-    a[0]        battery power      -> [-max_discharge, +max_charge] MW
-    a[1..n_ev]  EV charge rates    -> [0, ev_max_charge] MW each
-    a[-3]       diesel on/off      -> on when a[-3] > 0 (only if diesel enabled)
-    a[-2]       diesel setpoint    -> [0, diesel_max_kw] (only if diesel enabled)
-    a[-1]       PV curtailment     -> [0, 1] fraction
+Action (compact full-EMS, continuous, normalised to [-1, 1] for SB3/SAC;
+    RL Plan §Policy and environment contract):
+    a[0]  battery command  -> [-max_discharge, +max_charge] MW
+    a[1]  diesel command   -> > 0 commits the genset and maps linearly onto its
+                               [min_kw, max_kw] setpoint band; <= 0 requests off.
+                               The plant's diesel model still shapes the realised
+                               output (start delay, ramp, min up/down lockouts).
+    a[2]  PV curtailment   -> [0, 1] fraction. Kept as an explicit dimension so
+                               legacy ``ControlAction`` controllers stay
+                               encodable; trained policies should hold it at 0
+                               and let the plant resolve spill.
 
 Observation (float32 vector): bus voltages, static loads, PV generation,
 battery SoC/SoH, EV SoCs, grid import, PV availability, diesel output, plus
@@ -20,6 +25,13 @@ demand values in MW are appended.
 Episodes: when a real demand trace is configured (``demand.file``) each
 ``reset()`` draws a random 24h window from it, so the agent sees varied real
 demand shapes instead of one synthetic sinusoid.
+
+Terminal-SOC contract (RL Plan §Acceptance criteria): an episode whose final
+SOC lies outside ``settings.episode.terminal_soc_tolerance`` of the recorded
+starting SOC terminates with a one-shot terminal penalty on the last step, so
+the agent is trained to return the battery to its start-of-episode charge
+(the same target the rule/MPC comparisons are judged against). The deviation
+and penalty are exposed in ``info``.
 """
 
 from __future__ import annotations
@@ -38,19 +50,28 @@ from microgrid_simulator.core.backend import MicrogridBackend
 from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.digital_twin.replay import TelemetryWindow, load_fixed_telemetry_window
 from microgrid_simulator.forecast import (
+    ForecastCache,
     ForecastClient,
     ForecastContext,
     ForecastError,
     ForecastSnapshot,
     ForecastSourceError,
+    StrictCachedForecastClient,
 )
 from microgrid_simulator.model.reward import compute_reward
+from microgrid_simulator.rl.sampler import RandomEpisodeSampler, SplitName
 
 
 def decode_action(
     a: np.ndarray, settings: Settings, n_ev: int, diesel_enabled: bool
 ) -> ControlAction:
-    """Map a normalised [-1, 1] action vector onto physical units."""
+    """Map a normalised [-1, 1] compact action vector onto physical units.
+
+    Compact layout: ``[battery_command, diesel_command, pv_curtail]``. Extra
+    dimensions between the battery command and the final curtailment slot are
+    treated as per-EV charge commands so legacy EV-enabled callers keep
+    decoding; the active campus topology has ``n_ev == 0``.
+    """
     a = np.clip(np.asarray(a, dtype=np.float32), -1.0, 1.0)
     bcfg = settings.battery
 
@@ -62,12 +83,18 @@ def decode_action(
     ev_max = settings.ev.max_charge_mw
     ev_p_mw = [((float(a[1 + i]) + 1.0) / 2.0) * ev_max for i in range(n_ev)]
 
-    # diesel: discrete on/off (threshold at 0) + continuous setpoint
+    # diesel: one continuous command. > 0 commits the genset and maps onto the
+    # [min_kw, max_kw] setpoint band (dispatch-to-setpoint); <= 0 requests off.
+    # The genset model still applies its own start/ramp/min-up-down shaping.
     diesel_on = False
     diesel_set_mw = 0.0
     if diesel_enabled:
-        diesel_on = float(a[-3]) > 0.0
-        diesel_set_mw = ((float(a[-2]) + 1.0) / 2.0) * (settings.diesel.max_kw / 1000.0)
+        raw_d = float(a[1 + n_ev])
+        diesel_on = raw_d > 0.0
+        if diesel_on:
+            lo_mw = min(settings.diesel.min_kw, settings.diesel.max_kw) / 1000.0
+            hi_mw = settings.diesel.max_kw / 1000.0
+            diesel_set_mw = lo_mw + raw_d * (hi_mw - lo_mw)
 
     # curtailment: [-1,1] -> [0, 1]
     curtail = (float(a[-1]) + 1.0) / 2.0
@@ -85,7 +112,7 @@ def encode_action(
 ) -> np.ndarray:
     """Inverse of :func:`decode_action` — lets controllers that emit physical
     :class:`ControlAction` drive the normalised Gymnasium action space."""
-    dim = 1 + n_ev + (2 if diesel_enabled else 0) + 1
+    dim = 1 + n_ev + (1 if diesel_enabled else 0) + 1
     a = np.zeros(dim, dtype=np.float32)
     bcfg = settings.battery
     p = action.battery_p_mw
@@ -95,9 +122,16 @@ def encode_action(
         p_ev = action.ev_p_mw[i] if i < len(action.ev_p_mw) else 0.0
         a[1 + i] = (p_ev / ev_max) * 2.0 - 1.0
     if diesel_enabled:
-        a[-3] = 1.0 if action.diesel_on else -1.0
-        max_mw = max(settings.diesel.max_kw / 1000.0, 1e-9)
-        a[-2] = (action.diesel_setpoint_mw / max_mw) * 2.0 - 1.0
+        if action.diesel_on:
+            lo_mw = min(settings.diesel.min_kw, settings.diesel.max_kw) / 1000.0
+            hi_mw = max(settings.diesel.max_kw / 1000.0, lo_mw + 1e-9)
+            frac = np.clip((action.diesel_setpoint_mw - lo_mw) / (hi_mw - lo_mw), 0.0, 1.0)
+            # Lift the exact band minimum just above zero: the decoder treats
+            # a non-positive command as "off", so the smallest admissible
+            # setpoint must stay strictly positive to round-trip.
+            a[1 + n_ev] = max(frac, 1e-6)
+        else:
+            a[1 + n_ev] = -1.0
     a[-1] = action.pv_curtail * 2.0 - 1.0
     return np.clip(a, -1.0, 1.0)
 
@@ -108,6 +142,10 @@ def build_observation(
     pv_forecast_mw: np.ndarray | None = None,
     demand_forecast_mw: np.ndarray | None = None,
     forecast_available: bool = False,
+    initial_soc: float | None = None,
+    target_soc: float | None = None,
+    episode_progress: float = 0.0,
+    forecast_horizon: int = 24,
 ) -> np.ndarray:
     """Flatten a :class:`GridState` into the env's float32 observation vector."""
     hour = state.timestamp % 24.0
@@ -123,12 +161,21 @@ def build_observation(
     if diesel_enabled:
         vals += [state.diesel_p_mw]
     vals += time_feats
+    vals += [state.soc[0] if state.soc else 0.0]
+    vals += [initial_soc if initial_soc is not None else (state.soc[0] if state.soc else 0.0)]
+    vals += [target_soc if target_soc is not None else (state.soc[0] if state.soc else 0.0)]
+    vals += [float(np.clip(episode_progress, 0.0, 1.0))]
+    pv_values = np.zeros(forecast_horizon, dtype=np.float32)
+    demand_values = np.zeros(forecast_horizon, dtype=np.float32)
     if pv_forecast_mw is not None:
-        vals += [1.0 if forecast_available else 0.0]
-        vals += list(pv_forecast_mw)
-        vals += list(
-            demand_forecast_mw if demand_forecast_mw is not None else np.zeros_like(pv_forecast_mw)
+        pv_values[: min(forecast_horizon, len(pv_forecast_mw))] = pv_forecast_mw[:forecast_horizon]
+    if demand_forecast_mw is not None:
+        demand_values[: min(forecast_horizon, len(demand_forecast_mw))] = (
+            demand_forecast_mw[:forecast_horizon]
         )
+    vals += [1.0 if forecast_available else 0.0]
+    vals += list(pv_values)
+    vals += list(demand_values)
     return np.asarray(vals, dtype=np.float32)
 
 
@@ -145,6 +192,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         backend: MicrogridBackend | None = None,
         backend_name: str | None = None,
         forecast_client: ForecastClient | None = None,
+        episode_sampler: RandomEpisodeSampler | None = None,
+        split: SplitName | None = None,
     ) -> None:
         super().__init__()
         if settings is None:
@@ -153,10 +202,33 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self.render_mode = render_mode
         self.dt = float(settings.topology.timestep_hours)
         self.max_steps = int(round(settings.episode.horizon_hours / self.dt))
-        self.telemetry_window: TelemetryWindow | None = load_fixed_telemetry_window(
-            settings, self.max_steps
+        self._episode_sampler = episode_sampler or (
+            RandomEpisodeSampler(settings, split=split, seed=0) if split else None
         )
-        self._forecast_client = forecast_client or ForecastClient(settings.forecast)
+        self.telemetry_window: TelemetryWindow | None = (
+            None
+            if self._episode_sampler
+            else load_fixed_telemetry_window(settings, self.max_steps)
+        )
+        if forecast_client is not None:
+            self._forecast_client = forecast_client
+        elif (
+            settings.forecast.enabled
+            and settings.forecast.strict_cache
+            and getattr(settings.rl, "forecast_mode", "cached") == "cached"
+        ):
+            if not settings.forecast.cache_path or not settings.forecast.manifest_path:
+                raise ValueError("strict cached forecasting requires cache_path and manifest_path")
+            source_id = settings.forecast.source_id or settings.scenario.name
+            cache = ForecastCache.load(
+                settings.forecast.cache_path,
+                settings.forecast.manifest_path,
+                expected_source_id=source_id,
+                action_interval_hours=settings.topology.timestep_hours,
+            )
+            self._forecast_client = StrictCachedForecastClient(settings.forecast, cache)
+        else:
+            self._forecast_client = ForecastClient(settings.forecast)
         self._forecast_snapshot: ForecastSnapshot | None = None
         self._forecast_error: str | None = None
         self._forecast_origin_step = 0
@@ -173,11 +245,17 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self.backend = create_backend(settings, backend_name)
         self.n_ev = settings.topology.n_ev
         self._steps = 0
-        self._last_state: GridState = self.backend.reset()
-
-        # --- action space: [battery, ev_0..ev_k, (diesel_on, diesel_set), curtail] ---
         self.diesel_enabled = settings.diesel.enabled
-        self.action_dim = 1 + self.n_ev + (2 if self.diesel_enabled else 0) + 1
+        self._last_state: GridState = self.backend.reset()
+        # Terminal-SOC tracking (return-to-start contract); populated by reset().
+        self._initial_soc: float = self.backend.battery.soc
+        self._terminal_soc_deviation: float = 0.0
+        self._terminal_soc_penalty: float = 0.0
+        self._hard_unserved_triggered: bool = False
+        self._last_observation: np.ndarray = self._build_obs(self._last_state)
+
+        # --- action space: compact full-EMS [battery, ev_0..ev_k, (diesel_cmd), curtail] ---
+        self.action_dim = 1 + self.n_ev + (1 if self.diesel_enabled else 0) + 1
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(self.action_dim,), dtype=np.float32
         )
@@ -195,22 +273,27 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         super().reset(seed=seed)
         self._steps = 0
         self._reset_forecast_state()
-
         # Draw a fresh random window of the real demand trace per episode
         # (never walk the file sequentially).
         window = None
         pv_window = None
         info_extra: dict[str, Any] = {}
         trace = self.backend.demand_trace
-        if self.telemetry_window is not None:
-            window = self.telemetry_window.demand_mw
-            pv_window = self.telemetry_window.pv_mw
+        episode_window = (
+            self._episode_sampler.sample_window()
+            if self._episode_sampler
+            else self.telemetry_window
+        )
+        self.telemetry_window = episode_window
+        if episode_window is not None:
+            window = episode_window.demand_mw
+            pv_window = episode_window.pv_mw
             info_extra = {
                 "demand_window_start_index": 0,
-                "demand_window_start_time": str(self.telemetry_window.first_evaluated_timestamp),
-                "telemetry_context_time": str(self.telemetry_window.context_timestamp),
-                "telemetry_end_time": str(self.telemetry_window.last_evaluated_timestamp),
-                "telemetry_source_files": self.telemetry_window.source_files,
+                "demand_window_start_time": str(episode_window.first_evaluated_timestamp),
+                "telemetry_context_time": str(episode_window.context_timestamp),
+                "telemetry_end_time": str(episode_window.last_evaluated_timestamp),
+                "telemetry_source_files": episode_window.source_files,
                 "pv_is_real": True,
             }
         elif trace is not None:
@@ -226,11 +309,17 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self._last_state = self.backend.reset(
             seed=seed, demand_window_mw=window, pv_window_mw=pv_window
         )
+        self._initial_soc = float(self.backend.battery.soc)
+        self._terminal_soc_deviation = 0.0
+        self._terminal_soc_penalty = 0.0
         self._initialize_forecast_history(self._last_state)
         self._load_forecast()
         obs = self._build_obs(self._last_state)
+        self._last_observation = obs
         return obs, {
             "timestamp": self._last_state.timestamp,
+            "initial_soc": self._initial_soc,
+            "target_soc": self._initial_soc,
             **info_extra,
             **self._forecast_meta(),
         }
@@ -248,16 +337,68 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self._append_forecast_history(state)
         terminated = not state.solver_ok
         truncated = self._steps >= self.max_steps
+
+        # Hard unserved-load constraint (islanded scenario): a tick with real
+        # unserved load is an infeasible dispatch, so end the episode with a
+        # one-shot penalty instead of only charging the per-kWh reward term.
+        # Shortfalls at or below ``hard_unserved_tol_mw`` (sub-kW command
+        # precision residuals around the SOC floor) are tolerated: continuous
+        # battery actions cannot hit demand to 1e-6 MW precision, and ending
+        # every episode on a microscopic shortfall prevents training from ever
+        # observing a full-length episode. The soft ``w_unserved`` reward term
+        # is still computed above and folded into the breakdown.
+        self._hard_unserved_triggered = False
+        hard_tol = float(getattr(self.settings.rl, "hard_unserved_tol_mw", 0.002))
+        if getattr(self.settings.rl, "hard_unserved", False) and state.unserved_mw > hard_tol:
+            penalty = float(getattr(self.settings.rl, "hard_unserved_penalty", 1000.0))
+            reward -= penalty
+            breakdown.constraint += penalty
+            breakdown.total -= penalty
+            terminated = True
+            truncated = False
+            self._hard_unserved_triggered = True
+
+        # Terminal-SOC return-to-start contract: ending the episode away from
+        # the recorded starting SOC ends the episode with a one-shot penalty,
+        # so a policy cannot drain or overfill the battery for a short-horizon
+        # gain the way an unconstrained finite-horizon MPC does.
+        epcfg = self.settings.episode
+        final_soc = float(self.backend.battery.soc)
+        self._terminal_soc_deviation = abs(final_soc - self._initial_soc)
+        self._terminal_soc_penalty = 0.0
+        terminal_soc_met = self._terminal_soc_deviation <= epcfg.terminal_soc_tolerance
+        if truncated and not terminal_soc_met:
+            self._terminal_soc_penalty = (
+                self._terminal_soc_deviation * epcfg.terminal_soc_penalty
+            )
+            reward -= self._terminal_soc_penalty
+            breakdown.constraint += self._terminal_soc_penalty
+            breakdown.total -= self._terminal_soc_penalty
+            terminated = True
+            truncated = False
+
         if self.settings.forecast.enabled and self.settings.forecast.refresh_each_step:
             self._load_forecast()
 
         obs = self._build_obs(state)
+        self._last_observation = obs
         pv_forecast, demand_forecast = self._forecast_vectors()
         info: dict[str, Any] = {
             "timestamp": state.timestamp,
             "grid_import_mw": state.grid_import_mw,
             "soc": self.backend.battery.soc,
             "soh": self.backend.battery.soh,
+            "initial_soc": self._initial_soc,
+            "target_soc": self._initial_soc,
+            "episode_progress": min(1.0, self._steps / max(1, self.max_steps)),
+            "terminal_soc_deviation": self._terminal_soc_deviation,
+            "terminal_soc_tolerance": self.settings.episode.terminal_soc_tolerance,
+            "terminal_soc_penalty": self._terminal_soc_penalty,
+            "terminal_soc_met": terminal_soc_met,
+            "hard_unserved_enabled": bool(getattr(self.settings.rl, "hard_unserved", False)),
+            "hard_unserved_triggered": self._hard_unserved_triggered,
+            "unserved_mw": state.unserved_mw,
+            "load_demand_mw": state.load_demand_mw,
             "pv_wasted_mw": max(0.0, state.pv_available_mw - state.pv_used_mw),
             "diesel_p_mw": state.diesel_p_mw,
             "diesel_on": state.diesel_on,
@@ -320,6 +461,10 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             pv_forecast_mw=pv_forecast,
             demand_forecast_mw=demand_forecast,
             forecast_available=self._forecast_is_available(),
+            initial_soc=self._initial_soc,
+            target_soc=self._initial_soc,
+            episode_progress=self._steps / max(1, self.max_steps),
+            forecast_horizon=self.settings.forecast.horizon_hours,
         )
 
     # -- forecast observation ---------------------------------------------
@@ -355,14 +500,73 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             pv_history = tuple(self._forecast_pv_history_mw)
             demand_history = tuple(self._forecast_demand_history_mw)
         return ForecastContext(
-            source_id=self.settings.scenario.name,
+            source_id=self.settings.forecast.source_id or self.settings.scenario.name,
             frequency_hours=self.dt,
             pv_values_mw=pv_history,
             demand_values_mw=demand_history,
         )
 
+    def _forecast_mode(self) -> str:
+        """Ablation selector: ``cached`` (default), ``none``, or ``oracle``."""
+        return getattr(self.settings.rl, "forecast_mode", "cached")
+
+    def _load_oracle_forecast(self) -> None:
+        """Build a perfect-foresight (oracle) snapshot from the actual telemetry.
+
+        Diagnostic upper bound only: the policy sees the true future PV/load, so
+        it is never a deployable result. The snapshot mirrors the cached layout
+        (hourly values starting one hour after the current step) so the same
+        observation builder and offset logic apply unchanged.
+        """
+        win = self.telemetry_window
+        if win is None:
+            self._forecast_snapshot = None
+            return
+        horizon = self.settings.forecast.horizon_hours
+        steps_per_hour = int(round(1.0 / self.dt))
+        current_step_index = self._steps  # matches _forecast_request_timestamp convention
+        pv_vals: list[float] = []
+        demand_vals: list[float] = []
+        for k in range(horizon):
+            idx = current_step_index + (k + 1) * steps_per_hour
+            if idx >= len(win.pv_mw):
+                break
+            pv_vals.append(float(win.pv_mw[idx]))
+            demand_vals.append(float(win.demand_mw[idx]))
+        if not pv_vals:
+            self._forecast_snapshot = None
+            return
+        issued_at = str(pd.Timestamp(win.timestamps[current_step_index]).isoformat())
+        self._forecast_snapshot = ForecastSnapshot(
+            issued_at=issued_at,
+            horizon_hours=horizon,
+            frequency_hours=1.0,
+            model_version="oracle",
+            pv_target="pv_avg",
+            demand_target="demand",
+            timestamps=(),
+            pv_values_mw=tuple(pv_vals),
+            demand_values_mw=tuple(demand_vals),
+            source_id=self.settings.forecast.source_id or self.settings.scenario.name,
+            context_time=issued_at,
+            context_steps=current_step_index,
+            cold_start=False,
+            covariate_mode="oracle",
+        )
+        self._forecast_origin_step = self._steps
+
     def _load_forecast(self) -> None:
         if not self.settings.forecast.enabled:
+            return
+        mode = self._forecast_mode()
+        if mode == "none":
+            # No-forecast ablation: keep the forecast observation dimensions
+            # present but zeroed with availability off, so the observation
+            # shape matches the cached and oracle policies exactly.
+            self._forecast_snapshot = None
+            return
+        if mode == "oracle":
+            self._load_oracle_forecast()
             return
         try:
             snapshot = self._forecast_client.fetch(
@@ -375,12 +579,16 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             self._forecast_error = str(exc)
             self._forecast_stale = False
             self._forecast_response_source = exc.actual_source
+            if self.settings.forecast.strict_cache:
+                raise
             return
         except ForecastError as exc:
             # Preserve an unexhausted valid horizon through a transient error,
             # but make the state visible rather than silently refreshing it.
             self._forecast_error = str(exc)
             self._forecast_stale = self._forecast_snapshot is not None
+            if self.settings.forecast.strict_cache:
+                raise
             return
 
         self._forecast_response_source = snapshot.source_id
@@ -452,7 +660,9 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "forecast_requested_horizon_hours": cfg.horizon_hours,
             "forecast_refresh_each_step": cfg.refresh_each_step,
             "forecast_service_url": cfg.service_url,
-            "forecast_requested_source": self.settings.scenario.name,
+            "forecast_requested_source": (
+                self.settings.forecast.source_id or self.settings.scenario.name
+            ),
             "forecast_source": self._forecast_response_source,
             "forecast_stale": self._forecast_stale,
             "forecast_age_steps": max(0, self._steps - self._forecast_origin_step),

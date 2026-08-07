@@ -82,11 +82,12 @@ def test_synthetic_fallback_without_file() -> None:
 # --- diesel -----------------------------------------------------------------
 def test_diesel_action_dims_and_clamp() -> None:
     env = MicrogridEnv(settings=Settings())
-    assert env.action_dim == 1 + env.n_ev + 2 + 1
+    # Compact full-EMS layout: battery + EVs + one diesel command + curtail.
+    assert env.action_dim == 1 + env.n_ev + 1 + 1
     env.reset(seed=0)
 
     on = np.zeros(env.action_dim, dtype=np.float32)
-    on[-3], on[-2], on[-1] = 1.0, 1.0, -1.0
+    on[1 + env.n_ev], on[-1] = 1.0, -1.0  # diesel command at nameplate, no curtailment
     _, _, _, _, info = env.step(on)
     assert info["diesel_on"] is True
     # Start tick: 0.25 min crank/sync at 0, block-load to 45 kW, ramp to 150 kW
@@ -94,18 +95,22 @@ def test_diesel_action_dims_and_clamp() -> None:
     assert info["diesel_p_mw"] == pytest.approx(0.13525)
 
     off = on.copy()
-    off[-3] = -1.0
-    # 15 min after the start the min-up-time lockout still holds the genset on,
-    # now settled at full nameplate for the whole tick.
+    off[1 + env.n_ev] = -1e-6  # near-zero negative: requests off, but the min-up
+    # lockout overrides and the tiny magnitude maps onto the min-stable setpoint,
+    # exercising the same "held on at a clamped setpoint" path as the legacy
+    # two-dimension layout (whose stranded setpoint stayed at nameplate).
+    # 15 min after the start the genset is still on: soft ramp from 150 kW down
+    # to the 45 kW minimum stable load (3.5 min), hold — tick average 57.25 kW.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is True
-    assert info["diesel_p_mw"] == pytest.approx(env.settings.diesel.max_kw / 1000.0)
+    assert info["diesel_p_mw"] == pytest.approx(0.05725)
 
-    # After 30 min of runtime the off command goes through: soft unload from
-    # 150 to 45 kW takes 3.5 min, then the breaker opens -> 22.75 kW average.
+    # After 30 min of runtime the off command goes through. The genset is
+    # already sitting at minimum stable load, so the breaker opens immediately
+    # with no unload tail — zero output for the whole stop tick.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is False
-    assert info["diesel_p_mw"] == pytest.approx(0.02275)
+    assert info["diesel_p_mw"] == pytest.approx(0.0)
 
     # The next tick the genset is fully offline.
     _, _, _, _, info = env.step(off)

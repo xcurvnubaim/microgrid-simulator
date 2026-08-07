@@ -174,3 +174,25 @@ def test_paper_report_writes_288_measured_intervals(tmp_path) -> None:
     assert stored["totals"]["load_kwh"] == pytest.approx(7200.0)
     assert (output / "report.md").is_file()
     assert (output / "visualization.png").stat().st_size > 10_000
+
+
+def test_paper_report_accepts_672_measured_intervals(tmp_path) -> None:
+    settings = _telemetry_settings(tmp_path, horizon_hours=168.0)
+    timestamps = pd.date_range("2026-01-14 23:45", periods=673, freq="15min")
+    for name, value in (("load", 100.0), ("pv", 20.0)):
+        path = tmp_path / f"{name}.csv"
+        pd.DataFrame({"ts": timestamps, "kw": value}).to_csv(path, index=False)
+        settings.digital_twin.measurements[name].file = str(path)
+    for bus in settings.buses:
+        if bus.role == "grid":
+            bus.role = "main"
+    settings.diesel.enabled = False
+
+    output = tmp_path / "report-168h"
+    metrics = run_telemetry_replay(
+        settings, tmp_path / "config.yaml", output, policy="rule", seed=0
+    )
+
+    trajectory = pd.read_csv(output / "trajectory.csv")
+    assert len(trajectory) == 672
+    assert metrics["meta"]["evaluation_end_exclusive"] == "2026-01-22 00:00:00"

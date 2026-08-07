@@ -1,4 +1,4 @@
-"""Generate a reproducible 72-hour telemetry replay and paper-facing report."""
+"""Generate reproducible fixed-horizon telemetry replays and reports."""
 
 # Markdown table rows are intentionally kept as complete string literals.
 # ruff: noqa: E501
@@ -530,9 +530,10 @@ def run_telemetry_replay(
         )
     result = run_rollout(settings, policy=policy, seed=seed)
     rows = result["rows"]
-    if len(rows) != 288 or settings.topology.timestep_hours != 0.25:
+    expected_steps = int(round(settings.episode.horizon_hours / settings.topology.timestep_hours))
+    if len(rows) != expected_steps or settings.topology.timestep_hours != 0.25:
         raise ValueError(
-            f"paper baseline requires 288 x 15-minute rows; got {len(rows)} x "
+            f"paper baseline requires {expected_steps} x 15-minute rows; got {len(rows)} x "
             f"{settings.topology.timestep_hours * 60:g} minutes"
         )
     if not result["meta"]["demand_is_real"] or not result["meta"]["pv_is_real"]:

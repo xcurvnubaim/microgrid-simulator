@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import tempfile
 import time
 from collections.abc import Iterator
@@ -36,12 +37,36 @@ LOGGER = logging.getLogger(__name__)
 
 WEB_DIST = Path(__file__).parent / "web" / "dist"
 UPLOAD_DIR = Path(tempfile.gettempdir()) / "microgrid-sim-demand"
+RL_PRESETS = (
+    {
+        "label": "v3 seed-0 (60k steps)",
+        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-0/sac_microgrid.zip",
+        "algo": "sac",
+    },
+    {
+        "label": "v3 seed-1 (60k steps)",
+        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-1/sac_microgrid.zip",
+        "algo": "sac",
+    },
+    {
+        "label": "v3 seed-2 (60k steps)",
+        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-2/sac_microgrid.zip",
+        "algo": "sac",
+    },
+    {
+        "label": "verified smoke (60k steps)",
+        "artifact": "artifacts/sac/hardunserved-v3-smoke/sac_microgrid.zip",
+        "algo": "sac",
+    },
+)
 
 
 class SimulateRequest(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
     policy: str = "rule"
     seed: int = 0
+    rl_artifact: str | None = None
+    rl_algo: str | None = None
 
 
 class StreamRequest(SimulateRequest):
@@ -50,19 +75,62 @@ class StreamRequest(SimulateRequest):
     pace_ms: int = Field(default=25, ge=0, le=500)
 
 
-def _base_settings() -> Settings:
-    """Use the shared default scenario, including explicit MGS_CONFIG overrides."""
+def _base_settings(policy: str | None = None) -> Settings:
+    """Use the shared default scenario, including explicit MGS_CONFIG overrides.
+
+    The ``rl`` policy plays a policy trained on the campus controller-study
+    scenario (forecast-enabled, islanded pandapower); the plain default
+    scenario has forecasting disabled and produces a different observation
+    shape, so it is swapped in for RL playback.
+
+    The RL base honors ``$MGS_CONFIG`` first (so a user can point the dashboard
+    at the exact scenario a policy was trained on, e.g. the hard-unserved
+    islanded replay), then falls back to the hard-unserved campus controller
+    scenario, and finally to the shared default. The old hardcoded plain
+    ``islanded-baseline-72h.yaml`` had no ``hard_unserved`` constraint and no
+    digital-twin telemetry replay, so policies trained under the hard-unserved
+    contract saw the synthetic sinusoid instead — the source of dashboard
+    blackouts.
+    """
+    if policy == "rl":
+        from microgrid_simulator.config import Settings as S
+
+        env_cfg = os.environ.get("MGS_CONFIG")
+        if env_cfg and Path(env_cfg).is_file():
+            return S.from_yaml(Path(env_cfg))
+        campus = Path(__file__).resolve().parents[3] / "configs" / "islanded-baseline-72h-hardunserved.yaml"
+        if campus.is_file():
+            return S.from_yaml(campus)
+        campus = Path(__file__).resolve().parents[3] / "configs" / "islanded-baseline-72h.yaml"
+        if campus.is_file():
+            return S.from_yaml(campus)
     return load_settings()
 
 
-def _merge_settings(overrides: dict[str, Any]) -> Settings:
-    raw = _base_settings().model_dump()
+def _merge_settings(overrides: dict[str, Any], policy: str | None = None) -> Settings:
+    raw = _base_settings(policy).model_dump()
+    # The artifact supplies the controller, not the plant. Dashboard settings
+    # therefore remain authoritative for RL just as they are for rule and MPC
+    # playback. The policy-specific base only gives the UI a compatible initial
+    # scenario; every explicit dashboard edit is applied below.
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(raw.get(key), dict):
             raw[key] = {**raw[key], **value}
         else:
             raw[key] = value
     return Settings(**raw)
+
+
+def _playback_settings(overrides: dict[str, Any], policy: str) -> Settings:
+    settings = _merge_settings(overrides, policy)
+    if policy == "rl" and settings.rl.hard_unserved:
+        # Hard unserved-load termination is a training constraint. Dashboard
+        # inference should finish the requested horizon so the user can inspect
+        # the complete blackout and unserved-energy trajectory.
+        settings = settings.model_copy(
+            update={"rl": settings.rl.model_copy(update={"hard_unserved": False})}
+        )
+    return settings
 
 
 def _demand_template_csv(settings: Settings) -> str:
@@ -99,6 +167,17 @@ def _demand_status(settings: Settings) -> dict[str, Any]:
     return {"available": True, "stats": trace.stats()}
 
 
+def _defaults_payload() -> dict[str, Any]:
+    settings = _base_settings()
+    return {
+        "settings": settings.model_dump(),
+        "policy_settings": {"rl": _base_settings("rl").model_dump()},
+        "policies": list(POLICIES),
+        "rl_presets": list(RL_PRESETS),
+        "demand": _demand_status(settings),
+    }
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Microgrid Simulator", docs_url="/api/docs", openapi_url="/api/openapi.json"
@@ -106,23 +185,26 @@ def create_app() -> FastAPI:
 
     @app.get("/api/defaults")
     def defaults() -> dict[str, Any]:
-        settings = _base_settings()
-        return {
-            "settings": settings.model_dump(),
-            "policies": list(POLICIES),
-            "demand": _demand_status(settings),
-        }
+        return _defaults_payload()
 
     @app.post("/api/simulate")
     def simulate(req: SimulateRequest) -> dict[str, Any]:
         if req.policy not in POLICIES:
             raise HTTPException(422, f"policy must be one of {POLICIES}")
+        if req.policy == "rl" and not req.rl_artifact:
+            raise HTTPException(422, "policy 'rl' requires rl_artifact")
         try:
-            settings = _merge_settings(req.settings)
+            settings = _playback_settings(req.settings, req.policy)
         except Exception as exc:  # noqa: BLE001 - surface pydantic detail to the UI
             raise HTTPException(422, f"invalid settings: {exc}") from exc
 
-        result = run_rollout(settings, policy=req.policy, seed=req.seed)
+        result = run_rollout(
+            settings,
+            policy=req.policy,
+            seed=req.seed,
+            rl_artifact=req.rl_artifact,
+            rl_algo=req.rl_algo,
+        )
         result["demand"] = _demand_status(settings)
         return result
 
@@ -130,8 +212,10 @@ def create_app() -> FastAPI:
     def simulate_stream(req: StreamRequest) -> StreamingResponse:
         if req.policy not in POLICIES:
             raise HTTPException(422, f"policy must be one of {POLICIES}")
+        if req.policy == "rl" and not req.rl_artifact:
+            raise HTTPException(422, "policy 'rl' requires rl_artifact")
         try:
-            settings = _merge_settings(req.settings)
+            settings = _playback_settings(req.settings, req.policy)
         except Exception as exc:  # noqa: BLE001 - surface pydantic detail to the UI
             raise HTTPException(422, f"invalid settings: {exc}") from exc
 
@@ -139,7 +223,13 @@ def create_app() -> FastAPI:
 
         def ndjson() -> Iterator[str]:
             last = time.monotonic()
-            for event in stream_rollout(settings, policy=req.policy, seed=req.seed):
+            for event in stream_rollout(
+                settings,
+                policy=req.policy,
+                seed=req.seed,
+                rl_artifact=req.rl_artifact,
+                rl_algo=req.rl_algo,
+            ):
                 if pace and event["type"] == "row":
                     now = time.monotonic()
                     wait = pace - (now - last)

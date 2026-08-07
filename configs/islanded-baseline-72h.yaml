@@ -1,4 +1,4 @@
-# Deterministic paper baseline: 72 h measured load/PV replay, 15 min control.
+# Deterministic paper baseline: 72 h provenance-labelled load/PV replay, 15 min control.
 # ISLANDED PV + battery + diesel, load-serving purpose.
 #
 # PROVENANCE — this scenario is the Python implementation of the executable scheduling
@@ -7,13 +7,15 @@
 #   Runner : Microgrid-Simscape/Campus/runCampusSchedulingModel72h.m
 #   Record : Microgrid-Simscape/Campus/PROVENANCE.md  (subsystem evidence labels)
 #
-# Alignment note: values below are tagged MEASURED / ASSUMED to match that record.
+# Alignment note: values below are tagged MEASURED / RECONSTRUCTED / ASSUMED to match
+# that record. The fixed replay uses provenance-labelled reconstruction candidates so
+# the 72-hour window is continuous; source rows remain distinguishable in the artifacts.
 # Physical BESS and diesel ratings have no site nameplate and stay ASSUMED. The retained
 # Simscape artifacts establish ancestry only and are not executed in the active scope.
 
 scenario:
   name: islanded_72h_2026-01-15
-  description: Measured campus load/PV replay with assumed BESS/diesel; controller varies by `--policy` (rule | mpc); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model.
+  description: Campus load/PV replay using provenance-labelled reconstruction candidates with assumed BESS/diesel; controller varies by `--policy` (rule | mpc); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model.
 
 topology:
   timestep_hours: 0.25
@@ -34,22 +36,45 @@ episode:
   # Training/baseline window; the disjoint held-out config starts on 2026-03-08.
   telemetry_start: "2026-01-15 00:00:00"
 
+# RL uses the pre-generated Chronos cache only. The JSONL is loaded once at
+# startup and hourly records are reused for four 15-minute decisions; no HTTP
+# request or foundation-model inference occurs during training.
+forecast:
+  enabled: true
+  horizon_hours: 24
+  refresh_each_step: true
+  strict_cache: true
+  cache_path: data/forecasts.jsonl
+  manifest_path: data/forecast_manifest.json
+  source_id: islanded_72h_2026-01-15
+
+rl:
+  algo: sac
+  total_timesteps: 50000
+  seed: 0
+  normalize: true
+  n_envs: 4
+  device: cuda
+  train_split: train
+  eval_split: val
+  forecast_mode: cached
+
 digital_twin:
   fill_strategy: error
   max_gap_steps: 0
   max_missing_fraction: 0.0
   measurements:
     load:
-      file: /home/xcurv/teep-taiwan/data/Total Load (net load)_2025-12-01_2026-04-30.xlsx
-      header_row: 1
-      timestamp_column: statstime
-      value_column: demand
+      file: /home/xcurv/teep-taiwan/data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
+      header_row: 0
+      timestamp_column: timestamp
+      value_column: demand_kw
       unit: kw
     pv:
-      file: /home/xcurv/teep-taiwan/data/PV_2025-12-01_2026-03-31.xlsx
+      file: /home/xcurv/teep-taiwan/data/processed/pv_15min_chronos_reconstruction_candidate.csv
       header_row: 0
-      timestamp_column: 時間
-      value_column: p:avg
+      timestamp_column: timestamp
+      value_column: pv_kw
       unit: kw
 
 # Disable the older independent demand-window loader: fixed digital-twin replay above
@@ -101,16 +126,18 @@ diesel_schedule:
     - {start_hour: 14.0, end_hour: 24.0, level: max}
 
 reward:
-  w_carbon: 1.0
+  w_carbon: 4.0              # diesel is genuinely costly: fuel + carbon dominate
   w_autonomy: 0.0             # islanded: no utility exchange exists
-  w_health: 1.0
+  w_health: 0.5               # relax battery-degradation penalty so discharge is viable
   w_waste: 1.0
   w_excess: 1.0             # diesel/other surplus routed to the explicit dump load
-  w_unserved: 5.0             # load service is the scenario's primary objective
+  w_unserved: 20.0            # load service is the scenario's primary objective; raised from 5.0 on 2026-08-05
   # Grid-connected terms below are INERT in this islanded scenario (no grid-role bus);
   # retained so grid-connected scenario variants can reuse the same reward block.
   grid_carbon_kg_per_kwh: 0.45
   diesel_carbon_kg_per_kwh: 0.70
+  diesel_fuel_cost_per_kwh: 0.40   # ≈ $0.40/kWh fuel — running the genset is no longer free
+  diesel_start_cost: 1.0           # $ per start, discourages rapid cycling
   import_price: 180.0
   peak_threshold_mw: 0.35
   peak_penalty: 200.0

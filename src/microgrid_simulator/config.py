@@ -278,6 +278,24 @@ class RLCfg(BaseModel):
     checkpoint_freq: int = 10_000
     log_dir: str = "runs"
     artifact_dir: str = "artifacts"
+    train_split: Literal["train"] = "train"
+    eval_split: Literal["val", "test"] = "val"
+    forecast_mode: Literal["cached", "none", "oracle"] = "cached"
+    device: str = "auto"  # auto | cpu | cuda / cuda:0
+    # Hard unserved-load constraint (islanded outage scenario). When True, any
+    # tick with unserved load above the solver-noise tolerance terminates the
+    # episode immediately and applies a one-shot infeasibility penalty, rather
+    # than only charging ``w_unserved`` per kWh. This is the RL-side enforcement
+    # of the scenario's "load service is non-negotiable" contract; the reward
+    # term remains for reporting and as a residual signal.
+    hard_unserved: bool = False
+    hard_unserved_penalty: float = 1000.0  # one-shot penalty applied on a blackout tick
+    # Brownout threshold for the hard constraint (MW). Shortfalls below this are
+    # tolerated (e.g. sub-kW command-precision residuals around the SOC floor):
+    # continuous battery actions cannot hit demand to 1e-6 MW precision, and
+    # terminating on every microscopic shortfall kills every episode within the
+    # first ~15 steps, so training never observes a full-length episode.
+    hard_unserved_tol_mw: float = 0.002  # 2 kW
 
 
 class APICfg(BaseModel):
@@ -321,6 +339,12 @@ class EpisodeCfg(BaseModel):
     # replay. The environment also loads one preceding sample as controller
     # context, so the first action does not peek at the first target interval.
     telemetry_start: str | None = None
+    # Terminal-SOC return-to-start contract (RL Plan §Acceptance criteria): an
+    # episode whose final SOC is farther than this tolerance (fraction, e.g.
+    # 0.01 = one percentage point) from the recorded starting SOC terminates
+    # with a one-shot penalty of deviation * ``terminal_soc_penalty``.
+    terminal_soc_tolerance: float = 0.01
+    terminal_soc_penalty: float = 100.0
 
 
 class ForecastCfg(BaseModel):
@@ -339,6 +363,10 @@ class ForecastCfg(BaseModel):
     source_unit: Literal["kw", "mw"] = "kw"
     timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
     refresh_each_step: bool = True
+    cache_path: str | None = None
+    manifest_path: str | None = None
+    source_id: str | None = None
+    strict_cache: bool = False
 
 
 class RewardCfg(BaseModel):
@@ -351,6 +379,8 @@ class RewardCfg(BaseModel):
     w_unserved: float = 1.0
     grid_carbon_kg_per_kwh: float = 0.45
     diesel_carbon_kg_per_kwh: float = 0.70  # plan: diesel carbon reward term
+    diesel_fuel_cost_per_kwh: float = 0.0  # $/kWh fuel, added to the carbon term
+    diesel_start_cost: float = 0.0  # $ per engine start, penalized discretely
     import_price: float = 180.0
     peak_threshold_mw: float = 0.35
     peak_penalty: float = 200.0
