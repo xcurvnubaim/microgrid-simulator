@@ -73,6 +73,19 @@ def test_heldout_scenario_changes_only_identity_and_telemetry_window() -> None:
     assert baseline == heldout
 
 
+def test_high_fuel_scenario_inherits_baseline_and_overrides_dispatch_costs() -> None:
+    baseline = Settings.from_yaml(Path("configs/islanded-baseline-72h.yaml"))
+    high_fuel = Settings.from_yaml(Path("configs/islanded-high-fuel-battery-pv-72h.yaml"))
+
+    assert high_fuel.scenario.name == "islanded_high_fuel_battery_pv_72h"
+    assert high_fuel.reward.diesel_fuel_cost_per_kwh == 1.20
+    assert high_fuel.reward.w_health < baseline.reward.w_health
+    assert high_fuel.reward.w_waste > baseline.reward.w_waste
+    assert high_fuel.episode.terminal_soc_penalty > baseline.episode.terminal_soc_penalty
+    assert high_fuel.battery == baseline.battery
+    assert high_fuel.digital_twin == baseline.digital_twin
+
+
 def test_fixed_replay_uses_context_then_exact_evaluated_samples(tmp_path) -> None:
     settings = _telemetry_settings(tmp_path)
     window = load_fixed_telemetry_window(settings, n_steps=4)
