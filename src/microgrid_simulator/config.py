@@ -125,11 +125,9 @@ class DieselCfg(BaseModel):
     min_down_time_min: float = 15.0  # cool-down before a restart is allowed
     bus: int = 1
     carbon_kg_per_kwh: float = 0.70  # diesel genset emission intensity
-    # Unit-commitment costs (used by the PyPSA operational backend/MPC baseline;
-    # the per-step simulators do not price starts).
-    start_up_cost: float = 0.0
+    # Unit-commitment shutdown cost. Fuel and startup costs are shared with the
+    # per-step reward through RewardCfg so MPC and RL use one objective definition.
     shut_down_cost: float = 0.0
-    fuel_cost_per_kwh: float = 0.0  # 0 = only carbon-weighted cost in the MPC objective
     initial_on: bool = False
 
 
@@ -303,6 +301,70 @@ class APICfg(BaseModel):
     port: int = 8501
 
 
+class BatteryPerturbationCfg(BaseModel):
+    """Relative (multiplicative) plant mismatch on battery parameters.
+
+    Each field is the std of a Gaussian drawn once per episode: ``true =
+    nominal * (1 + u)`` with ``u ~ N(0, std)``, clipped to ``[lo, hi]`` when
+    set. ``std == 0`` disables that parameter's perturbation. These are SYNTHETIC
+    engineering assumptions, not campus-calibrated values, until nameplate and
+    health evidence exists.
+    """
+
+    enabled: bool = False
+    capacity_std: float = 0.0
+    charge_eff_std: float = 0.0
+    discharge_eff_std: float = 0.0
+    max_charge_std: float = 0.0
+    max_discharge_std: float = 0.0
+    soc_init_std: float = 0.0
+    lo: float | None = None  # clip factor, e.g. 0.85
+    hi: float | None = None  # clip factor, e.g. 1.15
+
+
+class DieselPerturbationCfg(BaseModel):
+    """Relative plant mismatch on the genset (rate/rating) parameters."""
+
+    enabled: bool = False
+    max_kw_std: float = 0.0
+    min_kw_std: float = 0.0
+    ramp_std: float = 0.0
+    lo: float | None = None
+    hi: float | None = None
+
+
+class ForecastUncertaintyCfg(BaseModel):
+    """Forecast-service failure and residual-noise injection.
+
+    Residuals are additive Gaussian noise that grows with horizon, matched to
+    the reduced-order forecast service (hourly values). ``dropout_prob`` is the
+    per-refresh probability that a forecast update is suppressed, so the
+    retained horizon goes stale and eventually turns availability off.
+    """
+
+    enabled: bool = False
+    residual_pv_std: float = 0.0  # relative std of PV error at horizon 0
+    residual_demand_std: float = 0.0  # relative std of demand error at horizon 0
+    horizon_slope: float = 0.0  # extra relative-std growth per forecast hour
+    dropout_prob: float = 0.0  # [0,1) probability an update is suppressed
+    dropout_block_steps: int = Field(default=0, ge=0)  # steps a drop stays suppressed
+
+
+class UncertaintyCfg(BaseModel):
+    """Opt-in, dimension-preserving environment perturbation for robustness.
+
+    ``enabled`` must be False for the nominal protocol (exact no-op). Only
+    plant mismatch (battery/diesel) and forecast-service uncertainty are
+    injected; action, observation, and forecast-horizon dimensions never change.
+    """
+
+    enabled: bool = False
+    seed: int | None = None  # independent stream base; per-env derived if None
+    battery: BatteryPerturbationCfg = Field(default_factory=BatteryPerturbationCfg)
+    diesel: DieselPerturbationCfg = Field(default_factory=DieselPerturbationCfg)
+    forecast: ForecastUncertaintyCfg = Field(default_factory=ForecastUncertaintyCfg)
+
+
 class ScenarioCfg(BaseModel):
     name: str = "default"
     description: str = ""
@@ -437,6 +499,7 @@ class Settings(BaseSettings):
     episode: EpisodeCfg = Field(default_factory=EpisodeCfg)
     forecast: ForecastCfg = Field(default_factory=ForecastCfg)
     reward: RewardCfg = Field(default_factory=RewardCfg)
+    uncertainty: UncertaintyCfg = Field(default_factory=UncertaintyCfg)
     buses: list[BusCfg] = Field(default_factory=_default_buses)
     lines: list[LineCfg] = Field(default_factory=_default_lines)
     pv_arrays: list[PvArrayCfg] = Field(
@@ -549,7 +612,24 @@ class Settings(BaseSettings):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Settings:
-        raw = yaml.safe_load(Path(path).read_text()) or {}
+        path = Path(path)
+        raw = yaml.safe_load(path.read_text()) or {}
+        parent = raw.pop("extends", None)
+        if parent is not None:
+            parent_path = Path(parent)
+            if not parent_path.is_absolute():
+                parent_path = path.parent / parent_path
+            base = yaml.safe_load(parent_path.read_text()) or {}
+
+            def merge(target: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+                for key, value in overrides.items():
+                    if isinstance(value, dict) and isinstance(target.get(key), dict):
+                        target[key] = merge(target[key], value)
+                    else:
+                        target[key] = value
+                return target
+
+            raw = merge(base, raw)
         return cls(**raw)
 
 
