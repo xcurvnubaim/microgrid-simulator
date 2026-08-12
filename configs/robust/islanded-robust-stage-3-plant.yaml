@@ -1,0 +1,40 @@
+# Robustness / robust-SAC fine-tuning — stage 3: forecast + plant mismatch.
+#
+# Adds battery and diesel MODEL MISMATCH on top of stage 2's forecast
+# uncertainty. ``std`` is the log-normal scale of a per-episode multiplicative
+# draw: true = nominal * exp(N(0, std)). Bounds are SYNTHETIC engineering
+# assumptions until nameplate/health evidence exists.
+extends: ../islanded-baseline-72h.yaml
+
+scenario:
+  name: islanded_robust_stage3_plant
+
+rl:
+  total_timesteps: 50000
+  n_envs: 4
+  device: cuda
+  forecast_mode: cached
+
+uncertainty:
+  enabled: true
+  seed: 0
+  battery:
+    enabled: true
+    capacity_std: 0.10
+    charge_eff_std: 0.03
+    discharge_eff_std: 0.03
+    max_charge_std: 0.08
+    max_discharge_std: 0.08
+    soc_init_std: 0.10
+  diesel:
+    enabled: true
+    max_kw_std: 0.10
+    min_kw_std: 0.05
+    ramp_std: 0.15
+  forecast:
+    enabled: true
+    residual_pv_std: 0.05
+    residual_demand_std: 0.05
+    horizon_slope: 0.02
+    dropout_prob: 0.10
+    dropout_block_steps: 8

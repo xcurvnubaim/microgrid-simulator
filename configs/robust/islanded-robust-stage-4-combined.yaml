@@ -1,0 +1,40 @@
+# Robustness / robust-SAC fine-tuning — combined curriculum.
+#
+# Stage 4 puts all three planes together at mild-to-moderate level. This is the
+# intended final training distribution for the robust policy. Keep nominal
+# (``uncertainty: {}`` / not enabled) for any run that must be bit-identical to
+# the canonical protocol — a disabled profile is an exact no-op.
+extends: ../islanded-baseline-72h.yaml
+
+scenario:
+  name: islanded_robust_stage4_combined
+
+rl:
+  total_timesteps: 50000
+  n_envs: 4
+  device: cuda
+  forecast_mode: cached
+
+uncertainty:
+  enabled: true
+  seed: 0
+  battery:
+    enabled: true
+    capacity_std: 0.15
+    charge_eff_std: 0.05
+    discharge_eff_std: 0.05
+    max_charge_std: 0.10
+    max_discharge_std: 0.10
+    soc_init_std: 0.15
+  diesel:
+    enabled: true
+    max_kw_std: 0.15
+    min_kw_std: 0.08
+    ramp_std: 0.20
+  forecast:
+    enabled: true
+    residual_pv_std: 0.08
+    residual_demand_std: 0.08
+    horizon_slope: 0.03
+    dropout_prob: 0.15
+    dropout_block_steps: 8

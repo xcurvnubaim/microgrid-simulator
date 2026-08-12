@@ -1,0 +1,22 @@
+extends: islanded-baseline-72h.yaml
+
+# Sensitivity scenario: expensive diesel shifts dispatch toward PV capture and
+# battery cycling. This is separate from the canonical islanded baseline.
+scenario:
+  name: islanded_high_fuel_battery_pv_72h
+  description: High-diesel-cost sensitivity encouraging PV utilization and battery cycling while preserving load-service and terminal-SOC constraints.
+
+episode:
+  # Make return-to-start material relative to avoided diesel cost.
+  terminal_soc_tolerance: 0.01
+  terminal_soc_penalty: 100000.0
+
+reward:
+  w_carbon: 4.0
+  w_health: 0.10
+  w_waste: 2.0
+  w_excess: 1.0
+  w_unserved: 20.0
+  # Shared by SAC reward accounting and the PyPSA MPC objective.
+  diesel_fuel_cost_per_kwh: 1.20
+  diesel_start_cost: 3.0

@@ -1,0 +1,13 @@
+# Container path overlay for the simulation-only EMS demonstration.
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: islanded_72h_2026-01-15
+  description: Containerized simulation-only EMS replay; no live telemetry or hardware actuation.
+
+digital_twin:
+  measurements:
+    load:
+      file: /data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
+    pv:
+      file: /data/processed/pv_15min_chronos_reconstruction_candidate.csv

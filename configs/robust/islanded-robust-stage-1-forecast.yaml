@@ -1,0 +1,29 @@
+# Robustness / robust-SAC fine-tuning — stage 1: mild forecast residuals.
+#
+# Extends the nominal islanded training scenario and enables ONLY mild
+# horizon-dependent forecast-residual noise (PV + demand). Plant parameters stay
+# nominal, so stage 1 isolates the policy's response to forecast error before
+# any model mismatch is introduced.
+#
+# These bounds are SYNTHETIC engineering assumptions, not campus-calibrated
+# values (battery/diesel nameplate evidence remains unavailable). Config is for
+# the smoke/small gate by default; raise ``rl.total_timesteps`` for full runs.
+extends: ../islanded-baseline-72h.yaml
+
+scenario:
+  name: islanded_robust_stage1_forecast
+
+rl:
+  total_timesteps: 50000
+  n_envs: 4
+  device: cuda
+  forecast_mode: cached
+
+uncertainty:
+  enabled: true
+  seed: 0
+  forecast:
+    enabled: true
+    residual_pv_std: 0.05
+    residual_demand_std: 0.05
+    horizon_slope: 0.02

@@ -1,0 +1,166 @@
+name: microgrid-scenario
+
+x-runtime: &runtime
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: runtime
+  image: microgrid-simulator:local
+  environment:
+    MGS_CONFIG: ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+  init: true
+  restart: "no"
+
+x-config-volume: &config-volume
+  type: bind
+  source: ./configs
+  target: /app/configs
+  read_only: true
+
+services:
+  dashboard-normal:
+    <<: *runtime
+    profiles: ["normal"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cpu-rl
+    image: microgrid-ems-cpu-rl:local
+    environment:
+      MGS_CONFIG: ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      MGS_RUNTIME_MODE: normal
+      MGS_MODULAR_MODE: "false"
+    ports:
+      - "${EMS_DASHBOARD_PORT:-8501}:8501"
+    volumes:
+      - *config-volume
+      - type: bind
+        source: ./artifacts
+        target: /app/artifacts
+        read_only: true
+      - type: bind
+        source: ${TEEP_DATA_DIR:-../data}
+        target: /data
+        read_only: true
+    restart: unless-stopped
+
+  nats:
+    profiles: ["ems"]
+    image: nats:2.11-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  telemetry:
+    <<: *runtime
+    profiles: ["ems"]
+    command:
+      - telemetry-serve
+      - --config
+      - ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      - --nats-url
+      - nats://nats:4222
+    volumes:
+      - *config-volume
+      - type: bind
+        source: ${TEEP_DATA_DIR:-../data}
+        target: /data
+        read_only: true
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  plant:
+    <<: *runtime
+    profiles: ["ems"]
+    command:
+      - plant-serve
+      - --config
+      - ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      - --nats-url
+      - nats://nats:4222
+    volumes:
+      - *config-volume
+    depends_on:
+      nats:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  ems:
+    <<: *runtime
+    profiles: ["ems"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cpu-rl
+    image: microgrid-ems-cpu-rl:local
+    environment:
+      MGS_CONFIG: ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      MGS_EMS_POLICY: ${MGS_EMS_POLICY:-rule}
+      MGS_EMS_ARTIFACT: ${MGS_EMS_ARTIFACT:-}
+    command:
+      - ems-control-serve
+      - --config
+      - ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      - --policy
+      - ${MGS_EMS_POLICY:-rule}
+      - --nats-url
+      - nats://nats:4222
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8004"
+    ports:
+      - "${EMS_CONTROL_PORT:-8004}:8004"
+    volumes:
+      - *config-volume
+      - type: bind
+        source: ./artifacts
+        target: /app/artifacts
+        read_only: true
+    depends_on:
+      nats:
+        condition: service_healthy
+      telemetry:
+        condition: service_started
+      plant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/ready', timeout=4)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  dashboard-ems:
+    <<: *runtime
+    profiles: ["ems"]
+    environment:
+      MGS_CONFIG: ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
+      MGS_EMS_POLICY: ${MGS_EMS_POLICY:-rule}
+      MGS_RUNTIME_MODE: ems
+      MGS_MODULAR_MODE: "true"
+      MGS_EMS_INTERNAL_URL: http://ems:8004
+      MGS_NATS_URL: nats://nats:4222
+      MGS_NATS_MONITOR_URL: http://nats:8222
+    ports:
+      - "${EMS_DASHBOARD_PORT:-8501}:8501"
+    volumes:
+      - *config-volume
+    depends_on:
+      ems:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  nats-data:
