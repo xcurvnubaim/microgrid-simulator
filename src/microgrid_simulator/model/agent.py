@@ -24,6 +24,7 @@ def train(
     save_replay_buffer: bool = False,
     reset_num_timesteps: bool = False,
     stage_name: str | None = None,
+    n_envs: int | None = None,
     run_id: str | None = None,
 ) -> Path:
     from microgrid_simulator.rl.train import train as _train
@@ -41,6 +42,7 @@ def train(
         save_replay_buffer=save_replay_buffer,
         reset_num_timesteps=reset_num_timesteps,
         stage_name=stage_name,
+        n_envs=n_envs,
         run_id=run_id,
     )
 
