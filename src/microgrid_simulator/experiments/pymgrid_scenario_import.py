@@ -240,7 +240,6 @@ def translate_pymgrid_scenario(
             "min_down_time_min": 0.0,
             "initial_on": bool(genset.current_status),
             "carbon_kg_per_kwh": float(genset.co2_per_unit),
-            "fuel_cost_per_kwh": float(genset.genset_cost),
         },
         "demand": {"enabled": False, "file": None, "random_window": False},
         "digital_twin": {
@@ -281,6 +280,7 @@ def translate_pymgrid_scenario(
         },
         "reward": {
             "mode": "pymgrid",
+            "diesel_fuel_cost_per_kwh": float(genset.genset_cost),
             "pymgrid_battery_cost_cycle": float(battery.battery_cost_cycle),
             "pymgrid_genset_cost": float(genset.genset_cost),
             "pymgrid_co2_per_unit": float(genset.co2_per_unit),

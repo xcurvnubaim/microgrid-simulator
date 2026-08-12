@@ -114,7 +114,6 @@ diesel:
   min_down_time_min: 0.0
   initial_on: true
   carbon_kg_per_kwh: 2.0
-  fuel_cost_per_kwh: 0.4
 demand:
   enabled: false
   file: null
@@ -150,6 +149,7 @@ episode:
   horizon_hours: 24.0
 reward:
   mode: pymgrid
+  diesel_fuel_cost_per_kwh: 0.4
   pymgrid_battery_cost_cycle: 0.02
   pymgrid_genset_cost: 0.4
   pymgrid_co2_per_unit: 2.0

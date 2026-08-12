@@ -16,7 +16,7 @@ slow for training). Use it as the MPC baseline (:class:`PyPSAMPCController`),
 an expert/teacher policy, an operational feasibility checker, or an offline
 dispatch benchmark.
 
-Objective costs mirror the reward function's carbon + autonomy terms:
+Objective costs mirror the reward function's fuel, carbon, and autonomy terms:
 ``grid = w_autonomy*import_price + w_carbon*grid_carbon*1000`` per MWh and
 ``diesel = fuel_cost + w_carbon*diesel_carbon*1000`` per MWh, so the MPC
 optimum is a meaningful lower bound for the RL policy's operating cost.
@@ -121,11 +121,12 @@ def build_operational_network(
             ramp_limit_down=ramp_pu,
             min_up_time=max(1, round(d.min_up_time_min / 60.0 / dt)) if committable else 0,
             min_down_time=max(1, round(d.min_down_time_min / 60.0 / dt)) if committable else 0,
-            start_up_cost=d.start_up_cost,
+            start_up_cost=reward.diesel_start_cost,
             shut_down_cost=d.shut_down_cost,
             up_time_before=1 if diesel_on_init else 0,
             marginal_cost=(
-                d.fuel_cost_per_kwh * 1000.0 + reward.w_carbon * d.carbon_kg_per_kwh * 1000.0
+                reward.diesel_fuel_cost_per_kwh * 1000.0
+                + reward.w_carbon * d.carbon_kg_per_kwh * 1000.0
             ),
         )
 
@@ -238,6 +239,15 @@ class PyPSAOperationalBackend(SimpleBackend):
     def rolling_steps(self) -> int:
         return max(1, round(self.settings.backend.rolling_horizon_hours / self.dt))
 
+    def advance_window(self) -> None:
+        """Advance the demand/PV window position by one control tick.
+
+        Called by an MPC controller each time it consumes one plan step so the
+        next re-plan reads the telemetry window from the correct offset.
+        """
+        self.demand.advance()
+        self.pv.advance()
+
     def forecast(self, n_steps: int) -> tuple[np.ndarray, np.ndarray]:
         """Perfect-foresight forecast from the backend's own demand/PV models."""
         demand = np.empty(n_steps)
@@ -254,14 +264,44 @@ class PyPSAOperationalBackend(SimpleBackend):
         self.pv.window_pos = pv_pos0
         return demand, pv
 
-    def optimize_horizon(self, n_steps: int | None = None) -> pd.DataFrame:
-        """Optimize dispatch for the next ``n_steps`` from the current state."""
+    def optimize_horizon(
+        self,
+        n_steps: int | None = None,
+        soc_init: float | None = None,
+        diesel_on_init: bool | None = None,
+        demand_mw: np.ndarray | None = None,
+        pv_mw: np.ndarray | None = None,
+    ) -> pd.DataFrame:
+        """Optimize dispatch for the next ``n_steps`` from the current state.
+
+        ``soc_init`` / ``diesel_on_init`` default to this backend's own (un-stepped)
+        values; pass the live environment state when the MPC plays against a
+        separately-stepped env so each re-plan starts from the true battery/diesel
+        condition rather than a stale reset value.
+
+        ``demand_mw`` / ``pv_mw`` override the perfect-foresight forecast with an
+        explicit horizon (e.g. a leakage-free cached forecast). When omitted, the
+        backend's own perfect-foresight telemetry forecast is used.
+        """
         n = n_steps or self.horizon_steps()
-        demand, pv = self.forecast(n)
+        if demand_mw is None or pv_mw is None:
+            demand_mw, pv_mw = self.forecast(n)
         return optimize_dispatch(
             self.settings,
-            demand,
-            pv,
-            soc_init=self.battery.soc,
-            diesel_on_init=self.diesel.is_on,
+            demand_mw,
+            pv_mw,
+            soc_init=(
+                self.battery.soc
+                if soc_init is None
+                else float(
+                    np.clip(
+                        soc_init,
+                        self.settings.battery.soc_min,
+                        self.settings.battery.soc_max,
+                    )
+                )
+            ),
+            diesel_on_init=(
+                self.diesel.is_on if diesel_on_init is None else bool(diesel_on_init)
+            ),
         )
