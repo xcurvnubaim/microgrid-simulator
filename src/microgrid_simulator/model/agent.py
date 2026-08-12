@@ -18,6 +18,13 @@ def train(
     artifact_dir: Path = Path("artifacts"),
     tensorboard_log: Path | None = None,
     seed: int = 0,
+    init_artifact: Path | None = None,
+    init_vecnorm: Path | None = None,
+    init_replay_buffer: Path | None = None,
+    save_replay_buffer: bool = False,
+    reset_num_timesteps: bool = False,
+    stage_name: str | None = None,
+    run_id: str | None = None,
 ) -> Path:
     from microgrid_simulator.rl.train import train as _train
 
@@ -28,6 +35,13 @@ def train(
         artifact_dir=artifact_dir,
         tensorboard_log=tensorboard_log,
         seed=seed,
+        init_artifact=init_artifact,
+        init_vecnorm=init_vecnorm,
+        init_replay_buffer=init_replay_buffer,
+        save_replay_buffer=save_replay_buffer,
+        reset_num_timesteps=reset_num_timesteps,
+        stage_name=stage_name,
+        run_id=run_id,
     )
 
 

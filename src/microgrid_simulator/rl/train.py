@@ -48,15 +48,32 @@ def train(
     tensorboard_log: Path | None = None,
     seed: int | None = None,
     backend_name: str | None = None,
+    init_artifact: Path | None = None,
+    init_vecnorm: Path | None = None,
+    init_replay_buffer: Path | None = None,
+    save_replay_buffer: bool = False,
+    reset_num_timesteps: bool = False,
+    stage_name: str | None = None,
+    run_id: str | None = None,
+    eval_env_nominal: bool = False,
 ) -> Path:
     """Train an agent and save the policy artifact. Returns the artifact path.
 
     Explicit arguments override the ``rl:`` section of the config.
+
+    When ``init_artifact`` is provided the run *continues* from an existing
+    policy (fine-tuning/resume): the model is loaded, the optional
+    ``init_vecnorm`` statistics are restored in training mode, the optional SAC
+    replay buffer is reloaded, and timestep counters continue from the parent
+    unless ``reset_num_timesteps`` is True. The parent artifact is never
+    overwritten — a new artifact is written under ``artifact_dir``.
     """
     rl = settings.rl
     algo = (algo or rl.algo).lower()
     if algo not in ALGOS:
         raise ValueError(f"Unknown algo {algo!r}; choose from {sorted(ALGOS)}")
+    if init_artifact is not None and ALGOS[algo].__name__.lower() != algo:
+        pass  # init artifact algorithm check happens on load below
     total_timesteps = total_timesteps if total_timesteps is not None else rl.total_timesteps
     seed = seed if seed is not None else rl.seed
     artifact_dir = Path(artifact_dir) if artifact_dir is not None else Path(rl.artifact_dir)
@@ -75,9 +92,18 @@ def train(
         )
         forecast_client = StrictCachedForecastClient(settings.forecast, cache)
 
-    run_dir = Path(rl.log_dir) / f"{algo}_{time.strftime('%Y%m%d-%H%M%S')}"
+    ts = run_id or time.strftime("%Y%m%d-%H%M%S")
+    run_dir = Path(rl.log_dir) / f"{algo}_{ts}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "config.yaml").write_text(yaml.safe_dump(settings.model_dump(), sort_keys=False))
+    dump = settings.model_dump()
+    dump["_lineage"] = {
+        "init_artifact": str(init_artifact) if init_artifact else None,
+        "init_vecnorm": str(init_vecnorm) if init_vecnorm else None,
+        "init_replay_buffer": str(init_replay_buffer) if init_replay_buffer else None,
+        "stage_name": stage_name,
+        "reset_num_timesteps": bool(reset_num_timesteps),
+    }
+    (run_dir / "config.yaml").write_text(yaml.safe_dump(dump, sort_keys=False))
 
     n_envs = rl.n_envs or (4 if algo == "ppo" else 1)  # SAC is off-policy, 1 env is fine
     vec_env = make_training_env(
@@ -101,31 +127,52 @@ def train(
     )
 
     model_cls = cast(Any, ALGOS[algo])
-    model = model_cls(
-        "MlpPolicy",
-        vec_env,
-        verbose=1,
-        seed=seed,
-        tensorboard_log=str(tensorboard_log) if tensorboard_log else None,
-        device=_resolve_device(rl.device),
-    )
-    LOGGER.info(
-        "Training %s for %d timesteps (%d envs) -> %s",
-        algo.upper(),
-        total_timesteps,
-        n_envs,
-        run_dir,
-    )
+    device = _resolve_device(rl.device)
+    if init_artifact is not None:
+        load_cls = SAC if algo == "sac" else PPO
+        model = load_cls.load(str(Path(init_artifact)), env=vec_env, device=device)
+        if init_vecnorm is not None:
+            from microgrid_simulator.rl.wrappers import load_training_normalization
+
+            # Re-apply training-mode normalization over the env the model uses.
+            vec_env = load_training_normalization(vec_env, init_vecnorm)
+            model = load_cls.load(str(Path(init_artifact)), env=vec_env, device=device)
+        if algo == "sac" and init_replay_buffer is not None:
+            model.load_replay_buffer(str(init_replay_buffer))
+        LOGGER.info(
+            "Continuing from %s (fine-tune/resume), %d steps", init_artifact, total_timesteps
+        )
+    else:
+        model = model_cls(
+            "MlpPolicy",
+            vec_env,
+            verbose=1,
+            seed=seed,
+            tensorboard_log=str(tensorboard_log) if tensorboard_log else None,
+            device=device,
+        )
+        LOGGER.info(
+            "Training %s for %d timesteps (%d envs) -> %s",
+            algo.upper(),
+            total_timesteps,
+            n_envs,
+            run_dir,
+        )
+
     model.learn(
         total_timesteps=total_timesteps,
-        callback=build_callbacks(settings, eval_env, run_dir, algo),
+        callback=build_callbacks(settings, eval_env, run_dir, algo, stage=stage_name),
         progress_bar=False,
+        reset_num_timesteps=reset_num_timesteps,
     )
 
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    path = artifact_dir / f"{algo}_microgrid"
+    suffix = f"-{stage_name}" if stage_name else ""
+    path = artifact_dir / f"{algo}_microgrid{suffix}"
     model.save(str(path))
     if isinstance(vec_env, VecNormalize):
         vec_env.save(str(path) + "_vecnormalize.pkl")
+    if save_replay_buffer and algo == "sac":
+        model.save_replay_buffer(str(path) + "_replay_buffer.pkl")
     LOGGER.info("Saved policy -> %s.zip", path)
     return path.with_suffix(".zip")
