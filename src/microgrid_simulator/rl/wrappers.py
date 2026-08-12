@@ -29,8 +29,16 @@ def make_env_fn(
             if split is not None
             else None
         )
+        # Each environment gets its own reproducible uncertainty stream derived
+        # from its sampler seed, so parallel envs see distinct plant draws.
+        unc_cfg = settings.uncertainty
+        if unc_cfg.enabled and unc_cfg.seed is None:
+            unc_settings = settings.model_copy(deep=True)
+            unc_settings.uncertainty.seed = next(next_seed)
+        else:
+            unc_settings = settings
         return MicrogridEnv(
-            settings=settings,
+            settings=unc_settings,
             backend_name=backend_name,
             forecast_client=forecast_client,
             episode_sampler=sampler,
@@ -75,4 +83,17 @@ def load_normalization(vec: VecEnv, stats_path: str | Path) -> VecEnv:
     vec = VecNormalize.load(str(stats_path), vec)
     vec.training = False
     vec.norm_reward = False
+    return vec
+
+
+def load_training_normalization(vec: VecEnv, stats_path: str | Path) -> VecEnv:
+    """Restore saved VecNormalize statistics for continuation/fine-tuning.
+
+    Unlike :func:`load_normalization`, this keeps the wrapper in training mode
+    (obs *and* reward normalisation active) so a resumed run keeps updating the
+    statistics it was fine-tuning.
+    """
+    vec = VecNormalize.load(str(stats_path), vec)
+    vec.training = True
+    vec.norm_reward = True
     return vec

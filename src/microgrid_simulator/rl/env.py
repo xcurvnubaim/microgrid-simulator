@@ -47,6 +47,7 @@ from gymnasium import spaces
 from microgrid_simulator.backends import create_backend
 from microgrid_simulator.config import Settings, load_settings
 from microgrid_simulator.core.backend import MicrogridBackend
+from microgrid_simulator.core.scenario import Scenario
 from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.digital_twin.replay import TelemetryWindow, load_fixed_telemetry_window
 from microgrid_simulator.forecast import (
@@ -60,6 +61,11 @@ from microgrid_simulator.forecast import (
 )
 from microgrid_simulator.model.reward import compute_reward
 from microgrid_simulator.rl.sampler import RandomEpisodeSampler, SplitName
+from microgrid_simulator.rl.uncertainty import (
+    SampledUncertainty,
+    UncertaintySampler,
+    apply_plant_mismatch,
+)
 
 
 def decode_action(
@@ -194,6 +200,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         forecast_client: ForecastClient | None = None,
         episode_sampler: RandomEpisodeSampler | None = None,
         split: SplitName | None = None,
+        telemetry_window: TelemetryWindow | None = None,
     ) -> None:
         super().__init__()
         if settings is None:
@@ -205,11 +212,9 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self._episode_sampler = episode_sampler or (
             RandomEpisodeSampler(settings, split=split, seed=0) if split else None
         )
-        self.telemetry_window: TelemetryWindow | None = (
-            None
-            if self._episode_sampler
-            else load_fixed_telemetry_window(settings, self.max_steps)
-        )
+        self.telemetry_window: TelemetryWindow | None = telemetry_window
+        if telemetry_window is None and not self._episode_sampler:
+            self.telemetry_window = load_fixed_telemetry_window(settings, self.max_steps)
         if forecast_client is not None:
             self._forecast_client = forecast_client
         elif (
@@ -246,6 +251,9 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self.n_ev = settings.topology.n_ev
         self._steps = 0
         self.diesel_enabled = settings.diesel.enabled
+        self._uncertainty_sampler = UncertaintySampler.from_settings(settings, 0)
+        self._active_uncertainty = SampledUncertainty()
+        self._active_settings = settings
         self._last_state: GridState = self.backend.reset()
         # Terminal-SOC tracking (return-to-start contract); populated by reset().
         self._initial_soc: float = self.backend.battery.soc
@@ -306,8 +314,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
                 "demand_window_start_time": trace.window_start_time(start_idx),
             }
 
-        self._last_state = self.backend.reset(
-            seed=seed, demand_window_mw=window, pv_window_mw=pv_window
+        self._last_state = self._reset_plant(
+            seed=seed, window=window, pv_window=pv_window
         )
         self._initial_soc = float(self.backend.battery.soc)
         self._terminal_soc_deviation = 0.0
@@ -322,7 +330,38 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "target_soc": self._initial_soc,
             **info_extra,
             **self._forecast_meta(),
+            **self._active_uncertainty.as_info(),
         }
+
+    def _reset_plant(
+        self,
+        seed: int | None,
+        window: np.ndarray | None,
+        pv_window: np.ndarray | None,
+    ) -> GridState:
+        """Reset the plant with this episode's uncertainty applied.
+
+        Samples a fresh plant-mismatch draw from a reproducible, seed-derived
+        stream, applies it to a thumbnail copy of ``settings``, and reconfigures
+        the backend through a :class:`Scenario`. Forecast dropout/residual state
+        resets here as well.
+        """
+        if self._uncertainty_sampler.enabled:
+            base = self._uncertainty_sampler.cfg.seed or 0
+            stream = np.random.default_rng((base * 10_003 + (seed or 0)) & 0xFFFFFFFF)
+            sampler = UncertaintySampler(self.settings, stream)
+            self._active_uncertainty = sampler.sample()
+            self._active_settings = apply_plant_mismatch(
+                self.settings, self._active_uncertainty
+            )
+        else:
+            self._active_uncertainty = SampledUncertainty()
+            self._active_settings = self.settings
+
+        scenario = Scenario.from_settings(self._active_settings)
+        return self.backend.reset(
+            scenario=scenario, seed=seed, demand_window_mw=window, pv_window_mw=pv_window
+        )
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         control = self._decode_action(action)
@@ -425,6 +464,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             ),
             **self._forecast_meta(),
             **breakdown.as_info(),
+            **self._active_uncertainty.as_info(),
         }
         return obs, float(reward), terminated, truncated, info
 
@@ -568,6 +608,11 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         if mode == "oracle":
             self._load_oracle_forecast()
             return
+        if self._unc_forecast_dropped():
+            # Forecast-service dropout: keep the retained snapshot (or none) so
+            # the horizon advances/goes stale as if the update was suppressed.
+            self._forecast_stale = self._forecast_snapshot is not None
+            return
         try:
             snapshot = self._forecast_client.fetch(
                 self._forecast_context(), issued_at=self._forecast_request_timestamp()
@@ -640,7 +685,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         demand_remaining = snapshot.demand_values_mw[offset : offset + horizon]
         pv_vector[: len(pv_remaining)] = pv_remaining
         demand_vector[: len(demand_remaining)] = demand_remaining
-        return pv_vector, demand_vector
+        return self._corrupt_forecast_vectors(pv_vector, demand_vector)
 
     def _current_pv_forecast_mw(self) -> float | None:
         if not self.settings.forecast.enabled or not self._forecast_is_available():
@@ -651,6 +696,47 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         if not self.settings.forecast.enabled or not self._forecast_is_available():
             return None
         return float(self._forecast_vectors()[1][0])
+
+    def _unc_forecast_dropped(self) -> bool:
+        """True when forecast-service dropout should suppress this refresh."""
+        if not self._uncertainty_sampler.enabled:
+            return False
+        f = self._active_uncertainty
+        if f.forecast_dropout_until_step > self._steps:
+            self._forecast_stale = self._forecast_snapshot is not None
+            return True
+        fc = self.settings.uncertainty.forecast
+        if fc.dropout_prob <= 0.0:
+            return False
+        rng = np.random.default_rng(
+            (self._uncertainty_sampler.cfg.seed or 0) * 10_003 + self._steps
+        )
+        if rng.random() < fc.dropout_prob:
+            f.forecast_dropout_until_step = self._steps + max(1, fc.dropout_block_steps)
+            self._forecast_stale = self._forecast_snapshot is not None
+            return True
+        return False
+
+    def _corrupt_forecast_vectors(
+        self, pv_vector: np.ndarray, demand_vector: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Add horizon-dependent residual noise to forecast vectors when enabled."""
+        f = self._active_uncertainty
+        pv_std = f.forecast_pv_residual_std
+        demand_std = f.forecast_demand_residual_std
+        if pv_std <= 0.0 and demand_std <= 0.0:
+            return pv_vector, demand_vector
+        rng = np.random.default_rng(
+            (self._uncertainty_sampler.cfg.seed or 0) * 31_337 + self._steps
+        )
+        horizon = len(pv_vector)
+        slope = self.settings.uncertainty.forecast.horizon_slope
+        pv_noise = rng.normal(0.0, 1.0, size=horizon) * np.abs(pv_vector) * pv_std
+        demand_noise = rng.normal(0.0, 1.0, size=horizon) * np.abs(demand_vector) * demand_std
+        for h in range(horizon):
+            pv_noise[h] *= 1.0 + slope * h
+            demand_noise[h] *= 1.0 + slope * h
+        return pv_vector + pv_noise, demand_vector + demand_noise
 
     def _forecast_meta(self) -> dict[str, Any]:
         cfg = self.settings.forecast
