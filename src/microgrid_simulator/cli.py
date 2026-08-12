@@ -211,6 +211,9 @@ def train(
     stage: str | None = typer.Option(
         None, help="optional stage label used in artifact/checkpoint names"
     ),
+    n_envs: int | None = typer.Option(
+        None, help="number of parallel environments (default: 4 for ppo, 1 for sac)"
+    ),
     run_id: str | None = typer.Option(None, help="explicit run directory id"),
 ) -> None:
     """Train an SB3 agent against the microgrid environment."""
@@ -231,6 +234,7 @@ def train(
         save_replay_buffer=save_replay_buffer,
         reset_num_timesteps=reset_num_timesteps,
         stage_name=stage,
+        n_envs=n_envs,
         run_id=run_id,
     )
     typer.echo(f"saved: {path}")

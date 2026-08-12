@@ -53,6 +53,7 @@ def train(
     init_replay_buffer: Path | None = None,
     save_replay_buffer: bool = False,
     reset_num_timesteps: bool = False,
+    n_envs: int | None = None,
     stage_name: str | None = None,
     run_id: str | None = None,
     eval_env_nominal: bool = False,
@@ -105,7 +106,7 @@ def train(
     }
     (run_dir / "config.yaml").write_text(yaml.safe_dump(dump, sort_keys=False))
 
-    n_envs = rl.n_envs or (4 if algo == "ppo" else 1)  # SAC is off-policy, 1 env is fine
+    n_envs = n_envs if n_envs is not None else (rl.n_envs or (4 if algo == "ppo" else 1))
     vec_env = make_training_env(
         settings,
         n_envs=n_envs,
