@@ -78,3 +78,15 @@ def test_infeasible_grid_gets_large_penalty() -> None:
     reward, b = compute_reward(state, _battery(), RewardCfg(), dt_hours=0.25)
     assert reward <= -1000.0
     assert b.constraint >= 1000.0
+
+
+def test_higher_diesel_fuel_price_increases_fuel_penalty() -> None:
+    state = GridState(v_bus=[1.0], diesel_p_mw=0.1, solver_ok=True)
+    low = RewardCfg(w_carbon=4.0, diesel_fuel_cost_per_kwh=0.40)
+    high = RewardCfg(w_carbon=4.0, diesel_fuel_cost_per_kwh=1.20)
+
+    _, low_breakdown = compute_reward(state, _battery(), low, dt_hours=0.25)
+    _, high_breakdown = compute_reward(state, _battery(), high, dt_hours=0.25)
+
+    assert low_breakdown.fuel == 40.0
+    assert high_breakdown.fuel == 120.0
