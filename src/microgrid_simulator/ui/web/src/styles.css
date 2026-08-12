@@ -60,6 +60,20 @@ body {
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
 .brand h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
 .brand .sub { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.view-switch {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--inset);
+}
+.view-tab {
+  border: 0; border-radius: 5px; background: transparent; color: var(--muted);
+  font-family: var(--mono); font-size: 11px; padding: 5px 9px; cursor: pointer;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.active {
+  background: var(--panel); color: var(--text);
+  box-shadow: 0 1px 3px rgb(31 48 64 / 12%);
+}
 
 .badge {
   font-family: var(--mono); font-size: 11px;
@@ -255,6 +269,12 @@ details.group[open] > summary { color: var(--text); }
   text-transform: uppercase; color: var(--faint);
 }
 .panel-head .note { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+/* EMS real-time deadline/recovery counters */
+.ems-counter-strip {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
+}
+.ems-counter-strip .badge { font-size: 12px; }
 
 /* ── KPI strip ── */
 .kpis {
@@ -965,3 +985,158 @@ a.mini-btn { text-decoration: none; display: inline-block; text-align: center; }
 
 .rl-fields { display: inline-flex; gap: 6px; align-items: center; }
 .rl-fields input[type="text"] { width: 240px; }
+
+/* ── service communications view ── */
+.communications-content { padding-top: 22px; }
+.communications-page { width: min(1440px, 100%); margin: 0 auto; }
+.communications-hero {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;
+  padding: 20px 22px; margin-bottom: 16px; border: 1px solid #2c5861;
+  border-radius: 12px; color: #f4f8fa;
+  background: linear-gradient(105deg, #17212b 0%, #203746 58%, #244c4c 100%);
+  box-shadow: 0 12px 28px rgb(21 39 49 / 18%);
+}
+.communications-hero .eyebrow { color: #a9cbd0; }
+.communications-hero h2 { margin: 5px 0 4px; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+.communications-hero p { max-width: 720px; margin: 0; color: #b8cbd0; font-size: 12.5px; }
+.communications-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.communications-actions .ghost-btn { background: rgb(255 255 255 / 10%); border-color: rgb(255 255 255 / 22%); color: #f4f8fa; }
+.communications-actions .ghost-btn:hover { border-color: #66d3b0; color: #fff; }
+.communications-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
+.communication-kpi {
+  display: grid; gap: 3px; padding: 11px 13px 10px;
+  border: 1px solid var(--line-soft); border-top: 2px solid var(--battery);
+  border-radius: var(--r); background: var(--panel);
+}
+.communication-kpi span, .communication-kpi small { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.communication-kpi b { color: var(--text); font-family: var(--mono); font-size: 18px; font-weight: 500; }
+.communication-kpi small { color: var(--faint); font-size: 10px; }
+.communications-warning {
+  margin-bottom: 16px; padding: 10px 13px; border: 1px solid color-mix(in srgb, var(--solar) 45%, transparent);
+  border-radius: 8px; background: color-mix(in srgb, var(--solar) 10%, var(--panel)); color: var(--muted); font-size: 12px;
+}
+.service-map-panel { overflow: hidden; }
+.service-map {
+  display: grid; grid-template-columns: minmax(150px, 1fr) minmax(170px, .9fr) minmax(150px, 1fr);
+  align-items: center; gap: 20px; min-height: 214px; padding: 18px 14px;
+  border: 1px solid var(--line-soft); border-radius: 9px; background: var(--inset);
+}
+.service-map-column { display: grid; gap: 20px; }
+.service-map-node {
+  display: grid; gap: 2px; min-height: 74px; padding: 10px 12px;
+  border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 8px; background: var(--panel); box-shadow: 0 3px 9px rgb(31 48 64 / 7%);
+}
+.service-map-node span { color: var(--accent); font-family: var(--mono); font-size: 9px; letter-spacing: .12em; }
+.service-map-node b { font-size: 14px; font-weight: 600; }
+.service-map-node small { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+.service-map-node.browser-node { border-left-color: var(--volt); }
+.service-map-node.browser-node span { color: var(--volt); }
+.service-map-node.simulator-node { border-left-color: var(--battery); }
+.service-map-node.simulator-node span { color: var(--battery); }
+.service-map-node.telemetry-node { border-left-color: var(--solar); }
+.service-map-node.telemetry-node span { color: var(--solar); }
+.service-map-node.ems-node { border-left-color: var(--diesel); }
+.service-map-node.ems-node span { color: var(--diesel); }
+.service-map-node.broker-node { border-left-color: var(--accent); text-align: center; justify-items: center; }
+.service-map-node.broker-node span { color: var(--accent); }
+.service-map-bus { display: grid; gap: 9px; justify-items: center; }
+.service-map-bus::before, .service-map-bus::after {
+  content: ""; position: absolute; height: 1px; background: var(--line); border-top: 1px dashed var(--line);
+}
+.service-map-bus { position: relative; }
+.service-map-bus-note { color: var(--faint); font-family: var(--mono); font-size: 10px; line-height: 1.5; text-align: center; }
+.service-map-bus-note::before { content: "↕"; display: block; color: var(--accent); font-size: 17px; line-height: 1; }
+.communication-path-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.communication-path {
+  display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line-soft);
+  border-top: 3px solid var(--accent); border-radius: 8px; background: var(--panel-2);
+}
+.communication-path.live { border-top-color: var(--battery); }
+.communication-path.degraded { border-top-color: var(--solar); }
+.communication-path.offline { border-top-color: var(--grid); }
+.communication-path-head, .service-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.communication-path h3, .service-card h3 { margin: 3px 0 0; font-size: 13px; font-weight: 600; }
+.service-kind { color: var(--faint); font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+.service-status { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; color: var(--muted); font-family: var(--mono); font-size: 10px; white-space: nowrap; }
+.service-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.service-status.live { color: var(--ok); }
+.service-status.live .service-status-dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 13%, transparent); }
+.service-status.checking { color: var(--solar); }
+.service-status.checking .service-status-dot { background: var(--solar); }
+.service-status.degraded { color: var(--solar); }
+.service-status.degraded .service-status-dot { background: var(--solar); }
+.service-status.offline { color: var(--grid); }
+.service-status.offline .service-status-dot { background: var(--grid); }
+.communication-route { display: flex; align-items: center; gap: 8px; color: var(--text); font-family: var(--mono); font-size: 11.5px; }
+.communication-route span:first-child, .communication-route span:last-child { overflow-wrap: anywhere; }
+.communication-arrow { color: var(--battery); font-size: 18px; line-height: 1; }
+.communication-subject { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: 5px; background: var(--inset); color: var(--accent); font-family: var(--mono); font-size: 10.5px; }
+.communication-path p { min-height: 34px; margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.communication-path-meta { display: flex; gap: 10px; color: var(--faint); font-family: var(--mono); font-size: 10px; }
+.service-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 12px; }
+.service-card { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line-soft); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--panel-2); }
+.service-card.browser { border-left-color: var(--volt); }
+.service-card.orchestrator { border-left-color: var(--battery); }
+.service-card.service { border-left-color: var(--solar); }
+.service-card.broker { border-left-color: var(--accent); }
+.service-card p { min-height: 34px; margin: 0; color: var(--muted); font-size: 11.5px; }
+.service-card-stats { display: flex; flex-wrap: wrap; gap: 8px; color: var(--faint); font-family: var(--mono); font-size: 10px; }
+.service-card-stats b { color: var(--text); font-weight: 500; }
+.service-subscriptions { display: grid; gap: 4px; padding-top: 7px; border-top: 1px solid var(--line-soft); }
+.service-subscription { display: grid; gap: 2px; min-width: 0; }
+.service-subscription code { overflow-wrap: anywhere; color: var(--accent); font-family: var(--mono); font-size: 10px; }
+.service-subscription span { color: var(--faint); font-family: var(--mono); font-size: 9.5px; }
+.communications-footnote { margin-top: 12px; color: var(--faint); font-family: var(--mono); font-size: 10px; }
+.message-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line-soft);
+  border-radius: 7px; background: var(--inset); color: var(--muted);
+  font-family: var(--mono); font-size: 10.5px;
+}
+.message-toolbar label { color: var(--faint); }
+.message-toolbar select { padding: 4px 7px; font-size: 10.5px; }
+.message-toolbar-note { margin-left: auto; color: var(--faint); }
+.message-feed { display: grid; gap: 6px; max-height: 680px; overflow-y: auto; }
+.message-entry { border: 1px solid var(--line-soft); border-left: 3px solid var(--accent); border-radius: 7px; background: var(--panel-2); }
+.message-entry.request { border-left-color: var(--battery); }
+.message-entry.reply { border-left-color: var(--volt); }
+.message-entry.event { border-left-color: var(--solar); }
+.message-entry summary {
+  display: grid; grid-template-columns: auto minmax(180px, 1.2fr) minmax(140px, .8fr) auto;
+  align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; list-style: none;
+}
+.message-entry summary::-webkit-details-marker { display: none; }
+.message-entry summary::before { content: "＋"; color: var(--faint); font-family: var(--mono); font-size: 13px; }
+.message-entry[open] summary::before { content: "−"; }
+.message-entry summary code { overflow-wrap: anywhere; color: var(--accent); font-family: var(--mono); font-size: 10.5px; }
+.message-kind { padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); color: var(--accent); font-family: var(--mono); font-size: 9.5px; text-transform: uppercase; }
+.message-entry.request .message-kind { color: var(--battery); background: color-mix(in srgb, var(--battery) 11%, var(--panel)); }
+.message-entry.reply .message-kind { color: var(--volt); background: color-mix(in srgb, var(--volt) 11%, var(--panel)); }
+.message-entry.event .message-kind { color: var(--solar); background: color-mix(in srgb, var(--solar) 11%, var(--panel)); }
+.message-route { overflow-wrap: anywhere; color: var(--muted); font-size: 10px; }
+.message-time { color: var(--faint); font-family: var(--mono); font-size: 9.5px; white-space: nowrap; }
+.message-body { padding: 0 12px 12px 38px; }
+.message-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; color: var(--faint); font-family: var(--mono); font-size: 9.5px; }
+.message-body pre { max-height: 360px; overflow: auto; margin: 0; padding: 10px; border: 1px solid var(--line-soft); border-radius: 6px; background: #17212b; color: #d8e7e7; font-family: var(--mono); font-size: 10.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-body small { display: block; margin-top: 5px; color: var(--faint); font-family: var(--mono); font-size: 9px; }
+.message-empty { padding: 24px 14px; border: 1px dashed var(--line); border-radius: 7px; color: var(--muted); font-size: 12px; text-align: center; }
+
+@media (max-width: 760px) {
+  .communications-hero { display: grid; padding: 16px; }
+  .communications-hero h2 { font-size: 19px; }
+  .communications-actions { justify-content: flex-start; }
+  .service-map { grid-template-columns: 1fr; gap: 12px; }
+  .service-map-column { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .service-map-bus { order: -1; }
+  .service-map-bus-note { display: none; }
+  .communications-topbar .brand { width: 100%; }
+  .communications-topbar .brand .sub { display: none; }
+  .message-toolbar-note { width: 100%; margin-left: 0; }
+  .message-entry summary { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .message-route { grid-column: 2 / -1; }
+  .message-body { padding-left: 12px; }
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getDefaults, simulateStream } from "./api.js";
+import { emsStream, getDefaults, getRuntime, simulateStream } from "./api.js";
 import ConfigRail from "./components/ConfigRail.jsx";
+import ServiceCommunications from "./components/ServiceCommunications.jsx";
 import SLD from "./components/SLD.jsx";
 import TopologyDesigner from "./components/TopologyDesigner.jsx";
 import { DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart, OvergenerationChart } from "./components/Charts.jsx";
@@ -83,6 +84,29 @@ function liveTotals(rows, dt) {
   };
 }
 
+function ViewSwitch({ view, onChange }) {
+  return (
+    <div className="view-switch" role="tablist" aria-label="Control room view">
+      <button
+        className={`view-tab ${view === "simulation" ? "active" : ""}`}
+        role="tab"
+        aria-selected={view === "simulation"}
+        onClick={() => onChange("simulation")}
+      >
+        Simulation
+      </button>
+      <button
+        className={`view-tab ${view === "communications" ? "active" : ""}`}
+        role="tab"
+        aria-selected={view === "communications"}
+        onClick={() => onChange("communications")}
+      >
+        Service map
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   const [settings, setSettings] = useState(null);
   const [defaultSettings, setDefaultSettings] = useState(null);
@@ -97,6 +121,12 @@ export default function App() {
   const [seed, setSeed] = useState(0);
   const [error, setError] = useState(null);
   const [railOpen, setRailOpen] = useState(false);
+  const [view, setView] = useState("simulation");
+  const [runtime, setRuntime] = useState({
+    modular_mode: false,
+    ems_policy: null,
+    scenario_config: null,
+  });
 
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState(null);
@@ -104,6 +134,9 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [episode, setEpisode] = useState(0);
   const [autoContinue, setAutoContinue] = useState(false);
+  const [emsMode, setEmsMode] = useState(false);
+  const [emsEvents, setEmsEvents] = useState([]);
+  const [emsMetrics, setEmsMetrics] = useState(null);
 
   const settingsRef = useRef(null);
   const abortRef = useRef(null);
@@ -114,14 +147,16 @@ export default function App() {
   const autoContinueRef = useRef(false);
   const pendingRef = useRef([]);
   const flushTimerRef = useRef(null);
+  const traceEventsRef = useRef(new Set());
+  const externalFollowStartedRef = useRef(false);
 
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { autoContinueRef.current = autoContinue; }, [autoContinue]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
-    getDefaults()
-      .then((d) => {
+    Promise.all([getDefaults(), getRuntime()])
+      .then(([d, configuredRuntime]) => {
         setSettings(d.settings);
         setDefaultSettings(d.settings);
         setRlSettings(d.policy_settings?.rl ?? null);
@@ -134,6 +169,11 @@ export default function App() {
           setRlAlgo(preset.algo);
         }
         setDemand(d.demand);
+        setRuntime(configuredRuntime);
+        if (configuredRuntime.modular_mode) {
+          setEmsMode(true);
+          setAutoContinue(false);
+        }
       })
       .catch((e) => setError(e.message));
   }, []);
@@ -172,11 +212,13 @@ export default function App() {
       setRows([]);
       setTotals(null);
       setMeta(null);
+      setEmsEvents([]);
       episodeRef.current = 0;
       hourOffsetRef.current = 0;
       lastHourRef.current = 0;
       lastSocRef.current = null;
       pendingRef.current = [];
+      traceEventsRef.current.clear();
     }
     setError(null);
     setRunning(true);
@@ -209,11 +251,27 @@ export default function App() {
         policy === "rl"
           ? { rl_artifact: rlArtifact, rl_algo: rlAlgo }
           : { rl_artifact: "", rl_algo: "" };
-      await simulateStream(runSettings, policy, seed + episodeRef.current - 1, {
+      const stream = emsMode ? emsStream : simulateStream;
+      await stream(runSettings, policy, seed + episodeRef.current - 1, {
         signal: controller.signal,
         rl,
         onEvent: (ev) => {
-          if (ev.type === "meta") {
+          const eventId = ev._trace?.event_id;
+          if (eventId && traceEventsRef.current.has(eventId)) return;
+          if (eventId) traceEventsRef.current.add(eventId);
+          if (ev.type === "ems_start") {
+            setMeta({ backend: "pandapower", expected_steps: 0, ems_session_id: ev.session_id });
+          } else if (ev.type === "episode_start") {
+            episodeRef.current = ev.episode_index + 1;
+            setEpisode(episodeRef.current);
+            if (ev.episode_index > 0) hourOffsetRef.current = lastHourRef.current;
+          } else if (ev.type === "ems_tick") {
+            setEmsEvents((previous) => [...previous.slice(-199), ev]);
+          } else if (ev.type === "ems_end") {
+            setMeta((previous) => ({ ...previous, steps: ev.steps }));
+          } else if (ev.type === "ems_metrics") {
+            setEmsMetrics(ev);
+          } else if (ev.type === "meta") {
             setMeta((prev) => ({
               ...ev.meta,
               steps: prev?.steps ?? 0,
@@ -222,8 +280,10 @@ export default function App() {
             }));
           } else if (ev.type === "row") {
             pushRow(ev.row);
-          } else if (ev.type === "end") {
+          } else if (ev.type === "episode_end") {
             setTotals((t) => mergeTotals(t, ev.totals));
+          } else if (ev.type === "end") {
+            if (!runtime.modular_mode) setTotals((t) => mergeTotals(t, ev.totals));
             setMeta((m) => ({
               ...m,
               ...ev.meta,
@@ -243,26 +303,41 @@ export default function App() {
       abortRef.current = null;
     }
 
-    if (!failed && !controller.signal.aborted && autoContinueRef.current) {
+    if (!emsMode && !failed && !controller.signal.aborted && autoContinueRef.current) {
       runEpisode(false);
       return;
     }
     setRunning(false);
   };
 
+  useEffect(() => {
+    if (
+      runtime.modular_mode &&
+      settings &&
+      !externalFollowStartedRef.current &&
+      !abortRef.current
+    ) {
+      externalFollowStartedRef.current = true;
+      runEpisode(true);
+    }
+  }, [runtime.modular_mode, Boolean(settings)]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stop = () => abortRef.current?.abort();
   const reset = () => {
     setRows([]);
     setTotals(null);
     setMeta(null);
+    setEmsEvents([]);
+    setEmsMetrics(null);
     setEpisode(0);
     episodeRef.current = 0;
     hourOffsetRef.current = 0;
     lastHourRef.current = 0;
     lastSocRef.current = null;
+    traceEventsRef.current.clear();
   };
 
-  const hasRun = rows.length > 0 || running;
+  const hasRun = rows.length > 0 || emsEvents.length > 0 || running;
   // While an episode streams, blend the completed-episode totals with a live
   // recount of the in-flight episode's rows.
   const displayTotals = useMemo(() => {
@@ -292,11 +367,15 @@ export default function App() {
   const blackoutHours = displayTotals?.blackout_hours ?? 0;
   const latestRow = rows[rows.length - 1];
   const runProgress = meta?.steps
-    ? Math.min(100, (rows.length / Math.max(meta.steps, 1)) * 100)
+    ? Math.min(100, (rows.length / Math.max(meta.expected_steps ?? meta.steps, 1)) * 100)
+    : meta?.expected_steps
+      ? Math.min(100, (rows.length / Math.max(meta.expected_steps, 1)) * 100)
     : 0;
-  const modelLabel = policy === "rl"
-    ? rlArtifact.split("/").slice(-2).join(" / ")
-    : `${policy} controller`;
+  const modelLabel = runtime.modular_mode
+    ? `external ${(runtime.ems_policy ?? "unknown").toUpperCase()} controller`
+    : policy === "rl"
+      ? rlArtifact.split("/").slice(-2).join(" / ")
+      : `${policy} controller`;
   const updateTopology = (topology) => {
     if (!settings) return;
     setSettings(applyTopologyChange(settings, topology));
@@ -328,12 +407,31 @@ export default function App() {
     });
   };
 
+  if (view === "communications") {
+    return (
+      <div className="shell">
+        <header className="topbar communications-topbar">
+          <div className="brand">
+            <h1>Microgrid Control Room</h1>
+            <span className="sub">service communication view · human-readable NATS map</span>
+          </div>
+          <ViewSwitch view={view} onChange={setView} />
+          <span className="badge real">● service map</span>
+        </header>
+        <main className="content communications-content">
+          <ServiceCommunications />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="shell">
       <header className="topbar">
-        <button className="rail-toggle" onClick={() => setRailOpen((o) => !o)}>
+        {!runtime.modular_mode && <button className="rail-toggle" onClick={() => setRailOpen((o) => !o)}>
           ☰ Scenario
-        </button>
+        </button>}
+        <ViewSwitch view={view} onChange={setView} />
         <div className="brand">
           <h1>Microgrid Control Room</h1>
           <span className="sub">editable topology · pandapower AC physics · Region 4</span>
@@ -345,6 +443,14 @@ export default function App() {
         {meta?.backend && (
           <span className="badge" title="Physics engine that solved the last run. Runtime selection is temporarily locked.">
             ⚙ engine: {meta.backend}
+          </span>
+        )}
+        {runtime.modular_mode && (
+          <span
+            className="badge real"
+            title={`Active Compose config: ${runtime.scenario_config ?? "unknown"}`}
+          >
+            scenario: {settings?.scenario?.name ?? runtime.scenario_config?.split("/").pop() ?? "unknown"}
           </span>
         )}
         {meta?.forecast_enabled && (
@@ -381,14 +487,19 @@ export default function App() {
 
         <div className="controls">
           <label htmlFor="policy">policy</label>
-          <select id="policy" value={policy} onChange={(e) => changePolicy(e.target.value)} disabled={running}>
-            {policies.map((p) => (
+          <select
+            id="policy"
+            value={runtime.modular_mode ? (runtime.ems_policy ?? "external") : policy}
+            onChange={(e) => changePolicy(e.target.value)}
+            disabled={running || runtime.modular_mode}
+          >
+            {(runtime.modular_mode ? [runtime.ems_policy ?? "external"] : policies).map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>
             ))}
           </select>
-          {policy === "rl" && (
+          {!runtime.modular_mode && policy === "rl" && (
             <span className="rl-fields">
               <select
                 id="rl-preset"
@@ -434,11 +545,11 @@ export default function App() {
             type="number"
             value={seed}
             step={1}
-            disabled={running}
+            disabled={running || runtime.modular_mode}
             onChange={(e) => setSeed(Number(e.target.value) || 0)}
             style={{ width: 64 }}
           />
-          <label
+          {!runtime.modular_mode && <label
             className="check auto-check"
             title="Chain episodes without stopping — the battery state carries over. Uncheck (or hit Stop) to pause at the next episode boundary."
           >
@@ -448,8 +559,31 @@ export default function App() {
               onChange={(e) => setAutoContinue(e.target.checked)}
             />
             auto-continue
-          </label>
-          {running ? (
+          </label>}
+          {!runtime.modular_mode && <label
+            className="check auto-check"
+            title="Use the simulation-only broker-decoupled EMS and show command acknowledgments."
+          >
+            <input
+              type="checkbox"
+              checked={emsMode}
+              disabled={runtime.modular_mode || running || !["rule", "rl"].includes(policy)}
+              onChange={(e) => {
+                setEmsMode(e.target.checked);
+                setAutoContinue(false);
+                reset();
+              }}
+            />
+            EMS event mode
+          </label>}
+          {runtime.modular_mode && (
+            <span className="badge real" title="Dispatch inference runs in the external EMS container.">
+              external EMS: {(runtime.ems_policy ?? "unknown").toUpperCase()}
+            </span>
+          )}
+          {runtime.modular_mode ? (
+            <span className="badge live">view only · controlled by CLI EMS</span>
+          ) : running ? (
             <button className="run-btn stop" onClick={stop}>
               ■ Stop
             </button>
@@ -472,14 +606,14 @@ export default function App() {
 
       <div className="main">
         {railOpen && <div className="rail-backdrop" onClick={() => setRailOpen(false)} />}
-        <ConfigRail
+        {!runtime.modular_mode && <ConfigRail
           settings={settings}
           setSettings={setSettings}
           demand={demand}
           setDemand={setDemand}
           open={railOpen}
           onClose={() => setRailOpen(false)}
-        />
+        />}
 
         <main className="content">
           {error && (
@@ -491,20 +625,22 @@ export default function App() {
             </div>
           )}
 
-          {settings && (
+          {!runtime.modular_mode && settings && (
             <section className="command-console" aria-label="Run command console">
               <div className="console-intro">
                 <span className="eyebrow">Live experiment</span>
                 <strong>{modelLabel}</strong>
                 <span className="console-copy">
-                  {policy === "rl"
-                    ? "SAC acts on cached forecasts and the AC scheduling twin."
-                    : "Compare a transparent controller against the same plant assumptions."}
+                  {runtime.modular_mode
+                    ? "EMS owns the clock, scenario, forecasts and dispatch; this dashboard only replays and observes system events."
+                    : policy === "rl"
+                      ? "SAC acts on cached forecasts and the AC scheduling twin."
+                      : "Compare a transparent controller against the same plant assumptions."}
                 </span>
               </div>
               <div className="console-status">
                 <span className={`status-dot ${running ? "is-running" : hasRun ? "is-complete" : "is-ready"}`} />
-                <span>{running ? "solving live" : hasRun ? "run complete" : "ready"}</span>
+                <span>{running ? (emsMode ? "EMS event loop" : "solving live") : hasRun ? "run complete" : "ready"}</span>
                 {hasRun && <b>{rows.length} ticks</b>}
               </div>
               <div className="console-progress" aria-hidden="true">
@@ -517,6 +653,49 @@ export default function App() {
               </div>
             </section>
           )}
+
+          {/* {emsMode && emsEvents.length > 0 && (
+            <section className="panel" aria-label="EMS event log">
+              <div className="panel-head">
+                <span className="eyebrow">EMS command acknowledgments</span>
+                <span className="note">simulation-only · newest 200 events</span>
+              </div>
+              {emsMetrics && (
+                <div className="ems-counter-strip" aria-label="EMS real-time counters">
+                  <span className={`badge ${emsMetrics.deadline_overruns > 0 ? "blackout" : "real"}`} title="Ticks where no fresh valid command arrived before the per-tick deadline; rule fallback was applied.">
+                    ⏱ {emsMetrics.deadline_overruns} deadline overruns
+                  </span>
+                  <span className={`badge ${emsMetrics.recoveries > 0 ? "real" : ""}`} title="Ticks where a fresh valid EMS command was applied again after a fallback.">
+                    ↻ {emsMetrics.recoveries} recoveries
+                  </span>
+                  <span className="badge">total {emsMetrics.ticks} ticks</span>
+                </div>
+              )}
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>seq</th><th>trace</th><th>controller</th><th>battery request</th><th>diesel request</th><th>shield</th><th>status</th><th>unserved</th></tr></thead>
+                  <tbody>
+                    {emsEvents.slice().reverse().map((event) => (
+                      <tr key={event._trace?.event_id ?? `${event.telemetry.session_id}-${event.telemetry.sequence_id}`}>
+                        <td>{event.telemetry.sequence_id}</td>
+                        <td title={event._trace?.event_id ?? "untraced in-process event"}>
+                          {event._trace
+                            ? `JS ${event._trace.stream_sequence ?? "?"} · ${event._trace.trace_id.slice(0, 8)}`
+                            : "local"}
+                        </td>
+                        <td>{event.command?.controller ?? "rule fallback"}</td>
+                        <td>{event.command ? `${event.command.requested_battery_power_kw.toFixed(1)} kW` : "fallback"}</td>
+                        <td>{event.command?.requested_diesel_on ? `${event.command.requested_diesel_power_kw.toFixed(1)} kW` : "off"}</td>
+                        <td>{event.command?.safety_shield_active ? event.command.safety_reasons.join(", ") : "clear"}</td>
+                        <td>{event.result.status}</td>
+                        <td>{event.result.unserved_load_kw.toFixed(2)} kW</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )} */}
 
           {settings && (
             <div className="panel topology-workspace">
@@ -543,14 +722,14 @@ export default function App() {
               Set up the topology and scenario, then run an episode — every tick
               streams into the charts live as the physics engine works through it.
               <div>
-                <button className="run-btn" onClick={() => runEpisode(true)} disabled={!settings}>
+                {!runtime.modular_mode && <button className="run-btn" onClick={() => runEpisode(true)} disabled={!settings}>
                   ▶ Run episode
-                </button>
+                </button>}
               </div>
             </div>
           ) : (
             <>
-              {!running && rows.length > 0 && (
+              {!runtime.modular_mode && !running && rows.length > 0 && (
                 <div className="episode-banner">
                   <span>
                     Paused after episode {episode} — battery at{" "}

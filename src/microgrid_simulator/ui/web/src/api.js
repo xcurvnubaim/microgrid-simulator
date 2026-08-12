@@ -4,6 +4,18 @@ export async function getDefaults() {
   return res.json();
 }
 
+export async function getRuntime() {
+  const res = await fetch("/api/runtime", { cache: "no-store" });
+  if (!res.ok) throw new Error(`runtime configuration failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getServiceCommunications() {
+  const res = await fetch("/api/service-communications", { cache: "no-store" });
+  if (!res.ok) throw new Error(`service communications failed: ${res.status}`);
+  return res.json();
+}
+
 export async function simulate(settings, policy, seed, rl = {}) {
   const res = await fetch("/api/simulate", {
     method: "POST",
@@ -46,6 +58,63 @@ export async function simulateStream(settings, policy, seed, { signal, onEvent, 
     }
   }
   if (buffer.trim()) onEvent?.(JSON.parse(buffer));
+}
+
+/* Simulation-only EMS stream. The WebSocket carries versioned telemetry,
+   requested commands, and realized acknowledgments; it never controls hardware. */
+export function emsStream(_settings, _policy, _seed, { signal, onEvent } = {}) {
+  return new Promise((resolve, reject) => {
+    let socket;
+    let finished = false;
+    const close = () => socket?.readyState < WebSocket.CLOSING && socket.close();
+    signal?.addEventListener("abort", close, { once: true });
+    const connect = (url, initialMessage) => {
+      socket = new WebSocket(url);
+      socket.onopen = () => initialMessage && socket.send(JSON.stringify(initialMessage));
+      socket.onmessage = (message) => {
+        const event = JSON.parse(message.data);
+        onEvent?.(event);
+        if (event.type === "error") {
+          finished = true;
+          close();
+          reject(new Error(event.message));
+        } else if (event.type === "ems_end") {
+          finished = true;
+          close();
+          resolve();
+        }
+      };
+      socket.onerror = () => {
+        if (!finished) reject(new Error("EMS WebSocket connection failed"));
+      };
+      socket.onclose = () => {
+        signal?.removeEventListener("abort", close);
+        if (!finished) {
+          if (signal?.aborted) resolve();
+          else reject(new Error("EMS WebSocket closed before the episode ended"));
+        }
+      };
+    };
+
+    const discover = async () => {
+      while (!signal?.aborted) {
+        const response = await fetch("/api/ems/latest", { cache: "no-store", signal });
+        if (!response.ok) throw new Error(`EMS discovery failed: ${response.status}`);
+        const { run } = await response.json();
+        if (run) return run;
+        await new Promise((done) => setTimeout(done, 750));
+      }
+      return null;
+    };
+
+    discover()
+      .then((run) => {
+        if (!run) return resolve();
+        const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+        connect(`${scheme}://${window.location.host}/api/ems/events/${run.run_id}`);
+      })
+      .catch(reject);
+  });
 }
 
 export async function uploadDemand(file) {
