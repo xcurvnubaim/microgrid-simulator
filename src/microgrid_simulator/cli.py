@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import asyncio
+import contextlib
 from pathlib import Path
 
 import numpy as np
@@ -191,6 +193,25 @@ def train(
     forecast_mode: str = typer.Option(
         "cached", help="forecast ablation: cached | none | oracle"
     ),
+    init_artifact: Path | None = typer.Option(
+        None, help="existing policy .zip to continue from (fine-tuning)"
+    ),
+    init_vecnorm: Path | None = typer.Option(
+        None, help="parent VecNormalize stats .pkl to restore in training mode"
+    ),
+    init_replay_buffer: Path | None = typer.Option(
+        None, help="parent SAC replay buffer .pkl to reload"
+    ),
+    save_replay_buffer: bool = typer.Option(
+        False, help="save the SAC replay buffer beside the artifact"
+    ),
+    reset_num_timesteps: bool = typer.Option(
+        False, help="restart timestep counters instead of continuing them"
+    ),
+    stage: str | None = typer.Option(
+        None, help="optional stage label used in artifact/checkpoint names"
+    ),
+    run_id: str | None = typer.Option(None, help="explicit run directory id"),
 ) -> None:
     """Train an SB3 agent against the microgrid environment."""
     from microgrid_simulator.model.agent import train as _train
@@ -204,6 +225,13 @@ def train(
         artifact_dir=artifact_dir,
         tensorboard_log=tensorboard,
         seed=seed,
+        init_artifact=init_artifact,
+        init_vecnorm=init_vecnorm,
+        init_replay_buffer=init_replay_buffer,
+        save_replay_buffer=save_replay_buffer,
+        reset_num_timesteps=reset_num_timesteps,
+        stage_name=stage,
+        run_id=run_id,
     )
     typer.echo(f"saved: {path}")
 
@@ -300,6 +328,181 @@ def dashboard(
 
     typer.echo(f"Microgrid control room -> http://{host}:{port}")
     uvicorn.run("microgrid_simulator.ui.server:app", host=host, port=port, log_level="info")
+
+
+@app.command("ems-run")
+def ems_run(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    policy: str = typer.Option("rule", help="rule | sac | ppo"),
+    artifact: Path | None = typer.Option(None, help="trained policy .zip for SAC/PPO"),
+    steps: int = typer.Option(96, min=1, help="maximum simulated control ticks"),
+    timeout_ms: int = typer.Option(1000, min=1, help="command deadline in milliseconds"),
+    pace_seconds: float = typer.Option(0.0, min=0.0, help="wall-clock delay between ticks"),
+    seed: int = typer.Option(0, help="episode seed"),
+) -> None:
+    """Run the broker-decoupled EMS against the simulator (no hardware actuation)."""
+    from microgrid_simulator.ems import EMSService, InProcessBroker, SimulatorBridge
+
+    if policy not in {"rule", "sac", "ppo"}:
+        raise typer.BadParameter("choose rule, sac, or ppo", param_hint="--policy")
+    settings = _load_settings(config)
+
+    async def _run() -> None:
+        broker = InProcessBroker()
+        service = EMSService(
+            settings,
+            broker,
+            policy=policy,  # type: ignore[arg-type]
+            artifact=artifact,
+            command_ttl_ms=timeout_ms,
+        )
+        bridge = SimulatorBridge(
+            settings,
+            broker,
+            command_timeout_ms=timeout_ms,
+            pace_seconds=pace_seconds,
+        )
+        service_task = asyncio.create_task(service.run())
+        try:
+            results = await bridge.run(max_steps=steps, seed=seed)
+        finally:
+            service_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await service_task
+        for result in results:
+            typer.echo(result.model_dump_json())
+        fallback_count = sum(result.status == "fallback" for result in results)
+        typer.echo(
+            f"EMS simulation complete: {len(results)} ticks, "
+            f"{fallback_count} fallback commands, no physical actuation"
+        )
+
+    asyncio.run(_run())
+
+
+@app.command("telemetry-serve")
+def telemetry_serve(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    nats_url: str = typer.Option("nats://127.0.0.1:4222", help="NATS server URL"),
+) -> None:
+    """Serve strict historical telemetry windows over NATS request/reply."""
+    from microgrid_simulator.telemetry.nats import run_worker
+    from microgrid_simulator.telemetry.service import ReplayTelemetryService
+
+    asyncio.run(run_worker(ReplayTelemetryService(_load_settings(config)), nats_url))
+
+
+@app.command("ems-serve")
+def ems_serve(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    policy: str = typer.Option("rule", envvar="MGS_EMS_POLICY", help="rule | sac | ppo"),
+    artifact: Path | None = typer.Option(
+        None, envvar="MGS_EMS_ARTIFACT", help="trained policy .zip for SAC/PPO"
+    ),
+    timeout_ms: int = typer.Option(1000, min=1, help="command TTL in milliseconds"),
+    nats_url: str = typer.Option("nats://127.0.0.1:4222", help="NATS server URL"),
+) -> None:
+    """Serve rule or learned EMS dispatch inference over NATS request/reply."""
+
+    from microgrid_simulator.ems.nats import run_worker
+    from microgrid_simulator.ems.service import EMSService
+
+    if policy not in {"rule", "sac", "ppo"}:
+        raise typer.BadParameter("choose rule, sac, or ppo", param_hint="--policy")
+    asyncio.run(
+        run_worker(
+            EMSService(
+            _load_settings(config),
+            policy=policy,  # type: ignore[arg-type]
+            artifact=artifact,
+            command_ttl_ms=timeout_ms,
+            ),
+            nats_url,
+        )
+    )
+
+
+@app.command("plant-serve")
+def plant_serve(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    nats_url: str = typer.Option("nats://127.0.0.1:4222", help="NATS server URL"),
+) -> None:
+    """Serve authoritative headless plant transitions over NATS."""
+    from microgrid_simulator.plant.nats import run_worker
+    from microgrid_simulator.plant.service import PlantService
+    from microgrid_simulator.runtime import settings_fingerprint
+
+    settings = _load_settings(config)
+    asyncio.run(
+        run_worker(
+            PlantService(settings, config_fingerprint=settings_fingerprint(settings)),
+            nats_url,
+        )
+    )
+
+
+@app.command("ems-control-serve")
+def ems_control_serve(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    policy: str = typer.Option("rule", envvar="MGS_EMS_POLICY", help="rule | sac | ppo"),
+    artifact: Path | None = typer.Option(
+        None, envvar="MGS_EMS_ARTIFACT", help="trained policy .zip for SAC/PPO"
+    ),
+    nats_url: str = typer.Option("nats://127.0.0.1:4222", help="NATS server URL"),
+    pace_seconds: float = typer.Option(0.0, min=0.0, help="optional wall-clock delay per tick"),
+    host: str = typer.Option("127.0.0.1", help="bind address"),
+    port: int = typer.Option(8004, help="HTTP control port"),
+) -> None:
+    """Serve the EMS-owned scenario lifecycle and dispatch control plane."""
+    import uvicorn
+
+    from microgrid_simulator.ems.http import create_app
+
+    if policy not in {"rule", "sac", "ppo"}:
+        raise typer.BadParameter("choose rule, sac, or ppo", param_hint="--policy")
+    if policy != "rule" and artifact is None:
+        raise typer.BadParameter(f"{policy} requires --artifact", param_hint="--artifact")
+    uvicorn.run(
+        create_app(
+            _load_settings(config),
+            policy=policy,
+            artifact=str(artifact) if artifact is not None else None,
+            nats_url=nats_url,
+            pace_seconds=pace_seconds,
+        ),
+        host=host,
+        port=port,
+        log_level="info",
+    )
+
+
+@app.command("simulator-serve")
+def simulator_serve(
+    config: Path | None = typer.Option(None, help="scenario YAML configuration"),
+    telemetry_url: str | None = typer.Option(None, help="telemetry service base URL"),
+    ems_url: str | None = typer.Option(None, help="EMS service base URL"),
+    nats_url: str | None = typer.Option(None, help="NATS URL for services and JetStream"),
+    timeout_ms: int = typer.Option(1000, min=1, help="EMS command deadline in milliseconds"),
+    host: str = typer.Option("127.0.0.1", help="bind address"),
+    port: int = typer.Option(8003, help="HTTP port"),
+) -> None:
+    """Serve authoritative simulation sessions and event streams over HTTP."""
+    import uvicorn
+
+    from microgrid_simulator.simulator.http import create_app
+
+    uvicorn.run(
+        create_app(
+            _load_settings(config),
+            telemetry_url=telemetry_url,
+            ems_url=ems_url,
+            nats_url=nats_url,
+            command_timeout_ms=timeout_ms,
+        ),
+        host=host,
+        port=port,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":

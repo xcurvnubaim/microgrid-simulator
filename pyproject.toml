@@ -27,6 +27,7 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "python-multipart>=0.0.9",
+    "nats-py>=2.9,<3",
     "pypsa>=0.35.2",
     "opendssdirect-py>=0.9.4",
     "pvlib>=0.15.2",
