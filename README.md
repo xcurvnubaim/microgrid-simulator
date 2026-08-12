@@ -186,6 +186,17 @@ uv run microgrid-sim replay --config configs/islanded-heldout-72h.yaml --policy 
 # control-room dashboard (FastAPI + React): topology replay, dispatch charts
 uv run microgrid-sim dashboard
 
+# broker-decoupled, simulation-only EMS with rule fallback and acknowledgments
+uv run microgrid-sim ems-run --config configs/islanded-baseline-72h.yaml --policy rule
+
+# independently runnable boundaries after starting a NATS server with JetStream
+uv run microgrid-sim telemetry-serve --config configs/islanded-baseline-72h.yaml \
+  --nats-url nats://127.0.0.1:4222
+uv run microgrid-sim plant-serve --config configs/islanded-baseline-72h.yaml \
+  --nats-url nats://127.0.0.1:4222
+uv run microgrid-sim ems-control-serve --config configs/islanded-baseline-72h.yaml \
+  --policy rule --nats-url nats://127.0.0.1:4222
+
 # train PPO on the default scenario, save artifacts/ppo_microgrid.zip
 uv run microgrid-sim train --algo ppo --timesteps 50000
 
@@ -204,6 +215,67 @@ obs, info = env.reset()
 obs, reward, terminated, truncated, info = env.step(env.action_space.sample())
 ```
 
+## Docker Compose EMS Setup
+
+The Compose setup runs the same **simulation-only** EMS boundary. It does not connect to
+SCADA, field telemetry, or physical equipment.
+
+Prerequisites:
+
+- Docker Engine with Compose;
+- campus telemetry under `../data/processed/` relative to this repository, or set
+  `TEEP_DATA_DIR` to the host data directory;
+
+```bash
+# inspect or customize telemetry and ports
+cp .env.example .env
+
+# validate without building or starting containers
+./scripts/run_ems_scenario.sh --dry-run
+
+# run interactively: choose Normal/EMS, scenario, policy, then artifact
+./scripts/run_ems_scenario.sh
+
+# bypass the menu and run the rule controller directly
+./scripts/run_ems_scenario.sh --policy rule
+
+# run one learned controller in the EMS container
+./scripts/run_ems_scenario.sh \
+  --config configs/docker-islanded-72h.yaml \
+  --policy sac \
+  --artifact artifacts/sac/hardunserved-v3-60k/seed-0/sac_microgrid.zip
+```
+
+When launched in a terminal without explicit selections, the script first chooses a
+Compose profile. **Normal** starts the integrated simulator whose dashboard owns Run/Stop
+and editable settings. **EMS** discovers container-compatible YAML below `configs/`, then
+discovers SAC/PPO `.zip` files below `artifacts/<policy>/`. Explicit arguments remain
+available for automation, and `--interactive` forces the menus.
+
+In EMS mode the CLI starts services in the background, starts the run through the EMS
+control API, and prints live episode progress. One episode is the configured 72-hour
+window (288 15-minute ticks). After it completes, the CLI asks whether to continue. A
+continuation uses the same run identity, carries battery/diesel physical state, and moves
+the next 72-hour window forward by one timestep. Ctrl-C requests cancellation at a tick
+boundary before teardown. Cleanup uses `docker compose down --remove-orphans` without
+`-v`, preserving the `nats-data` JetStream volume and artifacts.
+
+Telemetry, plant, and the passive EMS dashboard use the lightweight non-root `runtime`
+image. The EMS service and integrated Normal dashboard use the `cpu-rl` target, which
+installs CPU-only PyTorch and Stable-Baselines3. The Normal dashboard needs it only when
+the user selects RL; imports and model loading remain lazy. Distributed EMS validates the
+observation/action shape before a run begins. Training remains host-side. Configs and
+artifacts are mounted read-only, and Compose runs exactly one EMS controller at a time.
+
+In the distributed profile the EMS owns the scenario clock, telemetry/forecast context,
+canonical controller observation, dispatch, and episode lifecycle. The headless plant owns
+pandapower physics, feasibility, and authoritative state transitions/accounting. Core NATS
+request/reply carries telemetry windows and idempotent plant transitions; JetStream persists
+ordered dashboard events in `nats-data`. The dashboard is passive: it discovers the latest
+run through its same-origin API, replays/follows the JetStream trace, shows the external
+policy, and never starts simulation or performs RL inference. NATS monitoring is available
+at `http://localhost:8222` by default.
+
 ## Layout
 
 ```
@@ -217,16 +289,21 @@ src/microgrid_simulator/
     pypsa_backend.py         operational scheduling research utility
     opendss_backend.py       OpenDSS skeleton
   forecast/                  Chronos HTTP client + strict leakage-free JSONL cache
+  messaging/                 NATS subjects, JSON envelopes, JetStream trace publisher
+  contracts/                 telemetry, plant-observation, command, and result schemas
+  telemetry/                 strict replay sessions and HTTP service
+  simulator/                 transport-neutral orchestrator, providers, and HTTP service
   controllers/               idle / rule / deterministic / manual / MPC / RL policies
   digital_twin/              measured-data ingestion, alignment, replay
   model/reward.py            the multi-term reward / punish
   rl/                        Gymnasium env, SB3 train/eval, episode sampler
   experiments/               reproducible runners (telemetry replay, pymgrid verification)
+  ems/                       inference, shield, broker compatibility, and HTTP service
   grid/                      compatibility shims for the pre-backends layout
   ui/server.py               FastAPI dashboard API (+ demand upload)
   ui/rollout.py              rule / idle / random rollout runner
   ui/web/                    React control room (prebuilt in web/dist)
-  cli.py                     train | eval | play | replay | dashboard | generate-forecast-cache
+  cli.py                     research commands plus telemetry/EMS/simulator service entry points
 configs/pymgrid25-scenario-2.yaml  default native benchmark translation
 configs/simulator.yaml       alternate campus topology and project-model profile
 tests/                       battery, reward, env, accounting (mirrors src/)
@@ -260,6 +337,13 @@ onto **Demand source** and run an episode. The topology diagram replays the roll
 scrubber; below it: the PV + SoC chart, the dispatch stack (PV / battery /
 diesel / grid vs the demand line), battery SoC, voltage band, reward
 decomposition, and the raw per-timestep table with CSV export.
+
+Use **Service map** in the top navigation for a human-readable view of the running
+simulator, telemetry, EMS, NATS, and browser communication paths. The page includes a
+bounded message inspector with expandable request, reply, and dashboard-event payloads.
+In Compose, it reads NATS monitoring from `NATS_MONITOR_URL` (default `http://nats:8222`)
+and observes application messages through `NATS_URL` (default `nats://nats:4222`),
+refreshing status and recent messages every five seconds.
 
 Frontend dev loop (optional — a built copy ships in `ui/web/dist`):
 
