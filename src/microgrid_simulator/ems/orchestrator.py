@@ -94,7 +94,7 @@ class EMSRun:
             initial_soc=self.carried_state.battery_soc if self.carried_state else None,
             target_soc=self.carried_state.battery_soc if self.carried_state else None,
             episode_progress=self.steps / max(1, self.manager.steps_per_episode),
-            forecast_horizon=self.manager.settings.forecast.horizon_hours,
+            forecast_horizon=self.manager.settings.forecast.forecast_steps,
         )
         return PlantObservation(
             session_id=self.run_id,

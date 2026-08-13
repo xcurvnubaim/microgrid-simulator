@@ -153,7 +153,12 @@ def build_observation(
     episode_progress: float = 0.0,
     forecast_horizon: int = 24,
 ) -> np.ndarray:
-    """Flatten a :class:`GridState` into the env's float32 observation vector."""
+    """Flatten a :class:`GridState` into the env's float32 observation vector.
+
+    ``forecast_horizon`` is the number of forecast points appended (the
+    ``forecast.forecast_steps`` derivation — 96 for a 24 h / 0.25 h target), not
+    ``horizon_hours``.
+    """
     hour = state.timestamp % 24.0
     time_feats = [np.sin(2 * np.pi * hour / 24.0), np.cos(2 * np.pi * hour / 24.0)]
     vals: list[float] = []
@@ -504,7 +509,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             initial_soc=self._initial_soc,
             target_soc=self._initial_soc,
             episode_progress=self._steps / max(1, self.max_steps),
-            forecast_horizon=self.settings.forecast.horizon_hours,
+            forecast_horizon=self.settings.forecast.forecast_steps,
         )
 
     # -- forecast observation ---------------------------------------------
@@ -547,53 +552,11 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         )
 
     def _forecast_mode(self) -> str:
-        """Ablation selector: ``cached`` (default), ``none``, or ``oracle``."""
-        return getattr(self.settings.rl, "forecast_mode", "cached")
-
-    def _load_oracle_forecast(self) -> None:
-        """Build a perfect-foresight (oracle) snapshot from the actual telemetry.
-
-        Diagnostic upper bound only: the policy sees the true future PV/load, so
-        it is never a deployable result. The snapshot mirrors the cached layout
-        (hourly values starting one hour after the current step) so the same
-        observation builder and offset logic apply unchanged.
-        """
-        win = self.telemetry_window
-        if win is None:
-            self._forecast_snapshot = None
-            return
-        horizon = self.settings.forecast.horizon_hours
-        steps_per_hour = int(round(1.0 / self.dt))
-        current_step_index = self._steps  # matches _forecast_request_timestamp convention
-        pv_vals: list[float] = []
-        demand_vals: list[float] = []
-        for k in range(horizon):
-            idx = current_step_index + (k + 1) * steps_per_hour
-            if idx >= len(win.pv_mw):
-                break
-            pv_vals.append(float(win.pv_mw[idx]))
-            demand_vals.append(float(win.demand_mw[idx]))
-        if not pv_vals:
-            self._forecast_snapshot = None
-            return
-        issued_at = str(pd.Timestamp(win.timestamps[current_step_index]).isoformat())
-        self._forecast_snapshot = ForecastSnapshot(
-            issued_at=issued_at,
-            horizon_hours=horizon,
-            frequency_hours=1.0,
-            model_version="oracle",
-            pv_target="pv_avg",
-            demand_target="demand",
-            timestamps=(),
-            pv_values_mw=tuple(pv_vals),
-            demand_values_mw=tuple(demand_vals),
-            source_id=self.settings.forecast.source_id or self.settings.scenario.name,
-            context_time=issued_at,
-            context_steps=current_step_index,
-            cold_start=False,
-            covariate_mode="oracle",
-        )
-        self._forecast_origin_step = self._steps
+        """Return the deployable forecast input mode, failing closed."""
+        mode = getattr(self.settings.rl, "forecast_mode", "cached")
+        if mode not in {"cached", "none"}:
+            raise ValueError("forecast_mode must be 'cached' or 'none'")
+        return mode
 
     def _load_forecast(self) -> None:
         if not self.settings.forecast.enabled:
@@ -602,11 +565,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         if mode == "none":
             # No-forecast ablation: keep the forecast observation dimensions
             # present but zeroed with availability off, so the observation
-            # shape matches the cached and oracle policies exactly.
+            # shape matches cached policies exactly.
             self._forecast_snapshot = None
-            return
-        if mode == "oracle":
-            self._load_oracle_forecast()
             return
         if self._unc_forecast_dropped():
             # Forecast-service dropout: keep the retained snapshot (or none) so
@@ -674,7 +634,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         )
 
     def _forecast_vectors(self) -> tuple[np.ndarray, np.ndarray]:
-        horizon = self.settings.forecast.horizon_hours
+        horizon = self.settings.forecast.forecast_steps
         snapshot = self._forecast_snapshot
         pv_vector = np.zeros(horizon, dtype=np.float32)
         demand_vector = np.zeros(horizon, dtype=np.float32)

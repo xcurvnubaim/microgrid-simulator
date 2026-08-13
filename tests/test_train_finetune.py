@@ -19,6 +19,7 @@ def _tiny_settings(seed: int = 0, tmp: Path | None = None) -> Settings:
     s.rl.seed = seed
     s.rl.device = "cpu"
     s.rl.n_envs = 1
+    s.rl.forecast_mode = "none"
     s.episode.horizon_hours = 4.0
     # The RL sampler needs real load/PV measurement files to pick windows.
     s.digital_twin.measurements = {
@@ -58,6 +59,28 @@ def test_train_writes_artifact_and_runs(tmp_path: Path) -> None:
     assert path.exists()
     assert path.suffix == ".zip"
     assert path.name == "sac_microgrid.zip"
+
+
+def test_train_rejects_non_validation_callback_split(tmp_path: Path) -> None:
+    s = _tiny_settings(tmp=tmp_path)
+    object.__setattr__(s.rl, "eval_split", "test")
+
+    with pytest.raises(ValueError, match="eval_split='val'"):
+        train_policy(s, total_timesteps=1)
+
+    assert not (tmp_path / "runs").exists()
+
+
+def test_train_rejects_non_strict_cached_forecasts(tmp_path: Path) -> None:
+    s = _tiny_settings(tmp=tmp_path)
+    s.rl.forecast_mode = "cached"
+    s.forecast.enabled = True
+    s.forecast.strict_cache = False
+
+    with pytest.raises(ValueError, match="strict_cache"):
+        train_policy(s, total_timesteps=1)
+
+    assert not (tmp_path / "runs").exists()
 
 
 def test_finetune_continues_and_writes_stage_artifact(tmp_path: Path) -> None:

@@ -29,6 +29,7 @@ class ForecastClient:
     def fetch(self, context: ForecastContext, issued_at: str | None = None) -> ForecastSnapshot:
         body: dict[str, Any] = {
             "horizon_h": self.cfg.horizon_hours,
+            "target_frequency_h": self.cfg.target_frequency_hours,
             "context": context.as_request(),
         }
         if issued_at is not None:
@@ -80,11 +81,12 @@ class ForecastClient:
             )
         if frequency <= 0.0 or not math.isfinite(frequency):
             raise ForecastError("forecast frequency_h must be a positive finite number")
-        if not math.isclose(frequency, 1.0):
+        if not math.isclose(frequency, self.cfg.target_frequency_hours):
             raise ForecastError(
-                f"forecast frequency_h is {frequency}; the simulator expects hourly values"
+                f"forecast frequency_h is {frequency}; the simulator requested "
+                f"{self.cfg.target_frequency_hours}"
             )
-        expected_points = int(round(horizon / frequency))
+        expected_points = self.cfg.forecast_steps
         units = payload.get("units", {})
         if not isinstance(forecasts, dict):
             raise ForecastError("forecast series must be a JSON object")
@@ -142,6 +144,13 @@ class ForecastClient:
             context_steps=int(payload.get("context_steps", len(context.pv_values_mw))),
             cold_start=bool(payload.get("cold_start", False)),
             covariate_mode=str(payload.get("covariate_mode", "unknown")),
+            issue_frequency_hours=(
+                float(payload["issue_frequency_h"])
+                if payload.get("issue_frequency_h") is not None
+                else self.cfg.issue_frequency_hours
+            ),
+            forecast_steps=expected_points,
+            target_units="kw",
         )
 
     @staticmethod
@@ -195,9 +204,14 @@ class StrictCachedForecastClient(CachedForecastClient):
         requested = pd.Timestamp(issued_at).tz_localize(None)
         issued = pd.Timestamp(snapshot.issued_at).tz_localize(None)
         age_hours = (requested - issued).total_seconds() / 3600.0
-        if age_hours < 0.0 or age_hours >= snapshot.frequency_hours:
+        issue_interval = (
+            snapshot.issue_frequency_hours
+            if snapshot.issue_frequency_hours is not None
+            else snapshot.frequency_hours
+        )
+        if age_hours < 0.0 or age_hours >= issue_interval:
             raise ForecastCacheError(
-                f"no cached forecast was issued in the {snapshot.frequency_hours:g}h interval "
+                f"no cached forecast was issued in the {issue_interval:g}h interval "
                 f"covering {issued_at}"
             )
         if snapshot.source_id and snapshot.source_id != context.source_id:

@@ -11,13 +11,13 @@ from typing import Any, Literal
 
 import numpy as np
 
+from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
 from microgrid_simulator.config import Settings
 from microgrid_simulator.controllers import RuleBasedController
 from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
 from microgrid_simulator.ems.broker import EventBroker
 from microgrid_simulator.ems.shield import SafetyShield
 from microgrid_simulator.ems.types import DispatchCommand, TelemetryFrame, utc_now
-from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
 from microgrid_simulator.rl.env import decode_action, encode_action
 
 

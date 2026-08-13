@@ -25,9 +25,9 @@ from microgrid_simulator.forecast.snapshot import ForecastSnapshot
 class ForecastCacheManifest:
     """Validated ``forecast_manifest.json`` describing a pre-generated cache.
 
-    The manifest pins the scenario ``source_id``, record count, horizon, and
-    frequency so a cache cannot be silently paired with the wrong scenario or a
-    partially written JSONL file.
+    The manifest pins the scenario ``source_id``, record count, horizon, target
+    frequency, and issue frequency so a cache cannot be silently paired with the
+    wrong scenario or a partially written JSONL file.
     """
 
     cache_version: str
@@ -38,6 +38,10 @@ class ForecastCacheManifest:
     frequency_hours: float
     pv_model: str = ""
     demand_model: str = ""
+    causal_preprocessing: bool = False
+    issue_frequency_hours: float | None = None
+    forecast_steps: int | None = None
+    target_units: str = "kw"
     splits: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -63,6 +67,18 @@ class ForecastCacheManifest:
                 frequency_hours=float(payload["frequency_hours"]),
                 pv_model=str(payload.get("pv_model", "")),
                 demand_model=str(payload.get("demand_model", "")),
+                causal_preprocessing=payload.get("causal_preprocessing") is True,
+                issue_frequency_hours=(
+                    float(payload["issue_frequency_hours"])
+                    if payload.get("issue_frequency_hours") is not None
+                    else None
+                ),
+                forecast_steps=(
+                    int(payload["forecast_steps"])
+                    if payload.get("forecast_steps") is not None
+                    else None
+                ),
+                target_units=str(payload.get("target_units", "kw")),
                 splits=payload["splits"] if isinstance(payload.get("splits"), dict) else {},
             )
         except (KeyError, TypeError, ValueError) as exc:
@@ -172,6 +188,17 @@ class ForecastCache:
                     context_steps=int(data.get("context_steps", 0)),
                     cold_start=bool(data.get("cold_start", False)),
                     covariate_mode=str(data.get("covariate_mode", "cached")),
+                    issue_frequency_hours=(
+                        float(data["issue_frequency_hours"])
+                        if data.get("issue_frequency_hours") is not None
+                        else None
+                    ),
+                    forecast_steps=(
+                        int(data["forecast_steps"])
+                        if data.get("forecast_steps") is not None
+                        else None
+                    ),
+                    target_units=str(data.get("target_units", "kw")),
                 )
                 records[issued_at] = snapshot
         return cls(records)
@@ -187,6 +214,9 @@ class ForecastCache:
                     "issued_at": snapshot.issued_at,
                     "horizon_hours": snapshot.horizon_hours,
                     "frequency_hours": snapshot.frequency_hours,
+                    "issue_frequency_hours": snapshot.issue_frequency_hours,
+                    "forecast_steps": snapshot.forecast_steps,
+                    "target_units": snapshot.target_units,
                     "model_version": snapshot.model_version,
                     "pv_target": snapshot.pv_target,
                     "demand_target": snapshot.demand_target,
@@ -223,6 +253,11 @@ class ForecastCache:
         manifest = ForecastCacheManifest.from_json(manifest_path)
         if manifest.source_id != expected_source_id:
             raise ForecastSourceError(expected_source_id, manifest.source_id)
+        if not manifest.causal_preprocessing:
+            raise ForecastCacheError(
+                "forecast cache manifest does not attest causal_preprocessing=true; "
+                "regenerate it before training or inference"
+            )
         if action_interval_hours <= 0.0:
             raise ForecastCacheError("action_interval_hours must be positive")
 
@@ -296,6 +331,35 @@ class ForecastCache:
             )
 
         expected_points = int(round(horizon / frequency))
+        if manifest.forecast_steps is not None and expected_points != manifest.forecast_steps:
+            raise ForecastCacheError(
+                f"forecast cache line {line_number}: derived {expected_points} points "
+                f"disagree with manifest forecast_steps={manifest.forecast_steps}"
+            )
+
+        issue_frequency = data.get("issue_frequency_hours", manifest.issue_frequency_hours)
+        if issue_frequency is not None:
+            issue_frequency = float(issue_frequency)
+            if issue_frequency <= 0.0 or not math.isfinite(issue_frequency):
+                raise ForecastCacheError(
+                    f"forecast cache line {line_number}: issue_frequency_hours must be positive"
+                )
+            if (
+                manifest.issue_frequency_hours is not None
+                and not math.isclose(issue_frequency, manifest.issue_frequency_hours)
+            ):
+                raise ForecastCacheError(
+                    f"forecast cache line {line_number}: issue_frequency_hours "
+                    f"{issue_frequency}h disagree with manifest "
+                    f"{manifest.issue_frequency_hours}h"
+                )
+
+        target_units = str(data.get("target_units", manifest.target_units)).lower()
+        if target_units != manifest.target_units.lower():
+            raise ForecastCacheError(
+                f"forecast cache line {line_number}: target_units {target_units!r} "
+                f"disagree with manifest {manifest.target_units!r}"
+            )
         pv_mw = _strict_series_mw(data, "pv", expected_points, line_number)
         demand_mw = _strict_series_mw(data, "demand", expected_points, line_number)
 
@@ -369,6 +433,9 @@ class ForecastCache:
             context_steps=int(data.get("context_steps", 0)),
             cold_start=bool(data.get("cold_start", False)),
             covariate_mode=str(data.get("covariate_mode", "cached")),
+            issue_frequency_hours=issue_frequency,
+            forecast_steps=expected_points,
+            target_units=target_units,
         )
 
     def cold_start_issued_at(self) -> tuple[str, ...]:

@@ -16,12 +16,13 @@ Layering rule: this is the lowest layer — nothing here imports from
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RUNTIME_PHYSICS_ENGINE = "pandapower"
@@ -266,6 +267,8 @@ class DigitalTwinCfg(BaseModel):
 
 
 class RLCfg(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+
     algo: str = "sac"  # sac (preferred for continuous battery control) | ppo
     total_timesteps: int = 50_000
     seed: int = 0
@@ -277,8 +280,8 @@ class RLCfg(BaseModel):
     log_dir: str = "runs"
     artifact_dir: str = "artifacts"
     train_split: Literal["train"] = "train"
-    eval_split: Literal["val", "test"] = "val"
-    forecast_mode: Literal["cached", "none", "oracle"] = "cached"
+    eval_split: Literal["val"] = "val"
+    forecast_mode: Literal["cached", "none"] = "cached"
     device: str = "auto"  # auto | cpu | cuda / cuda:0
     # Hard unserved-load constraint (islanded outage scenario). When True, any
     # tick with unserved load above the solver-noise tolerance terminates the
@@ -412,14 +415,24 @@ class EpisodeCfg(BaseModel):
 class ForecastCfg(BaseModel):
     """Chronos service connection and observation horizon.
 
-    The service forecasts hourly PV and demand in kW. The simulator converts
-    both to MW before appending them to the Gym observation; neither forecast
-    substitutes for the plant's measured or synthetic trajectories.
+    The service forecasts PV and demand in kW at ``target_frequency_hours``
+    spacing over ``horizon_hours``. The simulator converts values to MW before
+    appending them to the Gym observation; neither forecast substitutes for the
+    plant's measured or synthetic trajectories.
+
+    ``forecast_steps`` is *derived* from ``horizon_hours / target_frequency_hours``
+    (e.g. 24 h at 0.25 h = 96 quarter-hour points). It is never configured
+    directly, matching the 15-minute forecast resolution migration contract.
     """
 
     enabled: bool = False
     service_url: str = "http://127.0.0.1:8000"
     horizon_hours: int = Field(default=24, ge=1, le=168)
+    # Spacing between predicted PV/load points.
+    target_frequency_hours: float = Field(default=1.0, gt=0.0)
+    # How often a new forecast snapshot is issued (aligned one-to-one with
+    # controller decisions for the 15-minute migration).
+    issue_frequency_hours: float = Field(default=1.0, gt=0.0)
     target: str = "pv_avg"  # PV target; retained for config compatibility
     demand_target: str = "demand"
     source_unit: Literal["kw", "mw"] = "kw"
@@ -429,6 +442,31 @@ class ForecastCfg(BaseModel):
     manifest_path: str | None = None
     source_id: str | None = None
     strict_cache: bool = False
+
+    @model_validator(mode="after")
+    def _derive_forecast_steps(self) -> ForecastCfg:
+        """Validate the horizon/frequency timing contract.
+
+        ``forecast_steps`` must be a positive integer and the target/issue
+        frequencies must not exceed the horizon. Failing here fails closed
+        before any cache, observation, or scenario is built.
+        """
+        steps = self.horizon_hours / self.target_frequency_hours
+        if not math.isclose(steps, round(steps)) or steps < 1:
+            raise ValueError(
+                "forecast.horizon_hours / target_frequency_hours must be a positive integer; "
+                f"got {self.horizon_hours} / {self.target_frequency_hours} = {steps}"
+            )
+        if self.issue_frequency_hours > self.horizon_hours:
+            raise ValueError(
+                "forecast.issue_frequency_hours must not exceed forecast.horizon_hours"
+            )
+        return self
+
+    @property
+    def forecast_steps(self) -> int:
+        """Number of forecast points per snapshot: ``horizon / target_frequency``."""
+        return int(round(self.horizon_hours / self.target_frequency_hours))
 
 
 class RewardCfg(BaseModel):

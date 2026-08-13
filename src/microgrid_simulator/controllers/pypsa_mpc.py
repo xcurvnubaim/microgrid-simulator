@@ -23,31 +23,56 @@ from microgrid_simulator.forecast.cache import ForecastCache
 from microgrid_simulator.forecast.errors import ForecastCacheError
 
 
-def _resample_hourly_to_quarter(
-    cache: ForecastCache, issued_at: str, n_steps: int
+def _align_forecast_to_steps(
+    cache: ForecastCache,
+    issued_at: str,
+    n_steps: int,
+    *,
+    control_interval_hours: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Resample the hourly cached forecast covering ``issued_at`` to 15-minute steps.
+    """Align the cached forecast covering ``issued_at`` onto control-interval steps.
 
-    Each hourly value is held constant across its four 15-minute control ticks,
-    matching the env's forecast reuse contract. Values are clipped to length
-    ``n_steps`` and zero-padded beyond the cached horizon.
+    Frequency-aware: a direct 15-minute forecast (``frequency_hours`` equals the
+    control interval) is consumed one point per tick, while a coarser forecast
+    (e.g. hourly F0) has each point held across ``frequency / control_interval``
+    ticks. Values are clipped to ``n_steps`` and zero-padded beyond the horizon.
     """
     snapshot = cache.get_covering(issued_at)
     if snapshot is None:
         raise ForecastCacheError(f"no cached forecast covers {issued_at}")
-    ticks_per_hour = 4  # 60 min / 15 min
+    frequency = snapshot.frequency_hours
+    if frequency < control_interval_hours - 1e-9:
+        raise ForecastCacheError(
+            f"cached forecast frequency {frequency:g}h is finer than the "
+            f"{control_interval_hours:g}h control interval"
+        )
+    ticks_per_point = int(round(frequency / control_interval_hours))
+    if ticks_per_point < 1:
+        ticks_per_point = 1
     demand = np.zeros(n_steps, dtype=np.float64)
     pv = np.zeros(n_steps, dtype=np.float64)
-    for hour_index, (pv_h, demand_h) in enumerate(
+    for index, (pv_v, demand_v) in enumerate(
         zip(snapshot.pv_values_mw, snapshot.demand_values_mw, strict=False)
     ):
-        start = hour_index * ticks_per_hour
+        start = index * ticks_per_point
         if start >= n_steps:
             break
-        end = min(start + ticks_per_hour, n_steps)
-        demand[start:end] = demand_h
-        pv[start:end] = pv_h
+        end = min(start + ticks_per_point, n_steps)
+        demand[start:end] = demand_v
+        pv[start:end] = pv_v
     return demand, pv
+
+
+def _resample_hourly_to_quarter(
+    cache: ForecastCache, issued_at: str, n_steps: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Legacy hourly F0 path: hold each hourly value across four 15-minute ticks.
+
+    Retained for the incumbent hourly-forecast baseline (F0). New direct
+    15-minute F2 caches are consumed through
+    :func:`_align_forecast_to_steps` instead.
+    """
+    return _align_forecast_to_steps(cache, issued_at, n_steps, control_interval_hours=0.25)
 
 
 class PyPSAMPCController(Controller):
@@ -76,6 +101,7 @@ class PyPSAMPCController(Controller):
         # time instead of the backend's perfect-foresight telemetry.
         self._forecast_cache = forecast_cache
         self._forecast_issued_at = forecast_issued_at
+        self._control_interval_hours = float(backend.settings.topology.timestep_hours)
 
     def reset(self) -> None:
         self._actions = []
@@ -102,8 +128,11 @@ class PyPSAMPCController(Controller):
             pv_mw: np.ndarray | None = None
             if self._forecast_cache is not None:
                 issued_at = self._current_issued_at(state)
-                demand_mw, pv_mw = _resample_hourly_to_quarter(
-                    self._forecast_cache, issued_at, self.horizon_steps
+                demand_mw, pv_mw = _align_forecast_to_steps(
+                    self._forecast_cache,
+                    issued_at,
+                    self.horizon_steps,
+                    control_interval_hours=self._control_interval_hours,
                 )
             plan = self.backend.optimize_horizon(
                 self.horizon_steps,

@@ -1,0 +1,31 @@
+{
+  "cache_version": "1.0",
+  "source_id": "islanded_72h_2026-01-15",
+  "mode": "http",
+  "total_records": 2880,
+  "horizon_hours": 24,
+  "frequency_hours": 1.0,
+  "pv_model": "Chronos-2 Foundation Model",
+  "demand_model": "Chronos-2 Foundation Model",
+  "splits": {
+    "train": {
+      "start": "2025-12-02T00:00:00",
+      "end": "2026-01-29T23:45:00"
+    },
+    "val": {
+      "start": "2026-02-06T00:00:00",
+      "end": "2026-02-24T23:45:00",
+      "exclude_gaps": [
+        "2026-02-04"
+      ]
+    },
+    "test": {
+      "start": "2026-03-01T00:00:00",
+      "end": "2026-03-31T23:45:00"
+    }
+  },
+  "issue_frequency_hours": 1.0,
+  "forecast_steps": 24,
+  "target_units": "kw",
+  "causal_preprocessing": true
+}

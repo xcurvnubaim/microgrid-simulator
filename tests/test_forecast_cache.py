@@ -70,6 +70,7 @@ def _manifest(
         "frequency_hours": frequency,
         "pv_model": "Chronos-2",
         "demand_model": "Chronos-2",
+        "causal_preprocessing": True,
         "splits": {},
     }
 
@@ -99,6 +100,16 @@ def test_strict_cached_client_uses_hourly_covering_snapshot(tmp_path) -> None:
     )
     snapshot = client.fetch(context, issued_at="2026-01-15T00:45:00")
     assert snapshot.issued_at == "2026-01-15T00:00:00"
+
+
+def test_strict_cache_rejects_manifest_without_causal_attestation(tmp_path) -> None:
+    record = _record("2026-01-15T00:00:00")
+    manifest = _manifest(total_records=1)
+    manifest.pop("causal_preprocessing")
+    cache_path, manifest_path = _write(tmp_path, [record], manifest)
+
+    with pytest.raises(ForecastCacheError, match="causal_preprocessing=true"):
+        ForecastCache.load(cache_path, manifest_path, expected_source_id=EXPECTED_SOURCE)
 
 
 def test_strict_cached_client_fails_without_coverage(tmp_path) -> None:

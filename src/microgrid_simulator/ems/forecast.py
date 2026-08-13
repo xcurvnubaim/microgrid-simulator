@@ -35,6 +35,8 @@ class EMSForecastRuntime:
         self.settings = settings
         cfg = settings.forecast
         mode = getattr(settings.rl, "forecast_mode", "cached")
+        if mode not in {"cached", "none"}:
+            raise ValueError("forecast_mode must be 'cached' or 'none'")
         if cfg.enabled and cfg.strict_cache and mode == "cached":
             if not cfg.cache_path or not cfg.manifest_path:
                 raise ValueError("strict cached forecasting requires cache_path and manifest_path")
@@ -73,48 +75,16 @@ class EMSForecastRuntime:
             demand_values_mw=tuple(sample.load_demand_kw / 1000.0 for sample in samples),
         )
 
-    def _oracle(self, sequence: int) -> ForecastSnapshot | None:
-        if self.payload is None:
-            return None
-        horizon = self.settings.forecast.horizon_hours
-        per_hour = int(round(1.0 / self.settings.topology.timestep_hours))
-        indexes = [sequence + (offset + 1) * per_hour for offset in range(horizon)]
-        samples = [
-            self.payload.samples[index] for index in indexes if index < len(self.payload.samples)
-        ]
-        if not samples:
-            return None
-        issued_at = self.payload.samples[sequence].observed_at
-        return ForecastSnapshot(
-            issued_at=issued_at,
-            horizon_hours=horizon,
-            frequency_hours=1.0,
-            model_version="oracle",
-            pv_target=self.settings.forecast.target,
-            demand_target=self.settings.forecast.demand_target,
-            timestamps=(),
-            pv_values_mw=tuple(sample.pv_available_kw / 1000.0 for sample in samples),
-            demand_values_mw=tuple(sample.load_demand_kw / 1000.0 for sample in samples),
-            source_id=self.settings.forecast.source_id or self.settings.scenario.name,
-            context_time=issued_at,
-            context_steps=sequence,
-            cold_start=False,
-            covariate_mode="oracle",
-        )
-
     def _refresh(self, sequence: int) -> None:
         cfg = self.settings.forecast
         mode = getattr(self.settings.rl, "forecast_mode", "cached")
         if not cfg.enabled or mode == "none":
             self.snapshot = None
             return
-        if mode == "oracle":
-            candidate = self._oracle(sequence)
-        else:
-            if self.payload is None:
-                raise RuntimeError("forecast telemetry window is not initialized")
-            issued_at = pd.Timestamp(self.payload.samples[sequence].observed_at).isoformat()
-            candidate = self.client.fetch(self._context(sequence), issued_at=issued_at)
+        if self.payload is None:
+            raise RuntimeError("forecast telemetry window is not initialized")
+        issued_at = pd.Timestamp(self.payload.samples[sequence].observed_at).isoformat()
+        candidate = self.client.fetch(self._context(sequence), issued_at=issued_at)
         if candidate is None:
             self.snapshot = None
             return
@@ -131,7 +101,7 @@ class EMSForecastRuntime:
         if (sequence == 0 or cfg.refresh_each_step) and sequence != self.last_refresh_sequence:
             self._refresh(sequence)
             self.last_refresh_sequence = sequence
-        horizon = cfg.horizon_hours
+        horizon = cfg.forecast_steps
         pv = np.zeros(horizon, dtype=np.float32)
         demand = np.zeros(horizon, dtype=np.float32)
         offset = 0

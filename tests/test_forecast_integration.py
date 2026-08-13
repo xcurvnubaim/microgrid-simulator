@@ -67,6 +67,7 @@ def test_client_requests_configured_horizon_and_converts_kw(monkeypatch) -> None
     assert seen["url"] == "http://127.0.0.1:8000/forecast"
     assert seen["body"] == {
         "horizon_h": 3,
+        "target_frequency_h": 1.0,
         "context": {
             "source_id": "default",
             "frequency_h": 1.0,
@@ -533,24 +534,8 @@ def test_none_forecast_mode_zeroes_observation_and_disables_availability() -> No
     env.close()
 
 
-def test_oracle_forecast_mode_exposes_true_future_telemetry() -> None:
+def test_oracle_forecast_mode_is_rejected() -> None:
     settings = _settings(enabled=True, horizon=2, timestep_hours=0.25)
-    settings.rl.forecast_mode = "oracle"
-    env = MicrogridEnv(settings=settings)
-    win = _telemetry_window(horizon=2)
-    env.telemetry_window = win
 
-    obs, reset_info = env.reset(seed=0)
-    assert reset_info["forecast_available"] is True
-    assert reset_info["forecast_model_version"] == "oracle"
-    assert reset_info["forecast_covariate_mode"] == "oracle"
-
-    # At reset (step 0), the oracle looks 4 steps (1 hour) ahead at hourly
-    # spacing: win indices 4, 8.
-    base_obs_size = len(obs) - 5  # availability + 2 PV + 2 demand
-    pv_expected = (win.pv_mw[4], win.pv_mw[8])
-    demand_expected = (win.demand_mw[4], win.demand_mw[8])
-    assert obs[base_obs_size:].tolist() == pytest.approx(
-        [1.0, pv_expected[0], pv_expected[1], demand_expected[0], demand_expected[1]]
-    )
-    env.close()
+    with pytest.raises(ValueError, match="forecast_mode"):
+        settings.rl.forecast_mode = "oracle"  # type: ignore[assignment]

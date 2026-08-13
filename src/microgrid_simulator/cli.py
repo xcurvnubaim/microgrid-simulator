@@ -7,10 +7,10 @@ microgrid-sim play  --steps 24          # one default hourly scenario day
 
 from __future__ import annotations
 
-import json
-import logging
 import asyncio
 import contextlib
+import json
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -41,22 +41,39 @@ def _replay_output_dir(settings: Settings, policy: str) -> Path:
 def generate_forecast_cache(
     output: Path = typer.Option(Path("data/forecasts.jsonl"), help="output JSONL file path"),
     config: Path | None = typer.Option(None, help="scenario YAML configuration"),
-    manifest: Path | None = typer.Option(Path("data/forecast_manifest.json"), help="output manifest file path"),
-    mode: str = typer.Option("http", help="http (Chronos-2 for both PV and Demand) | hybrid | persistence"),
+    manifest: Path | None = typer.Option(
+        Path("data/forecast_manifest.json"), help="output manifest file path"
+    ),
+    mode: str = typer.Option("http", help="http (Chronos-2 for PV and demand)"),
 ) -> None:
     """Pre-generate a leakage-free 24-hour forecast JSONL cache across telemetry ranges."""
-    from microgrid_simulator.digital_twin.data_ingestion import load_measurements
     from microgrid_simulator.digital_twin.alignment import align_series
-    from microgrid_simulator.forecast import ForecastCache, ForecastSnapshot, ForecastClient, ForecastContext
-    from lightgbm import LGBMRegressor
+    from microgrid_simulator.digital_twin.data_ingestion import load_measurements
+    from microgrid_simulator.forecast import ForecastCache, ForecastClient, ForecastContext
 
     settings = _load_settings(config)
+    if mode != "http":
+        raise typer.BadParameter(
+            "only http generation is leakage-safe; hybrid and persistence are disabled",
+            param_hint="--mode",
+        )
     measurements = load_measurements(settings.digital_twin)
     if "load" not in measurements or "pv" not in measurements:
-        typer.echo("Error: digital_twin config must specify load and pv measurement sources.", err=True)
+        typer.echo(
+            "Error: digital_twin config must specify load and pv measurement sources.",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
-    aligned = align_series(measurements, timestep_hours=0.25, max_gap_steps=1000, max_missing_fraction=0.50)
+    # Forecast context must be reconstructed only from observed values. Reject
+    # missing samples rather than interpolating them from later measurements.
+    aligned = align_series(
+        measurements,
+        timestep_hours=settings.topology.timestep_hours,
+        fill_strategy="error",
+        max_gap_steps=0,
+        max_missing_fraction=0.0,
+    )
     load_series = aligned["load"].dropna()
     pv_series = aligned["pv"].dropna()
 
@@ -68,53 +85,28 @@ def generate_forecast_cache(
     pv_mw = pv_series.to_numpy()
     demand_mw = load_series.to_numpy()
     n_samples = len(timestamps)
+    source_id = settings.forecast.source_id or settings.scenario.name
 
-    typer.echo(f"Generating leakage-free ({mode}) forecast cache for {n_samples} aligned timestamps...")
+    typer.echo(
+        f"Generating leakage-free ({mode}) forecast cache for {n_samples} aligned timestamps..."
+    )
 
-    # Load ECMWF weather data if hybrid mode is requested
-    ecmwf_path = Path("/home/xcurv/teep-taiwan/data/ecmwf-ifs.json")
-    lgbm_pv_model = None
-    ecmwf_df = None
-
-    if mode == "hybrid" and ecmwf_path.exists():
-        with open(ecmwf_path) as f:
-            ecmwf_df = pd.DataFrame(json.load(f)["hourly"])
-        ecmwf_df["time"] = pd.to_datetime(ecmwf_df["time"])
-        ecmwf_df.set_index("time", inplace=True)
-
-        pv_hourly = (pv_series * 1000.0).resample("1h").mean().rename("pv_kw").dropna()
-        df_train_all = pd.concat([pv_hourly, ecmwf_df.add_prefix("ecmwf_")], axis=1, join="inner").dropna()
-
-        train_df = df_train_all.loc["2025-12-02":"2026-01-29"]
-        features = ["shortwave_radiation", "direct_radiation", "diffuse_radiation", 
-                    "direct_normal_irradiance", "temperature_2m", "cloud_cover"]
-        df_train_all = pd.concat([pv_hourly, ecmwf_df[features]], axis=1, join="inner").dropna()
-
-        train_df = df_train_all.loc["2025-12-02":"2026-01-29"]
-
-        X_train = train_df[features].copy()
-        X_train["hour"] = train_df.index.hour
-        X_train["month"] = train_df.index.month
-        y_train = train_df["pv_kw"]
-
-        lgbm_pv_model = LGBMRegressor(n_estimators=100, learning_rate=0.05, random_state=42, verbose=-1)
-        lgbm_pv_model.fit(X_train, y_train)
-        typer.echo("Trained LightGBM PV model on ECMWF weather features.")
-
-    records: dict[str, ForecastSnapshot] = {}
+    records = {}
     http_client = ForecastClient(settings.forecast)
 
     # Step through hourly indices, requiring at least 24h (96 steps) of past context
-    for i in range(96, n_samples, 4):  
+    for i in range(96, n_samples, 4):
         issued_at_ts = pd.Timestamp(timestamps[i])
         issued_at = issued_at_ts.isoformat()
 
         # Send past 500 steps (~20 days) context to Chronos HTTP forecaster
         ctx_start_idx = max(0, i - 500)
-        past_pv = tuple(max(0.0, float(val)) for val in pv_mw[ctx_start_idx:i:4])
-        past_demand = tuple(max(0.0, float(val)) for val in demand_mw[ctx_start_idx:i:4])
+        past_pv = tuple(max(0.0, float(val)) for val in pv_mw[ctx_start_idx : i + 1 : 4])
+        past_demand = tuple(
+            max(0.0, float(val)) for val in demand_mw[ctx_start_idx : i + 1 : 4]
+        )
         ctx = ForecastContext(
-            source_id=settings.scenario.name,
+            source_id=source_id,
             frequency_hours=1.0,
             pv_values_mw=past_pv,
             demand_values_mw=past_demand,
@@ -122,39 +114,7 @@ def generate_forecast_cache(
 
         chronos_snap = http_client.fetch(ctx, issued_at=issued_at)
 
-        if mode == "hybrid" and lgbm_pv_model is not None and ecmwf_df is not None:
-            future_timestamps = [issued_at_ts + pd.Timedelta(hours=h+1) for h in range(24)]
-            valid_ts = [ts for ts in future_timestamps if ts in ecmwf_df.index]
-
-            if len(valid_ts) == 24:
-                feat_cols = features
-                X_future = ecmwf_df.loc[future_timestamps, feat_cols].copy()
-                X_future["hour"] = [ts.hour for ts in future_timestamps]
-                X_future["month"] = [ts.month for ts in future_timestamps]
-
-                pv_pred_kw = lgbm_pv_model.predict(X_future).clip(min=0)
-                pv_pred_mw = tuple(float(val) / 1000.0 for val in pv_pred_kw)
-
-                records[issued_at] = ForecastSnapshot(
-                    issued_at=issued_at,
-                    horizon_hours=24,
-                    frequency_hours=1.0,
-                    model_version="lgbm-ecmwf-pv + chronos-2-demand",
-                    pv_target="pv_avg",
-                    demand_target="demand",
-                    timestamps=chronos_snap.timestamps,
-                    pv_values_mw=pv_pred_mw,
-                    demand_values_mw=chronos_snap.demand_values_mw,
-                    source_id=settings.scenario.name,
-                    context_time=issued_at,
-                    context_steps=i,
-                    cold_start=False,
-                    covariate_mode="hybrid-ecmwf",
-                )
-            else:
-                records[issued_at] = chronos_snap
-        else:
-            records[issued_at] = chronos_snap
+        records[issued_at] = chronos_snap
 
     cache = ForecastCache(records)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -164,16 +124,24 @@ def generate_forecast_cache(
     if manifest:
         manifest_data = {
             "cache_version": "1.0",
-            "source_id": settings.scenario.name,
+            "source_id": source_id,
             "mode": mode,
             "total_records": len(cache),
-            "horizon_hours": 24,
-            "frequency_hours": 1.0,
-            "pv_model": "Chronos-2 Foundation Model" if mode != "hybrid" else "LightGBM + ECMWF",
+            "horizon_hours": settings.forecast.horizon_hours,
+            "frequency_hours": settings.forecast.target_frequency_hours,
+            "issue_frequency_hours": settings.forecast.issue_frequency_hours,
+            "forecast_steps": settings.forecast.forecast_steps,
+            "target_units": "kw",
+            "pv_model": "Chronos-2 Foundation Model",
             "demand_model": "Chronos-2 Foundation Model",
+            "causal_preprocessing": True,
             "splits": {
                 "train": {"start": "2025-12-02T00:00:00", "end": "2026-01-29T23:45:00"},
-                "val": {"start": "2026-02-06T00:00:00", "end": "2026-02-24T23:45:00", "exclude_gaps": ["2026-02-04"]},
+                "val": {
+                    "start": "2026-02-06T00:00:00",
+                    "end": "2026-02-24T23:45:00",
+                    "exclude_gaps": ["2026-02-04"],
+                },
                 "test": {"start": "2026-03-01T00:00:00", "end": "2026-03-31T23:45:00"},
             },
         }
@@ -190,8 +158,8 @@ def train(
     artifact_dir: Path = typer.Option(Path("artifacts"), help="where to save the policy"),
     tensorboard: Path | None = typer.Option(None, help="TensorBoard log dir"),
     seed: int = typer.Option(0),
-    forecast_mode: str = typer.Option(
-        "cached", help="forecast ablation: cached | none | oracle"
+    forecast_mode: str | None = typer.Option(
+        None, help="forecast input override: cached | none (default: config value)"
     ),
     init_artifact: Path | None = typer.Option(
         None, help="existing policy .zip to continue from (fine-tuning)"
@@ -220,7 +188,10 @@ def train(
     from microgrid_simulator.model.agent import train as _train
 
     settings = _load_settings(config)
-    settings.rl.forecast_mode = forecast_mode  # type: ignore[assignment]
+    if forecast_mode is not None and forecast_mode not in {"cached", "none"}:
+        raise typer.BadParameter("choose cached or none", param_hint="--forecast-mode")
+    if forecast_mode is not None:
+        settings.rl.forecast_mode = forecast_mode  # type: ignore[assignment]
     path = _train(
         settings,
         algo=algo,

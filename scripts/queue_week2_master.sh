@@ -3,8 +3,7 @@
 # SAC run trains at a time (avoids CPU overheating; GPU is shared because envs run
 # on CPU and only the policy updates hit CUDA).
 # Order: hardunserved-500k-v3 (~45 min) -> noforecast-1m (~90 min).
-# Note 2026-08-07: oracle-1m ablation was removed from the queue/plan (user decision);
-# the oracle forecast_mode implementation and its regression test remain in code.
+# Oracle forecasting is intentionally unavailable to training and inference.
 set -u
 
 cd /home/xcurv/teep-taiwan/microgrid-simulator

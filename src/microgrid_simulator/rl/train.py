@@ -70,6 +70,15 @@ def train(
     overwritten — a new artifact is written under ``artifact_dir``.
     """
     rl = settings.rl
+    if rl.train_split != "train" or rl.eval_split != "val":
+        raise ValueError("training requires train_split='train' and eval_split='val'")
+    forecast_mode = getattr(rl, "forecast_mode", "cached")
+    if forecast_mode not in {"cached", "none"}:
+        raise ValueError("training forecast_mode must be 'cached' or 'none'")
+    if forecast_mode == "cached" and (
+        not settings.forecast.enabled or not settings.forecast.strict_cache
+    ):
+        raise ValueError("cached training requires forecast.enabled and forecast.strict_cache")
     algo = (algo or rl.algo).lower()
     if algo not in ALGOS:
         raise ValueError(f"Unknown algo {algo!r}; choose from {sorted(ALGOS)}")
@@ -80,7 +89,6 @@ def train(
     artifact_dir = Path(artifact_dir) if artifact_dir is not None else Path(rl.artifact_dir)
 
     forecast_client = None
-    forecast_mode = getattr(rl, "forecast_mode", "cached")
     if settings.forecast.enabled and settings.forecast.strict_cache and forecast_mode == "cached":
         if not settings.forecast.cache_path or not settings.forecast.manifest_path:
             raise ValueError("strict cached forecasting requires cache_path and manifest_path")

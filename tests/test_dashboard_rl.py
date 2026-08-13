@@ -117,6 +117,7 @@ def test_islanded_72h_episode_feasible_with_diesel() -> None:
     those are different failure modes and must stay distinguishable.
     """
     settings = Settings.from_yaml("configs/islanded-baseline-72h-hardunserved.yaml")
+    settings.rl.forecast_mode = "none"
     env = MicrogridEnv(settings=settings)
     env.reset(seed=0)
 

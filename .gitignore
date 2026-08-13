@@ -38,6 +38,10 @@ logs/
 *.pth
 *.onnx
 
+# F2 15-minute forecast caches (regenerated on the training host via
+# microgrid-forecaster/scripts/generate_f2_cache.py; not committed)
+data/f2/
+
 # tooling caches
 .pytest_cache/
 .mypy_cache/
