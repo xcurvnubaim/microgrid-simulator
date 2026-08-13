@@ -440,6 +440,11 @@ class ForecastCfg(BaseModel):
     refresh_each_step: bool = True
     cache_path: str | None = None
     manifest_path: str | None = None
+    # Split-specific cache overrides (used for the validation/eval environment so
+    # the eval env samples from its own leakage-safe cache rather than the train
+    # cache). When unset, ``cache_path``/``manifest_path`` serve every split.
+    val_cache_path: str | None = None
+    val_manifest_path: str | None = None
     source_id: str | None = None
     strict_cache: bool = False
 

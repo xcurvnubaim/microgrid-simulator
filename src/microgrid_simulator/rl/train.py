@@ -89,6 +89,7 @@ def train(
     artifact_dir = Path(artifact_dir) if artifact_dir is not None else Path(rl.artifact_dir)
 
     forecast_client = None
+    eval_forecast_client = None
     if settings.forecast.enabled and settings.forecast.strict_cache and forecast_mode == "cached":
         if not settings.forecast.cache_path or not settings.forecast.manifest_path:
             raise ValueError("strict cached forecasting requires cache_path and manifest_path")
@@ -100,6 +101,19 @@ def train(
             action_interval_hours=settings.topology.timestep_hours,
         )
         forecast_client = StrictCachedForecastClient(settings.forecast, cache)
+        # The eval environment samples the val split, which lives in a distinct
+        # cache. Load it separately so the eval callback does not query the train
+        # cache for February windows.
+        if settings.forecast.val_cache_path and settings.forecast.val_manifest_path:
+            eval_cache = ForecastCache.load(
+                settings.forecast.val_cache_path,
+                settings.forecast.val_manifest_path,
+                expected_source_id=source_id,
+                action_interval_hours=settings.topology.timestep_hours,
+            )
+            eval_forecast_client = StrictCachedForecastClient(settings.forecast, eval_cache)
+        else:
+            eval_forecast_client = forecast_client
 
     ts = run_id or time.strftime("%Y%m%d-%H%M%S")
     run_dir = Path(rl.log_dir) / f"{algo}_{ts}"
@@ -132,7 +146,7 @@ def train(
         training=False,
         backend_name=backend_name,
         split=rl.eval_split,
-        forecast_client=forecast_client,
+        forecast_client=eval_forecast_client,
     )
 
     model_cls = cast(Any, ALGOS[algo])

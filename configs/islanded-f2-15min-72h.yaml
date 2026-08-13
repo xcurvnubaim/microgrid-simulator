@@ -49,6 +49,8 @@ forecast:
   strict_cache: true
   cache_path: data/f2/train/forecasts.jsonl
   manifest_path: data/f2/train/forecast_manifest.json
+  val_cache_path: data/f2/val/forecasts.jsonl
+  val_manifest_path: data/f2/val/forecast_manifest.json
   source_id: islanded_72h_2026-01-15
 
 rl:
