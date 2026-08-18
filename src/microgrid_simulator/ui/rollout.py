@@ -1,15 +1,22 @@
 """Shared rollout runner for the dashboard API.
 
-Runs a controller (rule / idle / random / deterministic / schedule / rl) through one episode and
-returns per-timestep rows the frontend can chart directly, plus episode meta
-(demand source, window start, totals). ``stream_rollout`` yields the same rows
-one tick at a time so the API can stream them to the UI as they are solved.
-The ``rl`` policy loads a trained SB3 artifact and predicts from the env's own
-observation builder, so training and dashboard evaluation see identical inputs.
+Runs a controller (rule / idle / random / deterministic / schedule / rl / mpc) through one
+episode and returns per-timestep rows the frontend can chart directly, plus episode meta
+(demand source, window start, totals). ``stream_rollout`` yields the same rows one tick at
+a time so the API can stream them to the UI as they are solved.
+
+The ``rl`` policy loads a trained SB3 artifact and predicts from the env's own observation
+builder, so training and dashboard evaluation see identical inputs.
+
+The ``mpc`` policy uses a persistent PyPSAMPCController (rolling-horizon MILP) that
+re-plans at ``backend.rolling_horizon_hours`` intervals against the configured leakage-free
+cached forecast. Each commanded action is executed against the pandapower AC plant, and
+realized SOC/diesel state is fed back into every re-plan.
 """
 
 from __future__ import annotations
 
+import logging
 import pickle
 from collections.abc import Iterator
 from pathlib import Path
@@ -28,17 +35,137 @@ from microgrid_simulator.core.types import ControlAction, GridState
 from microgrid_simulator.env import MicrogridEnv
 from microgrid_simulator.rl.env import decode_action
 
-POLICIES = ("rule", "idle", "random", "deterministic", "schedule", "rl")
+LOGGER = logging.getLogger(__name__)
+
+POLICIES = ("rule", "idle", "random", "deterministic", "schedule", "rl", "mpc")
+
+
+class _MpcController:
+    """Persistent PyPSA MPC controller that survives across ticks and replans."""
+
+    def __init__(self, controller: Any, mpc_summary: dict[str, Any]) -> None:
+        self._controller = controller
+        self.mpc_summary = mpc_summary
+
+    def act(self, env: MicrogridEnv) -> np.ndarray:
+        return env.encode_action(self._controller.act(env._last_state))  # noqa: SLF001
+
+    def reset(self) -> None:
+        self._controller.reset()
+
+    @property
+    def last_plan(self) -> Any:
+        return self._controller.last_plan
+
+
+def _setup_mpc_controller(
+    settings: Settings,
+    env: MicrogridEnv,
+) -> tuple[Any, dict[str, Any]]:
+    """Create a persistent PyPSA MPC controller wired to a live or cached forecast.
+
+    The planning backend receives the same telemetry window as the pandapower
+    plant so its physical dimensions are consistent, but the controller override
+    (a strict cache or a validated live snapshot) ensures only forecasts drive
+    optimization decisions — never the backend's perfect-foresight telemetry.
+
+    ``strict_cache: true`` uses the pre-generated, manifest-validated cache.
+    ``strict_cache: false`` requires a live HTTP forecast service (``forecast``
+    enabled and ``forecast_mode != none``) whose snapshots are consumed at each
+    replan through the environment.
+
+    Returns the controller and an MPC-summary dict for reporting. Raises with a
+    descriptive message when no valid forecast source is configured or available.
+    """
+    from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
+    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+    from microgrid_simulator.forecast.cache import ForecastCache
+
+    if not settings.forecast.enabled:
+        raise ValueError("MPC policy requires forecast.enabled in the scenario YAML.")
+
+    forecast_mode = getattr(settings.rl, "forecast_mode", "cached")
+    if forecast_mode == "none":
+        raise ValueError(
+            "MPC policy cannot run with forecast_mode=none; it needs a forecast source."
+        )
+
+    strict_cache = settings.forecast.strict_cache
+
+    pypsa_backend = PyPSAOperationalBackend(settings)
+    win = getattr(env, "telemetry_window", None)
+    pypsa_backend.reset(
+        demand_window_mw=win.demand_mw if win is not None else None,
+        pv_window_mw=win.pv_mw if win is not None else None,
+    )
+
+    summary: dict[str, Any] = {
+        "forecast_mode": "strict_cache" if strict_cache else "live_service",
+        "planner": "pypsa",
+        "plant": "pandapower",
+        "replan_interval_hours": float(settings.backend.rolling_horizon_hours),
+        "horizon_hours": settings.backend.horizon_hours,
+    }
+
+    if strict_cache:
+        if not settings.forecast.cache_path or not settings.forecast.manifest_path:
+            raise ValueError(
+                "MPC policy with strict_cache=true needs forecast.cache_path and "
+                "forecast.manifest_path in the scenario YAML."
+            )
+        source_id = settings.forecast.source_id or settings.scenario.name
+        try:
+            cache = ForecastCache.load(
+                settings.forecast.cache_path,
+                settings.forecast.manifest_path,
+                expected_source_id=source_id,
+                action_interval_hours=settings.topology.timestep_hours,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"MPC forecast cache rejected: {exc}") from exc
+        ctrl = PyPSAMPCController(backend=pypsa_backend, forecast_cache=cache)
+        summary.update(
+            {
+                "cache_source_id": source_id,
+                "cache_source": source_id,
+                "cache_path": settings.forecast.cache_path,
+                "cache_manifest_path": settings.forecast.manifest_path,
+            }
+        )
+    else:
+        if not settings.forecast.service_url:
+            raise ValueError(
+                "MPC policy with strict_cache=false needs forecast.service_url "
+                "pointing at a live forecast service."
+            )
+        ctrl = PyPSAMPCController(backend=pypsa_backend)
+        ctrl.set_live_forecast_source(
+            lambda: env.current_forecast(),
+            expected_source_id=settings.forecast.source_id or settings.scenario.name,
+        )
+        summary.update(
+            {
+                "service_url": settings.forecast.service_url,
+                "source_id": settings.forecast.source_id or settings.scenario.name,
+            }
+        )
+
+    return ctrl, summary
 
 
 def _rule_action(env: MicrogridEnv) -> np.ndarray:
-    """Encode the canonical physical-unit rule controller for the Gym env."""
     controller = RuleBasedController(env.settings)
+    horizon_provider = getattr(env, "_forecast_vectors", None)
+    availability_provider = getattr(env, "_forecast_is_available", None)
+    forecast_available = bool(availability_provider()) if availability_provider else False
+    pv_horizon, demand_horizon = horizon_provider() if forecast_available else (None, None)
     return env.encode_action(
         controller.act(
             env._last_state,  # noqa: SLF001
             pv_forecast_mw=env._current_pv_forecast_mw(),  # noqa: SLF001
             demand_forecast_mw=env._current_demand_forecast_mw(),  # noqa: SLF001
+            pv_forecast_horizon_mw=pv_horizon if forecast_available else None,
+            demand_forecast_horizon_mw=demand_horizon if forecast_available else None,
         )
     )
 
@@ -48,12 +175,6 @@ def _load_rl_model(
     algo: str | None,
     settings: Settings,
 ) -> Any:
-    """Load a trained SB3 policy plus optional VecNormalize stats.
-
-    The model predicts directly on the env observation; VecNormalize
-    statistics are restored when saved next to the artifact so the policy
-    sees the same observation scaling it was trained with.
-    """
     if not artifact:
         raise ValueError("policy 'rl' requires a trained model artifact")
     from microgrid_simulator.rl.train import ALGOS
@@ -77,6 +198,7 @@ def policy_action(
     *,
     rl_model: Any = None,
     rl_norm: Any = None,
+    mpc_ctrl: _MpcController | None = None,
 ) -> np.ndarray:
     if policy == "random":
         return env.action_space.sample()
@@ -89,7 +211,7 @@ def policy_action(
     if policy == "idle":
         idle = np.zeros(env.action_dim, dtype=np.float32)
         if env.diesel_enabled:
-            idle[1 + env.n_ev] = -1.0  # diesel command: non-positive requests off
+            idle[1 + env.n_ev] = -1.0
         idle[-1] = -1.0
         return idle
     if policy == "rl":
@@ -101,6 +223,12 @@ def policy_action(
             obs = obs.clip(-10.0, 10.0).astype("float32")
         action, _ = rl_model.predict(obs, deterministic=True)
         return action
+    if policy == "mpc":
+        if mpc_ctrl is None:
+            raise ValueError(
+                "MPC controller was not initialized; call _setup_mpc_controller before the rollout"
+            )
+        return mpc_ctrl.act(env)
     return _rule_action(env)
 
 
@@ -110,8 +238,6 @@ def _dispatch_rule(
     state: GridState,
     control: ControlAction,
 ) -> str:
-    """Describe the controller branch that produced one requested action."""
-
     eps = 1e-9
     if control.battery_p_mw > eps:
         battery = "charge battery"
@@ -152,12 +278,12 @@ def _dispatch_rule(
         return "idle rule: hold battery; diesel off; no PV curtailment"
     if policy == "rl":
         return f"trained RL policy: {battery}; {diesel}"
+    if policy == "mpc":
+        return f"PyPSA MPC rollout: {battery}; {diesel}"
     return f"{policy} policy: {battery}; {diesel}"
 
 
 def _dispatch_trace(env: MicrogridEnv, policy: str, action: np.ndarray) -> dict[str, Any]:
-    """Capture the exact request sent to the environment before it is realized."""
-
     state = env._last_state  # noqa: SLF001
     control = decode_action(action, env.settings, env.n_ev, env.diesel_enabled)
     forecast_pv_mw = env._current_pv_forecast_mw()  # noqa: SLF001
@@ -179,7 +305,6 @@ def _dispatch_trace(env: MicrogridEnv, policy: str, action: np.ndarray) -> dict[
 
 
 def _slack_bus_id(settings: Settings) -> int:
-    """Mirror PandapowerBackend._find_slack_bus_id for per-bus reporting."""
     for bus in settings.buses:
         if bus.role.lower() in {"grid", "slack", "utility"}:
             return bus.id
@@ -187,13 +312,6 @@ def _slack_bus_id(settings: Settings) -> int:
 
 
 def _per_bus_state(settings: Settings, s: Any, slack_id: int) -> dict[int, dict[str, Any]]:
-    """Split the grid snapshot into one state record per topology bus.
-
-    v_bus follows settings.buses order (bus creation order), p_load follows
-    settings.loads[:n_load], p_gen follows pv_arrays[:n_pv]. Unserved demand in
-    an islanded blackout is attributed to each bus in proportion to its share of
-    total demand.
-    """
     load_buses = [load.bus for load in settings.loads[: settings.topology.n_load]]
     pv_buses = [pv.bus for pv in settings.pv_arrays[: settings.topology.n_pv]]
     static_mw = sum(s.p_load)
@@ -348,8 +466,6 @@ def _step_row(
     }
 
 
-# Ground-truth mapping retained for directly injected test/research backends.
-# User-facing runtime construction is currently locked to PandapowerBackend.
 _BACKEND_CLASS_NAMES = {
     "SimpleBackend": "simple",
     "PandapowerBackend": "pandapower",
@@ -374,7 +490,7 @@ def _episode_meta(
 ) -> dict[str, Any]:
     demand_real = bool(env.backend.demand_is_real)
     pv_real = bool(env._last_state.pv_is_real)  # noqa: SLF001
-    return {
+    meta: dict[str, Any] = {
         "policy": policy,
         "seed": seed,
         "backend": _resolved_backend_name(env, settings),
@@ -424,6 +540,10 @@ def _episode_meta(
             "load_buses": [load.bus for load in settings.loads[: settings.topology.n_load]],
         },
     }
+    if policy == "mpc":
+        meta["planner"] = "pypsa"
+        meta["plant"] = "pandapower"
+    return meta
 
 
 def run_rollout(
@@ -434,10 +554,7 @@ def run_rollout(
     rl_algo: str | None = None,
 ) -> dict[str, Any]:
     if policy not in POLICIES:
-        raise ValueError(
-            f"policy must be one of {POLICIES}; MPC is unavailable while "
-            "runtime physics is locked to pandapower"
-        )
+        raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
         _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
     )
@@ -446,9 +563,17 @@ def run_rollout(
     dt = settings.topology.timestep_hours
     slack_id = _slack_bus_id(settings)
 
+    mpc_ctrl: _MpcController | None = None
+    mpc_summary: dict[str, Any] | None = None
+    if policy == "mpc":
+        ctrl, mpc_summary = _setup_mpc_controller(settings, env)
+        mpc_ctrl = _MpcController(ctrl, mpc_summary)
+
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm)
+        action = policy_action(
+            env, policy, rl_model=rl_model, rl_norm=rl_norm, mpc_ctrl=mpc_ctrl
+        )
         dispatch = _dispatch_trace(env, policy, action)
         _, reward, terminated, truncated, info = env.step(action)
         rows.append(_step_row(settings, env, step, reward, info, slack_id, dispatch))
@@ -480,6 +605,8 @@ def run_rollout(
     if rl_artifact is not None:
         meta["rl_artifact"] = str(rl_artifact)
         meta["rl_algo"] = rl_algo or settings.rl.algo
+    if mpc_summary is not None:
+        meta["mpc"] = mpc_summary
     env.close()
     return {"rows": rows, "totals": totals, "meta": meta}
 
@@ -491,18 +618,8 @@ def stream_rollout(
     rl_artifact: str | Path | None = None,
     rl_algo: str | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Yield one episode as a sequence of events for the streaming API.
-
-    Event order: one ``meta`` (topology + demand window, sent before any tick so
-    the UI can set up), ``row`` per solved tick, then one ``end`` carrying the
-    episode totals and the counters only known at the end. The env is closed
-    even when the consumer stops iterating early (client disconnect).
-    """
     if policy not in POLICIES:
-        raise ValueError(
-            f"policy must be one of {POLICIES}; MPC is unavailable while "
-            "runtime physics is locked to pandapower"
-        )
+        raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
         _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
     )
@@ -515,6 +632,14 @@ def stream_rollout(
         if rl_artifact is not None:
             meta["rl_artifact"] = str(rl_artifact)
             meta["rl_algo"] = rl_algo or settings.rl.algo
+
+        mpc_ctrl: _MpcController | None = None
+        mpc_summary: dict[str, Any] | None = None
+        if policy == "mpc":
+            ctrl, mpc_summary = _setup_mpc_controller(settings, env)
+            mpc_ctrl = _MpcController(ctrl, mpc_summary)
+            meta["mpc"] = mpc_summary
+
         yield {
             "type": "meta",
             "meta": meta,
@@ -522,7 +647,9 @@ def stream_rollout(
 
         rows: list[dict[str, Any]] = []
         for step in range(env.max_steps):
-            action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm)
+            action = policy_action(
+                env, policy, rl_model=rl_model, rl_norm=rl_norm, mpc_ctrl=mpc_ctrl
+            )
             dispatch = _dispatch_trace(env, policy, action)
             _, reward, terminated, truncated, info = env.step(action)
             row = _step_row(settings, env, step, reward, info, slack_id, dispatch)
@@ -554,6 +681,8 @@ def stream_rollout(
         if rl_artifact is not None:
             end_meta["rl_artifact"] = str(rl_artifact)
             end_meta["rl_algo"] = rl_algo or settings.rl.algo
+        if mpc_summary is not None:
+            end_meta["mpc"] = mpc_summary
         yield {"type": "end", "totals": _totals(rows, dt), "meta": end_meta}
     finally:
         env.close()

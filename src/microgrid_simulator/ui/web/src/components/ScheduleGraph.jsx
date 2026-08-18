@@ -14,8 +14,8 @@ const kwToLevel = (kw, minKw, maxKw) =>
   kw <= 0 ? "off" : kw === maxKw ? "max" : kw === minKw ? "min" : kw;
 
 export default function ScheduleGraph({ settings, onPatch }) {
-  const minKw = settings.diesel?.min_kw ?? 45;
-  const maxKw = Math.max(settings.diesel?.max_kw ?? 150, minKw);
+  const minKw = settings.diesel?.min_kw ?? 80;
+  const maxKw = Math.max(settings.diesel?.max_kw ?? 400, minKw);
   const chartMaxKw = Math.max(1, maxKw);
   const segments = settings.diesel_schedule?.segments ?? [];
   const steps = useMemo(

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { emsStream, getDefaults, getRuntime, simulateStream } from "./api.js";
+import { emsStream, getDefaults, getRuntime, hourLabel, simulateStream } from "./api.js";
 import ConfigRail from "./components/ConfigRail.jsx";
 import ServiceCommunications from "./components/ServiceCommunications.jsx";
 import SLD from "./components/SLD.jsx";
 import TopologyDesigner from "./components/TopologyDesigner.jsx";
-import { DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart, OvergenerationChart } from "./components/Charts.jsx";
+import { ChartInteractionProvider, DispatchChart, BatteryChart, PvSocChart, GridHealthChart, RewardChart, BusCharts, OutageChart, GenerationChart, OvergenerationChart } from "./components/Charts.jsx";
 import { ForecastDiagnostics, KpiStrip, StepTable } from "./components/Widgets.jsx";
 import { applyTopologyChange } from "./topologySettings.js";
 
@@ -137,6 +137,8 @@ export default function App() {
   const [emsMode, setEmsMode] = useState(false);
   const [emsEvents, setEmsEvents] = useState([]);
   const [emsMetrics, setEmsMetrics] = useState(null);
+  const [hoveredHour, setHoveredHour] = useState(null);
+  const [selectedHour, setSelectedHour] = useState(null);
 
   const settingsRef = useRef(null);
   const abortRef = useRef(null);
@@ -149,6 +151,21 @@ export default function App() {
   const flushTimerRef = useRef(null);
   const traceEventsRef = useRef(new Set());
   const externalFollowStartedRef = useRef(false);
+
+  const resolveHour = (hour) => {
+    if (hour == null || !rows.length) return null;
+    const target = Number(hour);
+    return rows.reduce((closest, row) =>
+      Math.abs(row.hour - target) < Math.abs(closest.hour - target) ? row : closest
+    ).hour;
+  };
+  const handleHoverHour = (hour) => {
+    setHoveredHour(resolveHour(hour));
+  };
+  const handleSelectHour = (hour) => {
+    const resolved = resolveHour(hour);
+    setSelectedHour((current) => current === resolved ? null : resolved);
+  };
 
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { autoContinueRef.current = autoContinue; }, [autoContinue]);
@@ -210,6 +227,8 @@ export default function App() {
     if (!current || abortRef.current) return;
     if (fresh) {
       setRows([]);
+      setHoveredHour(null);
+      setSelectedHour(null);
       setTotals(null);
       setMeta(null);
       setEmsEvents([]);
@@ -325,6 +344,8 @@ export default function App() {
   const stop = () => abortRef.current?.abort();
   const reset = () => {
     setRows([]);
+    setHoveredHour(null);
+    setSelectedHour(null);
     setTotals(null);
     setMeta(null);
     setEmsEvents([]);
@@ -350,14 +371,25 @@ export default function App() {
   // feed the table, CSV, SLD scrubber, and outage/energy stats.
   const chartRows = useMemo(() => {
     const MAX_POINTS = 700;
-    if (rows.length <= MAX_POINTS) return rows;
-    const stride = Math.ceil(rows.length / MAX_POINTS);
-    const sampled = rows.filter((_, i) => i % stride === 0);
-    if (sampled[sampled.length - 1] !== rows[rows.length - 1]) {
-      sampled.push(rows[rows.length - 1]);
+    let sampled;
+    if (rows.length <= MAX_POINTS) {
+      sampled = rows;
+    } else {
+      const stride = Math.ceil(rows.length / MAX_POINTS);
+      sampled = rows.filter((_, i) => i % stride === 0);
+      if (sampled[sampled.length - 1] !== rows[rows.length - 1]) {
+        sampled.push(rows[rows.length - 1]);
+      }
     }
-    return sampled;
-  }, [rows]);
+    // Always render the selected full-resolution row. Otherwise a locked
+    // tooltip can only snap to the nearest downsampled point.
+    if (selectedHour == null || sampled.some((row) => row.hour === selectedHour)) {
+      return sampled;
+    }
+    const selectedRow = rows.find((row) => row.hour === selectedHour);
+    if (!selectedRow) return sampled;
+    return [...sampled, selectedRow].sort((a, b) => a.hour - b.hour);
+  }, [rows, selectedHour]);
   const demandReal = policy === "rl"
     ? Boolean(settings?.digital_twin?.measurements?.load?.file)
     : Boolean(demand?.available && settings?.demand?.file);
@@ -366,6 +398,9 @@ export default function App() {
     !(settings.buses ?? []).some((b) => String(b.role ?? "").toLowerCase() === "grid");
   const blackoutHours = displayTotals?.blackout_hours ?? 0;
   const latestRow = rows[rows.length - 1];
+  const pinnedRow = selectedHour == null
+    ? null
+    : rows.find((row) => row.hour === selectedHour) ?? null;
   const runProgress = meta?.steps
     ? Math.min(100, (rows.length / Math.max(meta.expected_steps ?? meta.steps, 1)) * 100)
     : meta?.expected_steps
@@ -647,7 +682,7 @@ export default function App() {
                 <span style={{ width: `${running ? runProgress : hasRun ? 100 : 0}%` }} />
               </div>
               <div className="console-readout">
-                <span><small>latest time</small>{latestRow ? `${latestRow.hour?.toFixed(2)} h` : "—"}</span>
+                 <span><small>latest time</small>{latestRow ? hourLabel(latestRow.hour) : "—"}</span>
                 <span><small>SoC</small>{latestRow?.soc_pct != null ? `${latestRow.soc_pct.toFixed(1)}%` : "—"}</span>
                 <span><small>served</small>{displayTotals?.served_energy_pct != null ? `${displayTotals.served_energy_pct.toFixed(1)}%` : "pending"}</span>
               </div>
@@ -747,18 +782,36 @@ export default function App() {
               <KpiStrip totals={displayTotals ?? {}} meta={meta} />
               <ForecastDiagnostics meta={meta} rows={rows} />
               <SLD rows={rows} meta={meta} />
-              <PvSocChart rows={chartRows} />
-              <DispatchChart rows={chartRows} peakKw={(settings?.reward?.peak_threshold_mw ?? 0) * 1000} />
-              <GenerationChart rows={chartRows} meta={meta} fullRows={rows} />
-              <OvergenerationChart rows={chartRows} meta={meta} fullRows={rows} />
-              <OutageChart rows={chartRows} meta={meta} fullRows={rows} />
-              <BusCharts rows={chartRows} meta={meta} />
-              <div className="chart-grid">
-                <BatteryChart rows={chartRows} />
-                <GridHealthChart rows={chartRows} />
-              </div>
-              <RewardChart rows={chartRows} />
-              <StepTable rows={rows} />
+              <ChartInteractionProvider selectedHour={selectedHour} onHover={handleHoverHour} onSelect={handleSelectHour}>
+                {pinnedRow && (
+                  <div className="pinned-timestep" role="status">
+                    <div>
+                      <span className="eyebrow">Pinned timestep</span>
+                      <strong>{hourLabel(pinnedRow.hour)}</strong>
+                    </div>
+                    <span>step {pinnedRow.step}</span>
+                    <span>load <b>{pinnedRow.load_kw?.toFixed(1)} kW</b></span>
+                    <span>PV <b>{pinnedRow.pv_used_kw?.toFixed(1)} kW</b></span>
+                    <span>battery <b>{pinnedRow.battery_kw?.toFixed(1)} kW</b></span>
+                    <span>diesel <b>{pinnedRow.diesel_kw?.toFixed(1)} kW</b></span>
+                    <span>grid <b>{pinnedRow.grid_import_kw?.toFixed(1)} kW</b></span>
+                    <span>SoC <b>{pinnedRow.soc_pct?.toFixed(1)}%</b></span>
+                    <button className="ghost-btn" onClick={() => handleSelectHour(pinnedRow.hour)}>Clear pin</button>
+                  </div>
+                )}
+                <PvSocChart rows={chartRows} />
+                <DispatchChart rows={chartRows} peakKw={(settings?.reward?.peak_threshold_mw ?? 0) * 1000} />
+                <GenerationChart rows={chartRows} meta={meta} fullRows={rows} />
+                <OvergenerationChart rows={chartRows} meta={meta} fullRows={rows} />
+                <OutageChart rows={chartRows} meta={meta} fullRows={rows} />
+                <BusCharts rows={chartRows} meta={meta} />
+                <div className="chart-grid">
+                  <BatteryChart rows={chartRows} />
+                  <GridHealthChart rows={chartRows} />
+                </div>
+                <RewardChart rows={chartRows} />
+              </ChartInteractionProvider>
+               <StepTable rows={rows} activeHour={hoveredHour} selectedHour={selectedHour} onHover={handleHoverHour} onSelect={handleSelectHour} />
             </>
           )}
         </main>

@@ -157,9 +157,11 @@ export const fmt = (v, d = 1) =>
     : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
 
 export const hourLabel = (h) => {
-  const hh = Math.floor(h % 24);
-  const mm = Math.round((h % 1) * 60);
-  const day = Math.floor(h / 24);
+  const totalMinutes = Math.max(0, Math.round(Number(h ?? 0) * 60));
+  const day = Math.floor(totalMinutes / 1440) + 1;
+  const minutesIntoDay = totalMinutes % 1440;
+  const hh = Math.floor(minutesIntoDay / 60);
+  const mm = minutesIntoDay % 60;
   const base = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-  return day > 0 ? `d${day} ${base}` : base;
+  return `d${day} ${base}`;
 };

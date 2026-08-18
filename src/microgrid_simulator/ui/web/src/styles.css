@@ -328,6 +328,30 @@ details.group[open] > summary { color: var(--text); }
 .bus-charts > .panel-head { margin-bottom: 12px; }
 .bus-charts .chart-grid .panel { margin-bottom: 0; }
 .recharts-default-tooltip { border-radius: 8px !important; }
+.pinned-timestep {
+  position: sticky;
+  top: 10px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 24%, transparent);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.pinned-timestep > div { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+.pinned-timestep strong { color: var(--text); font-size: 15px; }
+.pinned-timestep b { color: var(--text); font-weight: 500; }
+@media (max-width: 900px) {
+  .pinned-timestep { position: static; flex-wrap: wrap; gap: 9px 16px; }
+  .pinned-timestep > div { width: 100%; }
+}
 
 /* ── table ── */
 .step-table-wrap { overflow: auto; max-height: 420px; border: 1px solid var(--line-soft); border-radius: 8px; }
@@ -340,6 +364,29 @@ details.group[open] > summary { color: var(--text); }
 }
 .step-table td { text-align: right; padding: 4px 10px; color: var(--muted); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .step-table tr:hover td { background: var(--panel-2); color: var(--text); }
+.step-table tr.is-hovered td { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.step-table tr[data-selected="true"] td {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--text);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.step-selection {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.step-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.step-table-pagination .mini-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .dl-btn {
   background: var(--inset); border: 1px solid var(--line); color: var(--text);
   font-family: var(--mono); font-size: 11.5px; border-radius: 6px;

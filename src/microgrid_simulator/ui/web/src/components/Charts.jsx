@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -21,6 +21,39 @@ const axis = { stroke: THEME.faint, fontSize: 10.5, fontFamily: "IBM Plex Mono" 
 // `hour` value (not array index) so downsampled and full-resolution panels stay
 // aligned on the real time step.
 const SYNC = { syncId: "microgrid", syncMethod: "value" };
+const ChartInteractionContext = createContext({
+  selectedHour: null,
+  onHover: null,
+  onSelect: null,
+});
+
+export function ChartInteractionProvider({ selectedHour, onHover, onSelect, children }) {
+  return (
+    <ChartInteractionContext.Provider value={{ selectedHour, onHover, onSelect }}>
+      {children}
+    </ChartInteractionContext.Provider>
+  );
+}
+
+const chartEvents = ({ onHover, onSelect }) => ({
+  onMouseMove: (state) => onHover?.(state?.activeLabel ?? null),
+  onMouseLeave: () => onHover?.(null),
+  onClick: (state) => {
+    const hour = state?.activeLabel ?? state?.activePayload?.[0]?.payload?.hour;
+    if (hour != null) onSelect?.(hour);
+  },
+});
+const useChartInteraction = () => useContext(ChartInteractionContext);
+const PinnedLine = ({ hour, yAxisId }) => hour == null ? null : (
+  <ReferenceLine
+    x={hour}
+    yAxisId={yAxisId}
+    stroke={THEME.text}
+    strokeWidth={1.8}
+    strokeDasharray="4 3"
+    label={{ value: "PINNED", fill: THEME.text, fontSize: 9, position: "insideTopRight" }}
+  />
+);
 const tooltipStyle = {
   contentStyle: {
     background: THEME.panel,
@@ -50,13 +83,14 @@ function Panel({ title, note, height = 260, children }) {
 }
 
 export function DispatchChart({ rows, peakKw }) {
+  const interaction = useChartInteraction();
   return (
     <Panel
       title="Dispatch — who serves the load"
       note="stacked supply vs demand · battery discharge counts as supply"
       height={300}
     >
-      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={64} />
@@ -136,15 +170,17 @@ export function DispatchChart({ rows, peakKw }) {
             label={{ value: "peak cap", fill: COLORS.grid, fontSize: 10, position: "insideTopRight" }}
           />
         )}
+        <PinnedLine hour={interaction.selectedHour} />
       </ComposedChart>
     </Panel>
   );
 }
 
 export function BatteryChart({ rows }) {
+  const interaction = useChartInteraction();
   return (
     <Panel title="Battery" note="SoC band vs power command">
-      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="soc" tick={axis} unit=" %" domain={[0, 100]} width={52} />
@@ -169,6 +205,7 @@ export function BatteryChart({ rows }) {
           dot={false}
           type="monotone"
         />
+        <PinnedLine hour={interaction.selectedHour} yAxisId="kw" />
       </ComposedChart>
     </Panel>
   );
@@ -176,6 +213,7 @@ export function BatteryChart({ rows }) {
 
 
 export function PvSocChart({ rows }) {
+  const interaction = useChartInteraction();
   const hasForecast = rows.some((row) => row.pv_forecast_kw != null);
   return (
     <Panel
@@ -187,7 +225,7 @@ export function PvSocChart({ rows }) {
       }
       height={280}
     >
-      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="kw" tick={axis} unit=" kW" width={64} />
@@ -235,15 +273,17 @@ export function PvSocChart({ rows }) {
           dot={false}
           type="monotone"
         />
+        <PinnedLine hour={interaction.selectedHour} yAxisId="kw" />
       </ComposedChart>
     </Panel>
   );
 }
 
 export function GridHealthChart({ rows }) {
+  const interaction = useChartInteraction();
   return (
     <Panel title="Grid health" note="voltage band 0.95–1.05 pu">
-      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis yAxisId="v" tick={axis} domain={[0.9, 1.1]} width={52} />
@@ -270,6 +310,7 @@ export function GridHealthChart({ rows }) {
           dot={false}
           type="monotone"
         />
+        <PinnedLine hour={interaction.selectedHour} yAxisId="v" />
       </ComposedChart>
     </Panel>
   );
@@ -277,6 +318,7 @@ export function GridHealthChart({ rows }) {
 
 // ── demand vs power serving load ──────────────────────────────────────────
 export function GenerationChart({ rows, meta, fullRows }) {
+  const interaction = useChartInteraction();
   if (!rows.length) return null;
   const dt = meta?.timestep_hours ?? 0.25;
   const grossGenerationKw = (r) =>
@@ -319,7 +361,8 @@ export function GenerationChart({ rows, meta, fullRows }) {
 
   return (
     <Panel title="Demand vs power serving load" note={note} height={260}>
-      <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <PinnedLine hour={interaction.selectedHour} />
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
@@ -384,6 +427,7 @@ export function GenerationChart({ rows, meta, fullRows }) {
 
 // ── source-specific overgeneration accounting ──────────────────────────────
 export function OvergenerationChart({ rows, meta, fullRows }) {
+  const interaction = useChartInteraction();
   if (!rows.length) return null;
   const dt = meta?.timestep_hours ?? 0.25;
   const statRows = fullRows ?? rows;
@@ -410,7 +454,8 @@ export function OvergenerationChart({ rows, meta, fullRows }) {
 
   return (
     <Panel title="Diesel output allocation" note={note} height={280}>
-      <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <PinnedLine hour={interaction.selectedHour} />
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
@@ -495,6 +540,7 @@ function outageEvents(rows, dt) {
 }
 
 export function OutageChart({ rows, meta, fullRows }) {
+  const interaction = useChartInteraction();
   if (!rows.length || rows[0].unserved_kw == null) return null;
   const dt = meta?.timestep_hours ?? 0.25;
   // Detect outages on the full-resolution rows so short blackouts are not
@@ -513,7 +559,8 @@ export function OutageChart({ rows, meta, fullRows }) {
         <span className="note">{note}</span>
       </div>
       <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <ComposedChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <PinnedLine hour={interaction.selectedHour} />
           <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
           <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
           <YAxis tick={axis} unit=" kW" width={62} />
@@ -587,6 +634,7 @@ function dieselOnSegments(data) {
 }
 
 function BusChart({ bus, rows }) {
+  const interaction = useChartInteraction();
   const data = rows.map((r) => {
     const b = r.per_bus?.[bus.id] ?? r.per_bus?.[String(bus.id)] ?? {};
     return {
@@ -622,7 +670,8 @@ function BusChart({ bus, rows }) {
   if (!anyPower) {
     return (
       <Panel title={title} note={`${role} · no assets — bus voltage`} height={220}>
-        <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <ComposedChart data={data} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <PinnedLine hour={interaction.selectedHour} />
           <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
           <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
           <YAxis tick={axis} unit=" pu" domain={[0.9, 1.1]} width={58} />
@@ -639,7 +688,8 @@ function BusChart({ bus, rows }) {
       note={`${role} · sources vs demand${series.diesel ? " · shaded = diesel ON" : ""}${series.dieselExcess ? " · right axis = diesel excess" : ""}`}
       height={220}
     >
-      <ComposedChart data={data} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <PinnedLine hour={interaction.selectedHour} />
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} unit=" kW" width={62} />
@@ -732,9 +782,11 @@ const PENALTIES = [
 ];
 
 export function RewardChart({ rows }) {
+  const interaction = useChartInteraction();
   return (
     <Panel title="Reward decomposition" note="stacked penalty magnitudes per tick (lower is better)">
-      <AreaChart data={rows} {...SYNC} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+      <AreaChart data={rows} {...SYNC} {...chartEvents(interaction)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+        <PinnedLine hour={interaction.selectedHour} />
         <CartesianGrid stroke={THEME.lineSoft} vertical={false} />
         <XAxis dataKey="hour" tick={axis} tickFormatter={hourLabel} minTickGap={40} />
         <YAxis tick={axis} width={64} />

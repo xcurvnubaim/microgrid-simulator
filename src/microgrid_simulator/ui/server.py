@@ -44,23 +44,13 @@ WEB_DIST = Path(__file__).parent / "web" / "dist"
 UPLOAD_DIR = Path(tempfile.gettempdir()) / "microgrid-sim-demand"
 RL_PRESETS = (
     {
-        "label": "v3 seed-0 (60k steps)",
-        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-0/sac_microgrid.zip",
+        "label": "No-forecast SAC seed 1 (1M steps)",
+        "artifact": "artifacts/sac/noforecast-1m/seed-1/sac_microgrid.zip",
         "algo": "sac",
     },
     {
-        "label": "v3 seed-1 (60k steps)",
-        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-1/sac_microgrid.zip",
-        "algo": "sac",
-    },
-    {
-        "label": "v3 seed-2 (60k steps)",
-        "artifact": "artifacts/sac/hardunserved-v3-60k/seed-2/sac_microgrid.zip",
-        "algo": "sac",
-    },
-    {
-        "label": "verified smoke (60k steps)",
-        "artifact": "artifacts/sac/hardunserved-v3-smoke/sac_microgrid.zip",
+        "label": "F0 forecast-aware SAC seed 0 (1M steps)",
+        "artifact": "artifacts/sac/cached-1m-v3/seed-0/sac_microgrid.zip",
         "algo": "sac",
     },
 )
@@ -202,9 +192,9 @@ class NatsMessageObserver:
             await self._nc.connect(
                 servers=[self.url],
                 name="microgrid-control-room-observer",
-                connect_timeout=2,
+                connect_timeout=1,
                 reconnect_time_wait=1,
-                max_reconnect_attempts=-1,
+                max_reconnect_attempts=0,
             )
             await self._nc.subscribe("mgs.v1.>", cb=self._record)
             await self._nc.subscribe("_INBOX.>", cb=self._record)
@@ -303,14 +293,9 @@ def _base_settings(policy: str | None = None) -> Settings:
     scenario has forecasting disabled and produces a different observation
     shape, so it is swapped in for RL playback.
 
-    The RL base honors ``$MGS_CONFIG`` first (so a user can point the dashboard
-    at the exact scenario a policy was trained on, e.g. the hard-unserved
-    islanded replay), then falls back to the hard-unserved campus controller
-    scenario, and finally to the shared default. The old hardcoded plain
-    ``islanded-baseline-72h.yaml`` had no ``hard_unserved`` constraint and no
-    digital-twin telemetry replay, so policies trained under the hard-unserved
-    contract saw the synthetic sinusoid instead — the source of dashboard
-    blackouts.
+    The RL base honors ``$MGS_CONFIG`` first, then falls back to the active
+    nominal islanded campus scenario. Archived policy variants must be selected
+    explicitly rather than becoming implicit dashboard defaults.
     """
     if policy == "rl":
         from microgrid_simulator.config import Settings as S
@@ -318,13 +303,6 @@ def _base_settings(policy: str | None = None) -> Settings:
         env_cfg = os.environ.get("MGS_CONFIG")
         if env_cfg and Path(env_cfg).is_file():
             return S.from_yaml(Path(env_cfg))
-        campus = (
-            Path(__file__).resolve().parents[3]
-            / "configs"
-            / "islanded-baseline-72h-hardunserved.yaml"
-        )
-        if campus.is_file():
-            return S.from_yaml(campus)
         campus = Path(__file__).resolve().parents[3] / "configs" / "islanded-baseline-72h.yaml"
         if campus.is_file():
             return S.from_yaml(campus)
@@ -654,7 +632,9 @@ def create_app() -> FastAPI:
         finally:
             await subscription.unsubscribe()
 
-    async def ensure_message_observer() -> NatsMessageObserver:
+    async def ensure_message_observer() -> NatsMessageObserver | None:
+        if os.environ.get("MGS_RUNTIME_MODE") != "ems" and not os.environ.get("MGS_NATS_URL"):
+            return None
         monitor_url = os.environ.get("MGS_NATS_URL", "nats://127.0.0.1:4222")
         observer = app.state.message_observer
         if observer is None or observer.url != monitor_url:
@@ -680,7 +660,13 @@ def create_app() -> FastAPI:
             payload = _service_communications_payload({}, {}, monitor_error=str(exc))
         else:
             payload = _service_communications_payload(varz, connz)
-        payload["message_tap"] = observer.snapshot()
+        payload["message_tap"] = observer.snapshot() if observer else {
+            "status": "unavailable",
+            "error": "NATS disabled in standalone mode",
+            "captured": 0,
+            "limit": MESSAGE_BUFFER_LIMIT,
+            "messages": [],
+        }
         return payload
 
     @app.post("/api/simulate")
@@ -694,13 +680,16 @@ def create_app() -> FastAPI:
         except Exception as exc:  # noqa: BLE001 - surface pydantic detail to the UI
             raise HTTPException(422, f"invalid settings: {exc}") from exc
 
-        result = run_rollout(
-            settings,
-            policy=req.policy,
-            seed=req.seed,
-            rl_artifact=req.rl_artifact,
-            rl_algo=req.rl_algo,
-        )
+        try:
+            result = run_rollout(
+                settings,
+                policy=req.policy,
+                seed=req.seed,
+                rl_artifact=req.rl_artifact,
+                rl_algo=req.rl_algo,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         result["demand"] = _demand_status(settings)
         return result
 

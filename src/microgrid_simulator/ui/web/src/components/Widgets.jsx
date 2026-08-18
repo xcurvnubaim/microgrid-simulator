@@ -1,5 +1,5 @@
-import React from "react";
-import { COLORS, fmt } from "../api.js";
+import React, { useEffect, useRef, useState } from "react";
+import { COLORS, fmt, hourLabel } from "../api.js";
 
 export function ForecastDiagnostics({ meta, rows }) {
   if (!meta?.forecast_enabled) return null;
@@ -117,16 +117,36 @@ const TABLE_COLS = [
   ["reward", "reward", 2],
 ];
 
-// Render only the newest slice of a long run — thousands of live-updating DOM
-// rows get expensive. The CSV download still contains every tick.
-const TABLE_ROW_LIMIT = 200;
+const TABLE_PAGE_SIZE = 50;
 
-export function StepTable({ rows }) {
+export function StepTable({ rows, activeHour, selectedHour, onHover, onSelect }) {
+  const [page, setPage] = useState(0);
+  const selectedRowRef = useRef(null);
+  const pageCount = Math.ceil((rows?.length ?? 0) / TABLE_PAGE_SIZE);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, Math.max(0, pageCount - 1)));
+  }, [pageCount]);
+
+  useEffect(() => {
+    if (selectedHour == null) return;
+    const selectedIndex = rows?.findIndex((row) => row.hour === selectedHour) ?? -1;
+    if (selectedIndex < 0) return;
+    // Rows are displayed newest first, so calculate the page in that order.
+    setPage(Math.floor((rows.length - 1 - selectedIndex) / TABLE_PAGE_SIZE));
+  }, [rows, selectedHour]);
+
+  useEffect(() => {
+    if (selectedHour == null || !selectedRowRef.current) return;
+    selectedRowRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [page, selectedHour]);
+
   if (!rows?.length) return null;
-  // Newest first, so the freshest ticks are visible without scrolling.
-  const visible = (rows.length > TABLE_ROW_LIMIT ? rows.slice(-TABLE_ROW_LIMIT) : rows)
+
+  const visible = rows
     .slice()
-    .reverse();
+    .reverse()
+    .slice(page * TABLE_PAGE_SIZE, (page + 1) * TABLE_PAGE_SIZE);
 
   const downloadCsv = () => {
     const csvCell = (value) => {
@@ -151,10 +171,11 @@ export function StepTable({ rows }) {
       <div className="panel-head">
         <span className="eyebrow">Per-timestep data</span>
         <span className="note">
-          {visible.length < rows.length
-            ? `newest ${visible.length} of ${rows.length} ticks, latest first — CSV has all`
-            : `${rows.length} ticks · latest first`}
+             {rows.length} ticks · page {page + 1} of {pageCount} · latest first
         </span>
+        {(selectedHour ?? activeHour) != null && (
+         <span className="step-selection">t = {hourLabel(selectedHour ?? activeHour)}</span>
+        )}
         <button className="dl-btn" onClick={downloadCsv} style={{ marginLeft: 10 }}>
           ↓ CSV
         </button>
@@ -170,15 +191,40 @@ export function StepTable({ rows }) {
           </thead>
           <tbody>
             {visible.map((r) => (
-              <tr key={`${r.episode ?? 0}:${r.step}`}>
+              <tr
+                key={`${r.episode ?? 0}:${r.step}`}
+                className={activeHour === r.hour ? "is-hovered" : ""}
+                data-selected={selectedHour === r.hour ? "true" : undefined}
+                ref={selectedHour === r.hour ? selectedRowRef : null}
+                onMouseEnter={() => onHover?.(r.hour)}
+                onMouseLeave={() => onHover?.(null)}
+                onClick={() => onSelect?.(r.hour, true)}
+              >
                 {TABLE_COLS.map(([k, , d]) => (
-                  <td key={k}>{d == null ? r[k] : fmt(r[k], d)}</td>
+                  <td key={k}>{k === "hour" ? hourLabel(r[k]) : d == null ? r[k] : fmt(r[k], d)}</td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {pageCount > 1 && (
+        <div className="step-table-pagination" aria-label="Per-timestep data pages">
+          <button className="mini-btn" onClick={() => setPage(0)} disabled={page === 0}>
+            First
+          </button>
+          <button className="mini-btn" onClick={() => setPage((current) => current - 1)} disabled={page === 0}>
+            Previous
+          </button>
+          <span>page {page + 1} / {pageCount}</span>
+          <button className="mini-btn" onClick={() => setPage((current) => current + 1)} disabled={page === pageCount - 1}>
+            Next
+          </button>
+          <button className="mini-btn" onClick={() => setPage(pageCount - 1)} disabled={page === pageCount - 1}>
+            Last
+          </button>
+        </div>
+      )}
     </div>
   );
 }
