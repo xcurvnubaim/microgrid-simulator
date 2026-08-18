@@ -39,11 +39,6 @@ from microgrid_simulator.core.types import ControlAction
 
 LOGGER = logging.getLogger(__name__)
 
-# Price per MWh for unserved energy: high enough that shedding is always the
-# last resort, low enough to keep the MILP numerically well-behaved.
-SHED_COST_PER_MWH = 20_000.0
-
-
 def _require_pypsa() -> Any:
     try:
         import pypsa
@@ -79,7 +74,8 @@ def build_operational_network(
     net.add("Bus", "microgrid")
     net.add("Load", "demand", bus="microgrid", p_set=pd.Series(demand_mw, index=net.snapshots))
 
-    # PV: free energy, curtailable (p_min_pu = 0).
+    # Penalizing curtailed PV is objective-equivalent (up to a constant) to
+    # crediting every MWh of used PV by the configured per-kWh waste weight.
     pv_nom = max(sum(pv.p_mw for pv in settings.pv_arrays[: settings.topology.n_pv]), 1e-9)
     net.add(
         "Generator",
@@ -87,7 +83,7 @@ def build_operational_network(
         bus="microgrid",
         p_nom=pv_nom,
         p_max_pu=pd.Series(np.clip(pv_available_mw / pv_nom, 0.0, 1.0), index=net.snapshots),
-        marginal_cost=0.0,
+        marginal_cost=-reward.w_waste * 1000.0,
     )
 
     # Grid intertie (only when the topology has a utility bus).
@@ -119,8 +115,16 @@ def build_operational_network(
             p_min_pu=min(d.min_kw, d.max_kw) / max(d.max_kw, 1e-9) if committable else 0.0,
             ramp_limit_up=ramp_pu,
             ramp_limit_down=ramp_pu,
-            min_up_time=max(1, round(d.min_up_time_min / 60.0 / dt)) if committable else 0,
-            min_down_time=max(1, round(d.min_down_time_min / 60.0 / dt)) if committable else 0,
+            min_up_time=(
+                max(1, round(d.min_up_time_min / 60.0 / dt))
+                if committable and d.min_up_time_min > 0.0
+                else 0
+            ),
+            min_down_time=(
+                max(1, round(d.min_down_time_min / 60.0 / dt))
+                if committable and d.min_down_time_min > 0.0
+                else 0
+            ),
             start_up_cost=reward.diesel_start_cost,
             shut_down_cost=d.shut_down_cost,
             up_time_before=1 if diesel_on_init else 0,
@@ -149,15 +153,55 @@ def build_operational_network(
         cyclic_state_of_charge=False,
     )
 
-    # Load shedding keeps islanded / import-limited horizons feasible.
+    # Load shedding keeps islanded / import-limited horizons feasible. The
+    # simulator penalty is w_unserved per unserved kWh.
     net.add(
         "Generator",
         "shed",
         bus="microgrid",
         p_nom=max(float(np.max(demand_mw)) * 2.0, 1.0),
-        marginal_cost=SHED_COST_PER_MWH,
+        marginal_cost=reward.w_unserved * 1000.0,
     )
     return net
+
+
+def _add_common_reward_objective(net: Any, snapshots: Any) -> None:
+    """Add battery wear and physically exclusive charge/discharge operation.
+
+    The simulator's baseline degradation is ``2e-4 * MWh / capacity_mwh`` and
+    reward scales delta-SOH by 1e4, yielding ``2 / capacity_mwh`` per MWh
+    before ``w_health``. Its nonlinear SOC-edge stress multiplier is not
+    represented in this linear MPC approximation.
+    """
+
+    settings: Settings = net.meta["microgrid_settings"]
+    p_dispatch = net.model.variables["StorageUnit-p_dispatch"].loc[:, "battery"]
+    p_store = net.model.variables["StorageUnit-p_store"].loc[:, "battery"]
+
+    # StorageUnit otherwise permits simultaneous charge/discharge. A binary
+    # mode matches the controller's one signed battery action per tick and
+    # prevents artificial loss-cycling to collect the PV-use credit.
+    mode = net.model.add_variables(
+        binary=True,
+        coords=[snapshots],
+        name="battery-discharge-mode",
+    )
+    net.model.add_constraints(
+        p_dispatch <= settings.battery.max_discharge_mw * mode,
+        name="battery-dispatch-mode-upper",
+    )
+    net.model.add_constraints(
+        p_store <= settings.battery.max_charge_mw * (1.0 - mode),
+        name="battery-store-mode-upper",
+    )
+
+    wear_per_mwh = settings.reward.w_health * 2.0 / max(
+        settings.battery.capacity_mwh, 1e-9
+    )
+    if wear_per_mwh <= 0.0:
+        return
+    dt = float(settings.topology.timestep_hours)
+    net.model.objective += wear_per_mwh * dt * (p_dispatch + p_store).sum()
 
 
 def optimize_dispatch(
@@ -180,8 +224,11 @@ def optimize_dispatch(
         raise ValueError("demand and PV forecasts must have the same length")
 
     net = build_operational_network(settings, demand_mw, pv_available_mw, soc_init, diesel_on_init)
+    net.meta["microgrid_settings"] = settings
     status, condition = net.optimize(
-        solver_name=solver_name or settings.backend.solver, log_to_console=False
+        solver_name=solver_name or settings.backend.solver,
+        log_to_console=False,
+        extra_functionality=_add_common_reward_objective,
     )
     if status != "ok":  # pragma: no cover - solver dependent
         raise RuntimeError(f"PyPSA dispatch optimization failed: {status} / {condition}")

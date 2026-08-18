@@ -7,8 +7,9 @@ Action schema (matches Research Brainstorm §1):
 The setpoint is continuous — a real genset governor modulates fuel injection to
 follow any load — but the realised output is shaped by genset physics:
 
-* **Minimum stable load** (``min_kw``, ~30 % of nameplate): sustained operation
-  below it causes wet stacking, so while on the output is clamped up to it.
+* **Minimum committed load** (``min_kw``): while on, output is clamped up to
+  this scenario input. The default 30 % ratio is a normal-scenario assumption,
+  informed by HOMER's example but not a universal manufacturer limit.
 * **Ramp limit** (``ramp_kw_per_min``): output moves toward the setpoint at a
   bounded rate.
 * **Start sequence**: crank + synchronise for ``start_delay_min`` at zero
@@ -17,10 +18,9 @@ follow any load — but the realised output is shaped by genset physics:
 * **Stop sequence**: the governor soft-unloads down to min stable load at the
   ramp limit, then the breaker opens — output never teleports to zero from
   high load, but the drop from min load is a genuine breaker-opening step.
-* **Minimum up/down time** (``min_up_time_min`` / ``min_down_time_min``): the
-  genset controller ignores an off command until the engine has run long
-  enough, and an on command until it has cooled down — real controllers lock
-  out rapid cycling because starts dominate engine wear.
+* **Minimum up/down time** (``min_up_time_min`` / ``min_down_time_min``):
+  commands are held for simple anti-cycling. Default timings are normal-scenario
+  assumptions and must be replaced when controller settings are available.
 
 Because simulation ticks (15 min by default) are much longer than these
 transients, the trajectory is integrated *within* the tick and ``apply``
@@ -28,8 +28,8 @@ returns the tick-average power — the energy-correct value for the power
 balance and carbon accounting — while ``p_end_mw`` keeps the instantaneous
 end-of-tick output so ramping stays continuous across ticks.
 
-No real nameplate rating exists yet; ``max_kw`` defaults to ~150 kW (roughly
-half the 352.8 kW observed historical peak) until the actual generator spec is
+No real nameplate rating exists yet; ``max_kw`` defaults to 400 kW (re-anchored
+above the 352.8 kW observed historical peak) until the actual generator spec is
 available. Carbon accounting lives in the reward
 (``diesel_setpoint_kw * carbon_per_kwh_diesel * dt``).
 """

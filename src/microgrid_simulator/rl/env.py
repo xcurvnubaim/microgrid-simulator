@@ -698,6 +698,22 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             demand_noise[h] *= 1.0 + slope * h
         return pv_vector + pv_noise, demand_vector + demand_noise
 
+    def current_forecast(
+        self,
+    ) -> tuple[str | None, ForecastSnapshot | None]:
+        """Return the live forecast snapshot for the current decision tick.
+
+        Returns ``(request_timestamp, snapshot)`` where ``request_timestamp`` is
+        the absolute replay time the current forecast was issued against and the
+        snapshot is the most recently fetched (possibly stale) response. A stale
+        or unavailable snapshot is still returned so the caller can decide how to
+        treat it; the dashboard MPC path fails closed when it cannot provide a
+        non-stale, full-horizon forecast.
+        """
+        if not self.settings.forecast.enabled:
+            return None, None
+        return self._forecast_request_timestamp(), self._forecast_snapshot
+
     def _forecast_meta(self) -> dict[str, Any]:
         cfg = self.settings.forecast
         base: dict[str, Any] = {

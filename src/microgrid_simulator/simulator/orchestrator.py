@@ -130,10 +130,14 @@ class SimulatorOrchestrator:
     def _fallback_action(self) -> np.ndarray:
         if self.env is None:
             raise RuntimeError("simulator environment is not initialized")
+        forecast_available = self.env._forecast_is_available()  # noqa: SLF001
+        pv_horizon, demand_horizon = self.env._forecast_vectors()  # noqa: SLF001
         control = self.fallback.act(
             self.env._last_state,  # noqa: SLF001
             pv_forecast_mw=self.env._current_pv_forecast_mw(),  # noqa: SLF001
             demand_forecast_mw=self.env._current_demand_forecast_mw(),  # noqa: SLF001
+            pv_forecast_horizon_mw=pv_horizon if forecast_available else None,
+            demand_forecast_horizon_mw=demand_horizon if forecast_available else None,
         )
         return self.env.encode_action(control)
 

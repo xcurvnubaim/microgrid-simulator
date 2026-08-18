@@ -344,7 +344,7 @@ def _report_markdown(
             "| Load and PV | measured | aligned campus telemetry for this exact window |",
             "| PV negative night readings | designed preprocessing | clipped to zero generation availability |",
             "| Battery | assumed/project constraint | 500 kWh, ±250 kW, 96%/96%, SOC 10–95% |",
-            "| Diesel | assumed | 150 kW, 45 kW minimum, ramp/up/down limits, 0.70 kg CO2e/kWh |",
+            "| Diesel | assumed | 400 kW (re-anchored to measured 352.8 kW peak), 80 kW minimum, ramp/up/down limits, 0.70 kg CO2e/kWh |",
             "| Load allocation and Q | assumed | 3:2:2 and Q=0.2P; Q unused by the simple backend |",
             evidence_row,
             "",

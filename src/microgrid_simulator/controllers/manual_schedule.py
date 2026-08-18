@@ -60,7 +60,14 @@ class ManualScheduleController(Controller):
         setpoint_mw = min(max(float(level), s.diesel.min_kw), s.diesel.max_kw) / 1000.0
         return True, setpoint_mw
 
-    def _scheduled_battery_mw(self, hour: float) -> float | None:
+    def _scheduled_battery_mw(
+        self,
+        hour: float,
+        residual_mw: float,
+        surplus_mw: float,
+        diesel_setpoint_mw: float,
+        islanded: bool,
+    ) -> float | None:
         """Resolve the battery timetable; ``None`` = no timetable configured."""
         s = self.settings
         if not s.battery_schedule.segments:
@@ -68,9 +75,17 @@ class ManualScheduleController(Controller):
         segment = s.battery_schedule.segment_at(hour)
         if segment is None or segment.mode == "idle":
             return 0.0
+        if segment.mode == "reactive":
+            if not islanded:
+                return 0.0
+            if surplus_mw > 0.0:
+                return min(s.battery.max_charge_mw, surplus_mw)
+            battery_gap_mw = max(0.0, residual_mw - diesel_setpoint_mw)
+            return -min(s.battery.max_discharge_mw, battery_gap_mw)
         if segment.mode == "charge":
-            # Binary: full rate; the backend clips by SOC headroom and limits.
-            return s.battery.max_charge_mw
+            if segment.level == "max":
+                return s.battery.max_charge_mw
+            return min(max(0.0, float(segment.level)) / 1000.0, s.battery.max_charge_mw)
         if segment.level == "max":
             return -s.battery.max_discharge_mw
         return -min(max(0.0, float(segment.level)) / 1000.0, s.battery.max_discharge_mw)
@@ -84,7 +99,13 @@ class ManualScheduleController(Controller):
 
         diesel_on, diesel_setpoint_mw = self._scheduled_diesel_mw(hour)
 
-        battery_p_mw = self._scheduled_battery_mw(hour)
+        battery_p_mw = self._scheduled_battery_mw(
+            hour,
+            residual_mw,
+            surplus_mw,
+            diesel_setpoint_mw,
+            islanded,
+        )
         if battery_p_mw is None:
             # Reactive fallback (islanded only), unchanged from RuleBasedController.
             battery_p_mw = 0.0
