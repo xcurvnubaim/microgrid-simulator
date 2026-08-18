@@ -11,3 +11,12 @@ digital_twin:
       file: /data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
     pv:
       file: /data/processed/pv_15min_chronos_reconstruction_candidate.csv
+
+forecast:
+  enabled: true
+  strict_cache: false
+  service_url: http://host.docker.internal:8000
+  horizon_hours: 24
+  target_frequency_hours: 1.0
+  issue_frequency_hours: 1.0
+  refresh_each_step: true

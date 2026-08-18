@@ -6,6 +6,8 @@ x-runtime: &runtime
     dockerfile: Dockerfile
     target: runtime
   image: microgrid-simulator:local
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   environment:
     MGS_CONFIG: ${MGS_CONFIG:-/app/configs/docker-islanded-72h.yaml}
   init: true

@@ -2,6 +2,7 @@
   "cache_version": "1.0",
   "source_id": "islanded_72h_2026-01-15",
   "mode": "http",
+  "causal_preprocessing": true,
   "total_records": 2880,
   "horizon_hours": 24,
   "frequency_hours": 1.0,

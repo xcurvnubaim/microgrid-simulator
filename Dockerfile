@@ -37,6 +37,7 @@ RUN uv venv && uv pip install \
       "openpyxl>=3.1" \
       "fastapi>=0.110" \
       "uvicorn[standard]>=0.29" \
+      "pypsa>=0.35.2" \
       "python-multipart>=0.0.9" && \
     uv pip install "nats-py>=2.9,<3" && \
     uv pip install --no-deps .

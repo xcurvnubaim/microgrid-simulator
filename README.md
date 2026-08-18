@@ -28,13 +28,16 @@ Each `step()`:
 4. compute the multi-term reward
 5. advance the timestamp
 
-### Campus topology (editable)
+### Active scenario
 
-The editable campus topology is defined from `buses` and `lines` in
-`configs/simulator.yaml`, similar to a light Cisco Packet Tracer model: create bus nodes,
-connect them with lines/transformers, then place PV, battery, diesel, and loads on any bus.
-That alternate campus profile separates the PV yard and battery storage; the runtime
-default is the single-bus native pymgrid25 scenario 2 translation described below.
+The runtime default is `configs/islanded-baseline-72h.yaml`: a deterministic 72-hour
+islanded campus replay at 15-minute control resolution, using pandapower AC with PV,
+battery, and diesel. It uses the F0 causal hourly forecast cache and nominal dispatch
+economics for rule, MPC, and SAC comparison. `configs/docker-islanded-72h.yaml` is a
+container path/transport overlay for the same scenario, not a separate research scenario.
+
+Completed and inactive scenarios, runs, scripts, caches, and model variants are preserved
+under [`archive/`](archive/README.md) and are not normal runtime choices.
 
 | Bus | Voltage | Role |
 |---|---|---|
@@ -112,49 +115,18 @@ useful-output percentage, per-step values, and a dedicated source/sink chart.
 The configured diesel-bus chart also overlays `Diesel excess (kW)` as a red dashed
 series on its own right-side scale, keeping small surplus visible beside total output.
 
-For the deterministic paper baseline, `configs/islanded-baseline-72h.yaml` loads
+The active `configs/islanded-baseline-72h.yaml` loads
 timestamp-aligned reconstruction candidates, fails on missing samples instead of falling back
 to synthetic data, and evaluates 288 intervals from 2026-01-15 through 2026-01-17.
-`configs/islanded-heldout-72h.yaml` uses the same plant assumptions and candidates on the disjoint
-2026-03-08 through 2026-03-10 window for rule/MPC evaluation. The equations, units,
-signs, evidence labels, required outputs, and verification tolerances are frozen in
+The equations, units, signs, evidence labels, required outputs, and verification tolerances are frozen in
 [`BACKEND_CONTRACT.md`](BACKEND_CONTRACT.md).
 
-### Native pymgrid25 scenario input
+### Archived scenario evidence
 
-`configs/pymgrid25-scenario-2.yaml` is the simulator's default scenario and a generated
-translation of the authoritative native pymgrid25 scenario 2 YAML. It keeps the benchmark
-separate from the campus config, references the original 8,760-row compressed load/PV series, converts
-pymgrid's negative-load and internal-battery-energy conventions explicitly, disables
-project-only battery degradation, preserves the initial genset state, and selects the
-native pymgrid additive cost function. Pymgrid is the reference for this scenario's
-declared shared scheduling contract.
-
-The YAML selects a dedicated `battery.model: pymgrid` implementation and stores pymgrid's
-symmetric battery limits directly as `16.529 MWh/step` charge and discharge with
-`limit_basis: internal_energy_per_step`. The separate campus profile in
-`configs/simulator.yaml` uses the `project` model with terminal-power limits and optional
-SOH degradation. The pymgrid
-model retains native `0.90` efficiency and derives terminal action bounds at runtime;
-disabling efficiency or forcing symmetric terminal MW would change its native SOC
-transition.
-
-Regenerate the config after changing or updating the pinned pymgrid checkout:
-
-```bash
-uv run --extra pymgrid python -m \
-  microgrid_simulator.experiments.pymgrid_scenario_import \
-  --source-yaml /home/xcurv/teep-taiwan/python-microgrid/src/pymgrid/data/scenario/pymgrid25/microgrid_2/microgrid_2.yaml \
-  --scenario-number 2 \
-  --output configs/pymgrid25-scenario-2.yaml
-```
-
-A simulator smoke rollout can use `uv run microgrid-sim play`; pass
-`--config configs/simulator.yaml` to select the campus profile instead.
-That runs a project controller on native inputs; it is not yet a reproduction of the
-paper's native RBC/MPC/RL results. See
-`reports/experiments/pymgrid25_scenario_2_config_verification/report.md` for the mapping
-and validation boundary.
+The pymgrid reproduction, F2 migration, hard-unserved stress, high-fuel sensitivity,
+held-out one-off configurations, and robust-training stages are archived. Their reports and
+configuration files remain available for provenance under `archive/`; they are not active
+alternatives to the nominal islanded scenario.
 
 ### Reward (always ≤ 0)
 
@@ -164,8 +136,7 @@ reward = -( w_carbon·carbon + w_autonomy·grid_import + w_health·degradation
           + w_unserved·unmet_load + constraints )
 ```
 
-Default weights and physics live in `configs/pymgrid25-scenario-2.yaml`; alternate
-scenario YAMLs remain selectable with `--config` or `MGS_CONFIG`.
+Default weights and physics live in `configs/islanded-baseline-72h.yaml`.
 
 ## Quickstart
 
@@ -173,15 +144,11 @@ scenario YAMLs remain selectable with `--config` or `MGS_CONFIG`.
 # install (uv creates .venv and resolves from pyproject)
 uv sync
 
-# sanity rollout — native pymgrid25 scenario 2 by default
+# sanity rollout — nominal islanded campus scenario by default
 uv run microgrid-sim play --steps 24 --policy rule
 
 # strict 72-hour measured load/PV replay + Markdown/JSON/CSV evaluation
 uv run microgrid-sim replay --config configs/islanded-baseline-72h.yaml
-
-# disjoint held-out rule and MPC evaluations
-uv run microgrid-sim replay --config configs/islanded-heldout-72h.yaml --policy rule
-uv run microgrid-sim replay --config configs/islanded-heldout-72h.yaml --policy mpc
 
 # control-room dashboard (FastAPI + React): topology replay, dispatch charts
 uv run microgrid-sim dashboard
@@ -243,7 +210,7 @@ cp .env.example .env
 ./scripts/run_ems_scenario.sh \
   --config configs/docker-islanded-72h.yaml \
   --policy sac \
-  --artifact artifacts/sac/hardunserved-v3-60k/seed-0/sac_microgrid.zip
+  --artifact artifacts/sac/noforecast-1m/seed-1/sac_microgrid.zip
 ```
 
 When launched in a terminal without explicit selections, the script first chooses a
@@ -304,8 +271,9 @@ src/microgrid_simulator/
   ui/rollout.py              rule / idle / random rollout runner
   ui/web/                    React control room (prebuilt in web/dist)
   cli.py                     research commands plus telemetry/EMS/simulator service entry points
-configs/pymgrid25-scenario-2.yaml  default native benchmark translation
-configs/simulator.yaml       alternate campus topology and project-model profile
+configs/islanded-baseline-72h.yaml  active nominal campus scenario
+configs/docker-islanded-72h.yaml    container overlay for the active scenario
+archive/                          inactive scenarios and completed run evidence
 tests/                       battery, reward, env, accounting (mirrors src/)
 ```
 

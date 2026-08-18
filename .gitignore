@@ -42,6 +42,10 @@ logs/
 # microgrid-forecaster/scripts/generate_f2_cache.py; not committed)
 data/f2/
 
+# Preserved local experiment bytes under archive/ are evidence, not source.
+/archive/artifacts/
+/archive/runs/data-f2/
+
 # tooling caches
 .pytest_cache/
 .mypy_cache/
