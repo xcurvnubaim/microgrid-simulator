@@ -154,7 +154,9 @@ def generate_forecast_cache(
 def train(
     algo: str = typer.Option("sac", help="sac | ppo"),
     timesteps: int = typer.Option(50_000, help="total training timesteps"),
-    config: Path | None = typer.Option(None, help="scenario YAML (default: pymgrid25 scenario 2)"),
+    config: Path | None = typer.Option(
+        None, help="scenario YAML (default: nominal islanded campus)"
+    ),
     artifact_dir: Path = typer.Option(Path("artifacts"), help="where to save the policy"),
     tensorboard: Path | None = typer.Option(None, help="TensorBoard log dir"),
     seed: int = typer.Option(0),
@@ -252,11 +254,15 @@ def play(
                 deterministic_controller.act(env._last_state)  # noqa: SLF001
             )
         else:
+            forecast_available = env._forecast_is_available()  # noqa: SLF001
+            pv_horizon, demand_horizon = env._forecast_vectors()  # noqa: SLF001
             action = env.encode_action(
                 rule_controller.act(
                     env._last_state,  # noqa: SLF001
                     pv_forecast_mw=env._current_pv_forecast_mw(),  # noqa: SLF001
                     demand_forecast_mw=env._current_demand_forecast_mw(),  # noqa: SLF001
+                    pv_forecast_horizon_mw=pv_horizon if forecast_available else None,
+                    demand_forecast_horizon_mw=demand_horizon if forecast_available else None,
                 )
             )
         obs, reward, terminated, truncated, info = env.step(action)
@@ -296,7 +302,7 @@ def replay(
 @app.command()
 def dashboard(
     port: int = typer.Option(8501, help="local dashboard port"),
-    host: str = typer.Option("127.0.0.1", help="bind address"),
+    host: str = typer.Option("0.0.0.0", help="bind address"),
 ) -> None:
     """Launch the interactive dashboard (FastAPI + React control room)."""
     import uvicorn
