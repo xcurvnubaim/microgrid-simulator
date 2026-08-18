@@ -69,14 +69,14 @@ def test_uncovered_hours_and_off_level_turn_diesel_off() -> None:
 def test_explicit_kw_level_is_clamped_to_stable_band() -> None:
     settings = _settings(
         [
-            DieselScheduleSegmentCfg(start_hour=0.0, end_hour=12.0, level=80.0),
+            DieselScheduleSegmentCfg(start_hour=0.0, end_hour=12.0, level=200.0),
             DieselScheduleSegmentCfg(start_hour=12.0, end_hour=18.0, level=10.0),
             DieselScheduleSegmentCfg(start_hour=18.0, end_hour=24.0, level=500.0),
         ]
     )
     controller = ManualScheduleController(settings)
     d = settings.diesel
-    assert controller.act(_state(hour=6.0)).diesel_setpoint_mw == pytest.approx(0.080)
+    assert controller.act(_state(hour=6.0)).diesel_setpoint_mw == pytest.approx(0.200)
     # Below min stable load clamps up; above nameplate clamps down.
     assert controller.act(_state(hour=15.0)).diesel_setpoint_mw == pytest.approx(d.min_kw / 1000.0)
     assert controller.act(_state(hour=21.0)).diesel_setpoint_mw == pytest.approx(d.max_kw / 1000.0)
@@ -119,6 +119,41 @@ def test_battery_charge_window_is_binary_full_rate() -> None:
     controller = ManualScheduleController(settings)
     action = controller.act(_state(hour=12.0))
     assert action.battery_p_mw == pytest.approx(settings.battery.max_charge_mw)
+
+
+def test_battery_charge_window_takes_continuous_kw() -> None:
+    settings = _battery_settings(
+        [BatteryScheduleSegmentCfg(start_hour=10.0, end_hour=15.0, mode="charge", level=60.0)]
+    )
+    action = ManualScheduleController(settings).act(_state(hour=12.0))
+    assert action.battery_p_mw == pytest.approx(0.060)
+
+
+def test_reactive_battery_discharge_uses_residual_after_scheduled_diesel() -> None:
+    settings = _battery_settings(
+        [BatteryScheduleSegmentCfg(start_hour=18.0, end_hour=8.0, mode="reactive")]
+    )
+    settings.diesel_schedule = DieselScheduleCfg(
+        segments=[DieselScheduleSegmentCfg(start_hour=0.0, end_hour=24.0, level=80.0)]
+    )
+    controller = ManualScheduleController(settings)
+
+    covered = controller.act(_state(hour=3.0, load_mw=0.060))
+    gap = controller.act(_state(hour=3.0, load_mw=0.120))
+
+    assert covered.battery_p_mw == 0.0
+    assert gap.battery_p_mw == pytest.approx(-0.040)
+
+
+def test_reactive_battery_charges_only_measured_pv_surplus() -> None:
+    settings = _battery_settings(
+        [BatteryScheduleSegmentCfg(start_hour=15.0, end_hour=8.0, mode="reactive")]
+    )
+    controller = ManualScheduleController(settings)
+
+    action = controller.act(_state(hour=17.0, load_mw=0.080, pv_mw=0.130))
+
+    assert action.battery_p_mw == pytest.approx(0.050)
 
 
 def test_battery_discharge_window_takes_continuous_kw() -> None:

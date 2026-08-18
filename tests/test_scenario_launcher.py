@@ -11,8 +11,8 @@ SAC_ARTIFACT = (
     ROOT
     / "artifacts"
     / "sac"
-    / "hardunserved-v3-60k"
-    / "seed-0"
+    / "noforecast-1m"
+    / "seed-1"
     / "sac_microgrid.zip"
 )
 
@@ -44,7 +44,7 @@ def test_launcher_dry_run_resolves_sac_and_ppo_artifacts() -> None:
         result = _run("--dry-run", "--policy", policy, "--artifact", str(relative))
         assert result.returncode == 0, result.stderr
         assert f"policy:   {policy}" in result.stdout
-        assert "/app/artifacts/sac/hardunserved-v3-60k/seed-0/sac_microgrid.zip" in (
+        assert "/app/artifacts/sac/noforecast-1m/seed-1/sac_microgrid.zip" in (
             result.stdout
         )
 

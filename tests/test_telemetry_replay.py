@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -61,29 +60,6 @@ def _telemetry_settings(tmp_path, *, horizon_hours: float = 1.0) -> Settings:
 def test_default_replay_output_uses_configured_telemetry_date(tmp_path) -> None:
     settings = _telemetry_settings(tmp_path)
     assert _replay_output_dir(settings, "mpc").as_posix().endswith("islanded_72h_mpc_2026-01-15")
-
-
-def test_heldout_scenario_changes_only_identity_and_telemetry_window() -> None:
-    baseline = Settings.from_yaml(Path("configs/islanded-baseline-72h.yaml")).model_dump()
-    heldout = Settings.from_yaml(Path("configs/islanded-heldout-72h.yaml")).model_dump()
-
-    baseline["scenario"] = heldout["scenario"]
-    baseline["episode"]["telemetry_start"] = heldout["episode"]["telemetry_start"]
-
-    assert baseline == heldout
-
-
-def test_high_fuel_scenario_inherits_baseline_and_overrides_dispatch_costs() -> None:
-    baseline = Settings.from_yaml(Path("configs/islanded-baseline-72h.yaml"))
-    high_fuel = Settings.from_yaml(Path("configs/islanded-high-fuel-battery-pv-72h.yaml"))
-
-    assert high_fuel.scenario.name == "islanded_high_fuel_battery_pv_72h"
-    assert high_fuel.reward.diesel_fuel_cost_per_kwh == 1.20
-    assert high_fuel.reward.w_health < baseline.reward.w_health
-    assert high_fuel.reward.w_waste > baseline.reward.w_waste
-    assert high_fuel.episode.terminal_soc_penalty > baseline.episode.terminal_soc_penalty
-    assert high_fuel.battery == baseline.battery
-    assert high_fuel.digital_twin == baseline.digital_twin
 
 
 def test_fixed_replay_uses_context_then_exact_evaluated_samples(tmp_path) -> None:

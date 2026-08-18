@@ -28,7 +28,7 @@ SOURCE_YAML = Path(
     "/home/xcurv/teep-taiwan/python-microgrid/src/pymgrid/data/scenario/"
     "pymgrid25/microgrid_2/microgrid_2.yaml"
 )
-TRANSLATED_YAML = REPO_ROOT / "configs/pymgrid25-scenario-2.yaml"
+TRANSLATED_YAML = REPO_ROOT / "archive/scenarios/pymgrid25-scenario-2.yaml"
 
 
 def test_checked_in_scenario_matches_fresh_native_translation() -> None:

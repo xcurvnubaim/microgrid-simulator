@@ -90,24 +90,23 @@ def test_diesel_action_dims_and_clamp() -> None:
     on[1 + env.n_ev], on[-1] = 1.0, -1.0  # diesel command at nameplate, no curtailment
     _, _, _, _, info = env.step(on)
     assert info["diesel_on"] is True
-    # Start tick: 0.25 min crank/sync at 0, block-load to 45 kW, ramp to 150 kW
-    # in 3.5 min, hold — tick average (97.5*3.5 + 150*11.25)/15 = 135.25 kW.
-    assert info["diesel_p_mw"] == pytest.approx(0.13525)
+    # Normal profile: 0.25 min crank/sync at zero, block-load to 80 kW, ramp
+    # 80 -> 400 kW at 160 kW/min takes 2 min, then hold: 372 kW average
+    # over the start tick.
+    assert info["diesel_p_mw"] == pytest.approx(0.372)
 
     off = on.copy()
-    off[1 + env.n_ev] = -1e-6  # near-zero negative: requests off, but the min-up
-    # lockout overrides and the tiny magnitude maps onto the min-stable setpoint,
-    # exercising the same "held on at a clamped setpoint" path as the legacy
-    # two-dimension layout (whose stranded setpoint stayed at nameplate).
-    # 15 min after the start the genset is still on: soft ramp from 150 kW down
-    # to the 45 kW minimum stable load (3.5 min), hold — tick average 57.25 kW.
+    off[1 + env.n_ev] = -1e-6  # any non-positive diesel command requests off
+    # The 30-minute minimum run holds the unit on for the second tick. Its tiny
+    # retained command maps to minimum stable output, reached from 400 kW at
+    # 160 kW/min over 2 min, then 13 min at 80 kW:
+    # (0.24 * 2 + 0.08 * 13) / 15 = 101.33 kW tick average.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is True
-    assert info["diesel_p_mw"] == pytest.approx(0.05725)
+    assert info["diesel_p_mw"] == pytest.approx(0.1013333333)
 
-    # After 30 min of runtime the off command goes through. The genset is
-    # already sitting at minimum stable load, so the breaker opens immediately
-    # with no unload tail — zero output for the whole stop tick.
+    # After 30 minutes, shutdown is permitted. Already at minimum output, the
+    # breaker opens without an unload tail.
     _, _, _, _, info = env.step(off)
     assert info["diesel_on"] is False
     assert info["diesel_p_mw"] == pytest.approx(0.0)

@@ -70,7 +70,10 @@ def test_rule_service_emits_matching_deadline_bound_command() -> None:
     assert command.telemetry_sequence_id == 4
     assert len(command.normalized_action) == frame.action_shape
     assert command.expires_at > command.issued_at
-    assert command.requested_diesel_on
+    # At night, usable SOC above the configured reserve serves this 100 kW
+    # residual from the battery before diesel is requested.
+    assert not command.requested_diesel_on
+    assert command.requested_battery_power_kw == pytest.approx(-100.0)
 
 
 def test_rule_service_does_not_import_sb3_or_torch() -> None:
