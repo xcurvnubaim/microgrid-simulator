@@ -1,0 +1,9 @@
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: economic_e3_high_fuel_low_battery_use
+  description: E3 combined economic overlay; high diesel fuel cost plus low battery-use weight.
+
+reward:
+  diesel_fuel_cost_per_kwh: 1.20
+  w_health: 0.10

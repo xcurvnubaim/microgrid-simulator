@@ -1,11 +1,10 @@
 """Typed configuration for the microgrid simulator.
 
-``configs/pymgrid25-scenario-2.yaml`` is the default runtime scenario. Every
+``configs/islanded-baseline-72h.yaml`` is the default runtime scenario. Every
 entry point (CLI, dashboard server, RL env) must obtain settings through
 :func:`load_settings`, which resolves that file (override with ``$MGS_CONFIG``
-or an explicit config path).
-The field defaults on the models below exist only so tests can build a
-``Settings()`` in memory — they are not a second configuration source.
+or an explicit config path). The field defaults on the models below exist only
+so tests can build small in-memory fixtures; they are not a runtime scenario.
 
 Env overrides use prefix ``MGS_`` and ``__`` as the nested delimiter, e.g.
 ``MGS_REWARD__W_CARBON=2.0``.
@@ -26,6 +25,21 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RUNTIME_PHYSICS_ENGINE = "pandapower"
+
+
+def _yaml_default(section: str, key: str) -> Any:
+    """Read a schema default from the canonical scenario YAML.
+
+    Scenario values must live in YAML. This helper is only for legacy direct
+    model construction; runtime code still uses ``load_settings``.
+    """
+    config_path = Path(__file__).resolve().parents[2] / "configs" / "islanded-baseline-72h.yaml"
+    if config_path.is_file():
+        raw = yaml.safe_load(config_path.read_text()) or {}
+        value = raw.get(section, {}).get(key)
+        if value is not None:
+            return value
+    raise ValueError(f"missing {section}.{key} in canonical scenario YAML")
 
 
 class TopologyCfg(BaseModel):
@@ -112,24 +126,27 @@ class EvCfg(BaseModel):
 class DieselCfg(BaseModel):
     """Dispatchable diesel genset (plan decision 1).
 
-    ``max_kw`` is a placeholder (~half the 352.8 kW observed peak) until a real
-    nameplate spec is available; the operating constraints below default to
-    typical prime-rated genset figures scaled to it.
+    ``max_kw`` is a re-anchored placeholder (above the 352.8 kW observed peak)
+    until a real nameplate spec is available. Defaults define a normal
+    15-minute scheduling scenario: an illustrative 30% committed minimum, a
+    nominally nonbinding 40%-of-rating-per-minute ramp, simple anti-cycling
+    lockouts, and a short startup delay. They are not validated campus
+    equipment parameters.
     """
 
-    enabled: bool = True
-    max_kw: float = 150.0
-    min_kw: float = 45.0  # minimum stable load (~30% of nameplate; wet stacking below)
-    ramp_kw_per_min: float = 30.0  # ~20% of nameplate per minute; 0 = unlimited
-    start_delay_min: float = 0.25  # crank + synchronise (~15 s) at zero output before loading
-    min_up_time_min: float = 30.0  # must run this long once started (anti-cycling)
-    min_down_time_min: float = 15.0  # cool-down before a restart is allowed
-    bus: int = 1
-    carbon_kg_per_kwh: float = 0.70  # diesel genset emission intensity
+    enabled: bool = Field(default_factory=lambda: _yaml_default("diesel", "enabled"))
+    max_kw: float = Field(default_factory=lambda: _yaml_default("diesel", "max_kw"))
+    min_kw: float = Field(default_factory=lambda: _yaml_default("diesel", "min_kw"))
+    ramp_kw_per_min: float = Field(default_factory=lambda: _yaml_default("diesel", "ramp_kw_per_min"))
+    start_delay_min: float = Field(default_factory=lambda: _yaml_default("diesel", "start_delay_min"))
+    min_up_time_min: float = Field(default_factory=lambda: _yaml_default("diesel", "min_up_time_min"))
+    min_down_time_min: float = Field(default_factory=lambda: _yaml_default("diesel", "min_down_time_min"))
+    bus: int = Field(default_factory=lambda: _yaml_default("diesel", "bus"))
+    carbon_kg_per_kwh: float = Field(default_factory=lambda: _yaml_default("diesel", "carbon_kg_per_kwh"))
     # Unit-commitment shutdown cost. Fuel and startup costs are shared with the
     # per-step reward through RewardCfg so MPC and RL use one objective definition.
-    shut_down_cost: float = 0.0
-    initial_on: bool = False
+    shut_down_cost: float = Field(default_factory=lambda: _yaml_default("diesel", "shut_down_cost"))
+    initial_on: bool = Field(default_factory=lambda: _yaml_default("diesel", "initial_on"))
 
 
 class GridIntertieCfg(BaseModel):
@@ -189,21 +206,32 @@ class DieselScheduleCfg(BaseModel):
         return "off"
 
 
+class RuleCfg(BaseModel):
+    """Tunable parameters for the interpretable rule controller."""
+
+    forecast_headroom_fraction: float = Field(default=0.12, ge=0.0)
+    night_discharge_start_hour: float = Field(default=18.0, ge=0.0, le=24.0)
+    night_discharge_end_hour: float = Field(default=8.0, ge=0.0, le=24.0)
+    night_reserve_soc_floor: float = Field(default=0.30, ge=0.0, le=1.0)
+
+
 class BatteryScheduleSegmentCfg(ScheduleSegmentCfg):
     """One clock-driven battery dispatch block for the manual-schedule controller.
 
     ``mode`` mirrors how operators actually schedule storage:
 
-    * ``"charge"`` — binary (0/1): the battery charges at its full
-      ``max_charge_mw``; the backend clips by SOC headroom and resolves the
+    * ``"charge"`` — ``level`` is ``"max"`` or an explicit kW value, clamped
+      to ``max_charge_mw``; the backend clips by SOC headroom and resolves the
       charging-source split (PV → diesel → grid merit order).
-    * ``"discharge"`` — continuous: ``level`` is ``"max"`` or an explicit kW
-      value, clamped to ``max_discharge_mw``.
+    * ``"discharge"`` — ``level`` is ``"max"`` or an explicit kW value,
+      clamped to ``max_discharge_mw``.
+    * ``"reactive"`` — charge from measured PV surplus or discharge only for
+      load remaining after PV and scheduled diesel.
     * ``"idle"`` — hold (same as an uncovered hour).
     """
 
-    mode: Literal["charge", "discharge", "idle"] = "idle"
-    level: Literal["max"] | float = "max"  # discharge segments only (kW)
+    mode: Literal["charge", "discharge", "reactive", "idle"] = "idle"
+    level: Literal["max"] | float = "max"  # explicit levels are kW
 
 
 class BatteryScheduleCfg(BaseModel):
@@ -536,6 +564,7 @@ class Settings(BaseSettings):
     battery: BatteryCfg = Field(default_factory=BatteryCfg)
     ev: EvCfg = Field(default_factory=EvCfg)
     diesel: DieselCfg = Field(default_factory=DieselCfg)
+    rule: RuleCfg = Field(default_factory=RuleCfg)
     diesel_schedule: DieselScheduleCfg = Field(default_factory=DieselScheduleCfg)
     battery_schedule: BatteryScheduleCfg = Field(default_factory=BatteryScheduleCfg)
     demand: DemandCfg = Field(default_factory=DemandCfg)
@@ -677,18 +706,20 @@ class Settings(BaseSettings):
 
 
 DEFAULT_CONFIG_ENV = "MGS_CONFIG"
-_CONFIG_RELPATH = Path("configs") / "pymgrid25-scenario-2.yaml"
+_CONFIG_RELPATH = Path("configs") / "islanded-baseline-72h.yaml"
 
 
 def find_config_path() -> Path | None:
-    """Locate the default ``configs/pymgrid25-scenario-2.yaml``.
+    """Locate the active nominal islanded campus scenario.
 
     Order: ``$MGS_CONFIG`` if set, then a search upward from the current
     directory, then upward from this package (covers editable installs).
     """
     env = os.environ.get(DEFAULT_CONFIG_ENV)
     if env:
-        return Path(env)
+        # Strip potential docker compose default artifact '-/' or leading '-'
+        cleaned = env.lstrip("-") if env.startswith("-/") else env
+        return Path(cleaned)
     for root in (Path.cwd(), Path(__file__).resolve()):
         for parent in (root, *root.parents):
             candidate = parent / _CONFIG_RELPATH

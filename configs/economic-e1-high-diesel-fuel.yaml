@@ -1,0 +1,8 @@
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: economic_e1_high_diesel_fuel
+  description: E1 isolated economic overlay; diesel fuel cost raised from $0.40 to $1.20/kWh.
+
+reward:
+  diesel_fuel_cost_per_kwh: 1.20

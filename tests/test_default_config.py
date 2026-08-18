@@ -8,22 +8,39 @@ from microgrid_simulator.config import DEFAULT_CONFIG_ENV, find_config_path, loa
 from microgrid_simulator.ui.server import _base_settings
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SCENARIO = REPO_ROOT / "configs" / "pymgrid25-scenario-2.yaml"
+DEFAULT_SCENARIO = REPO_ROOT / "configs" / "islanded-baseline-72h.yaml"
 
 
-def test_runtime_default_is_native_pymgrid_scenario_2(monkeypatch) -> None:
+def test_runtime_default_is_nominal_islanded_campus(monkeypatch) -> None:
     monkeypatch.delenv(DEFAULT_CONFIG_ENV, raising=False)
     monkeypatch.chdir(REPO_ROOT)
 
     assert find_config_path() == DEFAULT_SCENARIO
     settings = load_settings()
-    assert settings.scenario.name == "pymgrid25-scenario-2"
-    assert settings.external_reference is not None
-    assert settings.external_reference.scenario_number == 2
+    assert settings.scenario.name == "islanded_72h_2026-01-15"
+    assert settings.external_reference is None
 
 
 def test_dashboard_uses_shared_default_and_respects_override(monkeypatch) -> None:
     monkeypatch.chdir(REPO_ROOT)
-    monkeypatch.setenv(DEFAULT_CONFIG_ENV, str(REPO_ROOT / "configs" / "simulator.yaml"))
+    active = REPO_ROOT / "configs" / "islanded-baseline-72h.yaml"
+    monkeypatch.setenv(DEFAULT_CONFIG_ENV, str(active))
 
-    assert _base_settings().scenario.name == "default"
+    assert _base_settings().scenario.name == "islanded_72h_2026-01-15"
+
+
+def test_nominal_contract_values_are_explicit_in_yaml() -> None:
+    settings = load_settings(DEFAULT_SCENARIO)
+
+    assert settings.topology.timestep_hours == 0.25
+    assert settings.episode.horizon_hours == 72.0
+    assert settings.forecast.horizon_hours == 24
+    assert settings.battery.capacity_mwh == 0.50
+    assert settings.battery.max_charge_mw == 0.25
+    assert settings.battery.max_discharge_mw == 0.25
+    assert settings.diesel.max_kw == 400.0
+    assert settings.diesel.min_kw == 80.0
+    assert settings.diesel.ramp_kw_per_min == 160.0
+    assert settings.reward.w_carbon == 4.0
+    assert settings.reward.w_health == 0.5
+    assert settings.reward.w_unserved == 20.0

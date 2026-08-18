@@ -1,0 +1,8 @@
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: economic_e4_high_pv_waste
+  description: E4 isolated economic overlay; PV-curtailment/waste weight raised from 1.0 to 2.0.
+
+reward:
+  w_waste: 2.0

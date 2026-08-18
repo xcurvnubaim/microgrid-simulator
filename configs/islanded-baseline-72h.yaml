@@ -28,10 +28,17 @@ topology:
 backend:
   name: pandapower
   validation_backend: pandapower
+  timestep_hours: null
+  horizon_hours: 24.0
+  rolling_horizon_hours: 6.0
+  solver: highs
+  unit_commitment: true
 
 episode:
   horizon_hours: 72.0
   start_hour: 0.0
+  terminal_soc_tolerance: 0.01
+  terminal_soc_penalty: 100.0
   # First evaluated interval; 2026-01-14 23:45 is loaded only as controller context.
   # Training/baseline window; the disjoint held-out config starts on 2026-03-08.
   telemetry_start: "2026-01-15 00:00:00"
@@ -42,6 +49,12 @@ episode:
 forecast:
   enabled: true
   horizon_hours: 24
+  target_frequency_hours: 1.0
+  issue_frequency_hours: 1.0
+  target: pv_avg
+  demand_target: demand
+  source_unit: kw
+  timeout_seconds: 30.0
   refresh_each_step: true
   strict_cache: true
   cache_path: data/forecasts.jsonl
@@ -58,6 +71,14 @@ rl:
   train_split: train
   eval_split: val
   forecast_mode: cached
+  eval_freq: 5000
+  eval_episodes: 3
+  checkpoint_freq: 10000
+  log_dir: runs
+  artifact_dir: artifacts
+  hard_unserved: false
+  hard_unserved_penalty: 1000.0
+  hard_unserved_tol_mw: 0.002
 
 digital_twin:
   fill_strategy: error
@@ -84,11 +105,16 @@ demand:
   file: null
   random_window: false
 
+intertie:
+  max_import_mw: null
+  max_export_mw: null
+
 # BESS — MATLAB grid-forming converter keeps its stock 1 MVA base; the 250 kW below is a
 # DISPATCH reference, not a converter rating (BESS.pRef2 = 0.25 pu of 1 MVA). The EMT DC
 # source is ideal, so energy capacity / efficiency / SOC are ASSUMED scheduling values
 # that live only in this reduced-order layer.
 battery:
+  model: project
   bus: 3
   capacity_mwh: 0.50          # ASSUMED; physical nameplate unavailable
   charge_eff: 0.96            # ASSUMED
@@ -98,19 +124,44 @@ battery:
   soc_min: 0.10               # ASSUMED operating band
   soc_max: 0.95
   soc_init: 0.50              # ASSUMED initial SOC (no SOC state exists in the EMT model)
+  limit_basis: terminal_power
+  max_charge_internal_mwh_per_step: null
+  max_discharge_internal_mwh_per_step: null
+  degradation_enabled: true
 
-# Diesel — the EMT machine retains the stock 125.5 kVA synchronous machine
+# Diesel — normal operating scenario, not a validated campus genset.
+# The EMT machine retains the stock 125.5 kVA synchronous machine
 # (microgrid.dieselRatedPower = 125500); an electrical rescale to 150 kW was unstable.
-# 150 kW here is the ASSUMED scheduling nameplate, inside the same assumption band.
+# Scheduling contract re-anchored to measured data (2026-08-18): the measured
+# single-building peak load is 352.8 kW and net load exceeds 150 kW in 13.3% of
+# ticks, so 150 kW could not serve the island; see
+# "Campus Microgrid Asset Sizing from Measured Data - Module 6". 80 kW is an
+# assumed 20% committed minimum, closer to the measured 47-61 kW night base
+# load; 160 kW/min (40% of rating per minute)
+# makes the ramp effectively nonbinding at 15-minute resolution; 30/15-minute
+# up/down times provide two-/one-tick anti-cycling. These are re-anchored
+# scenario choices, not manufacturer or site evidence. Replace them when
+# genset/controller data are available.
 diesel:
   enabled: true
   bus: 0
-  max_kw: 150.0               # ASSUMED scheduling nameplate; EMT retains stock 125.5 kVA machine
-  min_kw: 45.0               # ASSUMED 30% minimum stable load
-  ramp_kw_per_min: 30.0      # ASSUMED
-  min_up_time_min: 30.0      # ASSUMED
-  min_down_time_min: 15.0    # ASSUMED
+  max_kw: 400.0               # ASSUMED scheduling nameplate, re-anchored to 352.8 kW measured peak; EMT retains stock 125.5 kVA machine
+  min_kw: 80.0                # NORMAL-SCENARIO ASSUMPTION: 20% committed minimum, closer to night base load
+  ramp_kw_per_min: 160.0      # ASSUMED: 40% of rating per minute; min->max in 2 min, nonbinding at 15-min ticks
+  start_delay_min: 0.25       # ASSUMED rapid-start approximation; negligible at 15-minute control
+  min_up_time_min: 30.0       # ASSUMED two-tick anti-cycling minimum run
+  min_down_time_min: 15.0     # ASSUMED one-tick restart lockout
   carbon_kg_per_kwh: 0.70    # ASSUMED emissions proxy (no MATLAB counterpart; techno-econ used $1.1/L)
+  shut_down_cost: 0.0
+  initial_on: false
+
+# Rule-F0 only: maximum forecast-supported diesel reserve above current net load.
+# 0.12 preserves the legacy 12% heuristic; it is a controller assumption, not site evidence.
+rule:
+  forecast_headroom_fraction: 0.12
+  night_discharge_start_hour: 18.0
+  night_discharge_end_hour: 8.0
+  night_reserve_soc_floor: 0.30
 
 # Clock-driven diesel timetable for the `schedule` policy only (`--policy schedule`;
 # rule/mpc ignore it). DESIGNED from this window's 3-day hourly load/PV profile: PV
@@ -121,11 +172,21 @@ diesel:
 # hours = off; start_hour > end_hour wraps past midnight.
 diesel_schedule:
   segments:
-    - {start_hour: 0.0,  end_hour: 9.0,  level: max}
-    - {start_hour: 9.0,  end_hour: 14.0, level: min}
-    - {start_hour: 14.0, end_hour: 24.0, level: max}
+    - {start_hour: 0.0,  end_hour: 7.0,  level: 80.0}
+    - {start_hour: 7.0,  end_hour: 9.0,  level: 220.0}
+    - {start_hour: 9.0,  end_hour: 21.0, level: 200.0}
+    - {start_hour: 21.0, end_hour: 24.0, level: 150.0}
+
+# Schedule policy only: fixed daytime charge command plus reactive battery
+# behavior outside that window. Reactive mode charges only from measured PV
+# surplus and discharges only for load remaining after PV and scheduled diesel.
+battery_schedule:
+  segments:
+    - {start_hour: 8.0,  end_hour: 15.0, mode: charge,    level: 60.0}
+    - {start_hour: 15.0, end_hour: 8.0,  mode: reactive}
 
 reward:
+  mode: project
   w_carbon: 4.0              # diesel is genuinely costly: fuel + carbon dominate
   w_autonomy: 0.0             # islanded: no utility exchange exists
   w_health: 0.5               # relax battery-degradation penalty so discharge is viable
@@ -143,6 +204,12 @@ reward:
   peak_penalty: 200.0
   voltage_penalty: 100.0
   soc_violation_penalty: 50.0
+  pymgrid_battery_cost_cycle: 0.0
+  pymgrid_genset_cost: 0.0
+  pymgrid_co2_per_unit: 0.0
+  pymgrid_cost_per_unit_co2: 0.0
+  pymgrid_loss_load_cost: 0.0
+  pymgrid_overgeneration_cost: 0.0
 
 # No utility-role bus: the complete scheduling episode is islanded.
 buses:

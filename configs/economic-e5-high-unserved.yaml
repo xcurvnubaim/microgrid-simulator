@@ -1,0 +1,8 @@
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: economic_e5_high_unserved
+  description: E5 isolated economic overlay; soft unserved-energy weight raised from 20 to 100.
+
+reward:
+  w_unserved: 100.0

@@ -1,0 +1,8 @@
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: economic_e2_low_battery_use
+  description: E2 isolated economic overlay; battery health/use weight reduced from 0.5 to 0.1.
+
+reward:
+  w_health: 0.10

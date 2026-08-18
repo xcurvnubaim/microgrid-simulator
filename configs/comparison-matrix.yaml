@@ -1,0 +1,42 @@
+# Frozen Module 6 E0-E5 comparison registry.
+# This file describes jobs; it never launches training or evaluation.
+version: 1
+name: module-6-e0-e5-comparison
+scenarios:
+  E0: configs/islanded-baseline-72h.yaml
+  E1: configs/economic-e1-high-diesel-fuel.yaml
+  E2: configs/economic-e2-low-battery-use.yaml
+  E3: configs/economic-e3-high-fuel-low-battery-use.yaml
+  E4: configs/economic-e4-high-pv-waste.yaml
+  E5: configs/economic-e5-high-unserved.yaml
+policies:
+  - id: rule
+    forecast_mode: cached
+    seeds: [0]
+    artifact_required: false
+  - id: schedule
+    forecast_mode: none
+    seeds: [0]
+    artifact_required: false
+  - id: mpc
+    forecast_mode: cached
+    seeds: [0]
+    artifact_required: false
+  - id: sac_f0
+    forecast_mode: cached
+    seeds: [0, 1, 2]
+    artifact_required: true
+  - id: sac_none
+    forecast_mode: none
+    seeds: [0, 1, 2]
+    artifact_required: true
+training:
+  algorithm: sac
+  total_timesteps: 1000000
+  artifact_root: artifacts/sac
+  run_root: runs/comparison_matrix
+  checkpoint_selection_split: val
+  evaluation_split: test
+  forecast_cache: data/forecasts.jsonl
+  forecast_manifest: data/forecast_manifest.json
+  do_not_launch: true
