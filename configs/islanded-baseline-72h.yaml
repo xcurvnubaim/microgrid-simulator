@@ -86,13 +86,13 @@ digital_twin:
   max_missing_fraction: 0.0
   measurements:
     load:
-      file: /home/xcurv/teep-taiwan/data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
+      file: ../data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv
       header_row: 0
       timestamp_column: timestamp
       value_column: demand_kw
       unit: kw
     pv:
-      file: /home/xcurv/teep-taiwan/data/processed/pv_15min_chronos_reconstruction_candidate.csv
+      file: ../data/processed/pv_15min_chronos_reconstruction_candidate.csv
       header_row: 0
       timestamp_column: timestamp
       value_column: pv_kw

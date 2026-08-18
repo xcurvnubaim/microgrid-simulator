@@ -24,14 +24,14 @@ def _tiny_settings(seed: int = 0, tmp: Path | None = None) -> Settings:
     # The RL sampler needs real load/PV measurement files to pick windows.
     s.digital_twin.measurements = {
         "load": MeasurementCfg(
-            file="/home/xcurv/teep-taiwan/data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv",
+            file="../data/processed/demand_15min_weekly_seasonal_reconstruction_candidate.csv",
             header_row=0,
             timestamp_column="timestamp",
             value_column="demand_kw",
             unit="kw",
         ),
         "pv": MeasurementCfg(
-            file="/home/xcurv/teep-taiwan/data/processed/pv_15min_chronos_reconstruction_candidate.csv",
+            file="../data/processed/pv_15min_chronos_reconstruction_candidate.csv",
             header_row=0,
             timestamp_column="timestamp",
             value_column="pv_kw",

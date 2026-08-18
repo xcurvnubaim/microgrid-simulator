@@ -197,5 +197,13 @@ def train(
         vec_env.save(str(path) + "_vecnormalize.pkl")
     if save_replay_buffer and algo == "sac":
         model.save_replay_buffer(str(path) + "_replay_buffer.pkl")
+
+    # Overwrite the final model with the best validation model if available
+    best_model_path = run_dir / "best_model" / "best_model.zip"
+    if best_model_path.is_file():
+        import shutil
+        shutil.copy(best_model_path, path.with_suffix(".zip"))
+        LOGGER.info("Deployed best validation checkpoint from %s to %s.zip", best_model_path, path)
+
     LOGGER.info("Saved policy -> %s.zip", path)
     return path.with_suffix(".zip")
