@@ -1,0 +1,27 @@
+# F3 corrected 15-minute forecast study.
+#
+# This is a new forecast representation and must not reuse data/f2/, which is
+# retained as historical F2 evidence after failing operational Gate 3.
+# The cache and separate target-context generator must exist before rollout.
+extends: islanded-baseline-72h.yaml
+
+scenario:
+  name: forecast_f3_15min_corrected
+  description: >-
+    Leakage-safe 15-minute Chronos point forecasts over a 24-hour horizon;
+    separate PV and demand context lengths; no future replay covariates.
+
+forecast:
+  enabled: true
+  horizon_hours: 24
+  target_frequency_hours: 0.25
+  issue_frequency_hours: 0.25
+  strict_cache: true
+  cache_path: data/f3/train/forecasts.jsonl
+  manifest_path: data/f3/train/forecast_manifest.json
+  val_cache_path: data/f3/val/forecasts.jsonl
+  val_manifest_path: data/f3/val/forecast_manifest.json
+  source_id: islanded_72h_f3_15min_corrected
+
+rl:
+  forecast_mode: cached

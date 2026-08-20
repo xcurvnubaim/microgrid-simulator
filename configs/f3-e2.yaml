@@ -1,0 +1,3 @@
+extends: economic-e2-low-battery-use.yaml
+scenario: {name: f3_e2, description: F3 15-minute low battery use scenario}
+forecast: {target_frequency_hours: 0.25, issue_frequency_hours: 0.25, cache_path: data/f3/train/forecasts.jsonl, manifest_path: data/f3/train/forecast_manifest.json, val_cache_path: data/f3/val/forecasts.jsonl, val_manifest_path: data/f3/val/forecast_manifest.json, source_id: islanded_72h_f3_15min_corrected}
