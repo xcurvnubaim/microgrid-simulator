@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("--command-prefix", default="uv run")
     args = parser.parse_args()
     registry: dict[str, Any] = yaml.safe_load(REGISTRY.read_text())
+    timesteps = registry["training"].get("total_timesteps", 1000000)
     jobs = []
     for scenario, base_rel in registry["scenarios"].items():
         for policy in registry["policies"]:
@@ -55,7 +56,7 @@ def main() -> None:
                         "artifact_dir": str(artifact.relative_to(ROOT)),
                         "model": str((artifact / "sac_microgrid.zip").relative_to(ROOT)),
                         "command": (
-                            f"{args.command_prefix} microgrid-sim train --algo sac --timesteps 1000000 "
+                            f"{args.command_prefix} microgrid-sim train --algo sac --timesteps {timesteps} "
                             f"--config {config.relative_to(ROOT)} --forecast-mode "
                             f"{'cached' if mode == 'f3' else 'none'} --artifact-dir "
                             f"{artifact.relative_to(ROOT)} --seed {seed} "

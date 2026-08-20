@@ -7,7 +7,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E0/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-0 --seed 0 --run-id f3-e0-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-0 --seed 0 --run-id f3-e0-f3-seed0"
   },
   {
     "scenario": "E0",
@@ -17,7 +17,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E0/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-1 --seed 1 --run-id f3-e0-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-1 --seed 1 --run-id f3-e0-f3-seed1"
   },
   {
     "scenario": "E0",
@@ -27,7 +27,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E0/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-2 --seed 2 --run-id f3-e0-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E0/f3/seed-2 --seed 2 --run-id f3-e0-f3-seed2"
   },
   {
     "scenario": "E0",
@@ -37,7 +37,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/none/seed-0",
     "model": "artifacts/sac/f3-15min/E0/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-0 --seed 0 --run-id f3-e0-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-0 --seed 0 --run-id f3-e0-none-seed0"
   },
   {
     "scenario": "E0",
@@ -47,7 +47,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/none/seed-1",
     "model": "artifacts/sac/f3-15min/E0/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-1 --seed 1 --run-id f3-e0-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-1 --seed 1 --run-id f3-e0-none-seed1"
   },
   {
     "scenario": "E0",
@@ -57,7 +57,7 @@
     "config": "configs/f3-e0.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E0/none/seed-2",
     "model": "artifacts/sac/f3-15min/E0/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-2 --seed 2 --run-id f3-e0-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e0.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E0/none/seed-2 --seed 2 --run-id f3-e0-none-seed2"
   },
   {
     "scenario": "E1",
@@ -67,7 +67,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E1/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-0 --seed 0 --run-id f3-e1-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-0 --seed 0 --run-id f3-e1-f3-seed0"
   },
   {
     "scenario": "E1",
@@ -77,7 +77,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E1/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-1 --seed 1 --run-id f3-e1-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-1 --seed 1 --run-id f3-e1-f3-seed1"
   },
   {
     "scenario": "E1",
@@ -87,7 +87,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E1/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-2 --seed 2 --run-id f3-e1-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1/f3/seed-2 --seed 2 --run-id f3-e1-f3-seed2"
   },
   {
     "scenario": "E1",
@@ -97,7 +97,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/none/seed-0",
     "model": "artifacts/sac/f3-15min/E1/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-0 --seed 0 --run-id f3-e1-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-0 --seed 0 --run-id f3-e1-none-seed0"
   },
   {
     "scenario": "E1",
@@ -107,7 +107,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/none/seed-1",
     "model": "artifacts/sac/f3-15min/E1/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-1 --seed 1 --run-id f3-e1-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-1 --seed 1 --run-id f3-e1-none-seed1"
   },
   {
     "scenario": "E1",
@@ -117,7 +117,7 @@
     "config": "configs/f3-e1.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1/none/seed-2",
     "model": "artifacts/sac/f3-15min/E1/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-2 --seed 2 --run-id f3-e1-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1/none/seed-2 --seed 2 --run-id f3-e1-none-seed2"
   },
   {
     "scenario": "E2",
@@ -127,7 +127,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E2/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-0 --seed 0 --run-id f3-e2-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-0 --seed 0 --run-id f3-e2-f3-seed0"
   },
   {
     "scenario": "E2",
@@ -137,7 +137,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E2/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-1 --seed 1 --run-id f3-e2-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-1 --seed 1 --run-id f3-e2-f3-seed1"
   },
   {
     "scenario": "E2",
@@ -147,7 +147,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E2/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-2 --seed 2 --run-id f3-e2-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E2/f3/seed-2 --seed 2 --run-id f3-e2-f3-seed2"
   },
   {
     "scenario": "E2",
@@ -157,7 +157,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/none/seed-0",
     "model": "artifacts/sac/f3-15min/E2/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-0 --seed 0 --run-id f3-e2-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-0 --seed 0 --run-id f3-e2-none-seed0"
   },
   {
     "scenario": "E2",
@@ -167,7 +167,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/none/seed-1",
     "model": "artifacts/sac/f3-15min/E2/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-1 --seed 1 --run-id f3-e2-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-1 --seed 1 --run-id f3-e2-none-seed1"
   },
   {
     "scenario": "E2",
@@ -177,7 +177,7 @@
     "config": "configs/f3-e2.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E2/none/seed-2",
     "model": "artifacts/sac/f3-15min/E2/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-2 --seed 2 --run-id f3-e2-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e2.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E2/none/seed-2 --seed 2 --run-id f3-e2-none-seed2"
   },
   {
     "scenario": "E3",
@@ -187,7 +187,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E3/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-0 --seed 0 --run-id f3-e3-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-0 --seed 0 --run-id f3-e3-f3-seed0"
   },
   {
     "scenario": "E3",
@@ -197,7 +197,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E3/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-1 --seed 1 --run-id f3-e3-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-1 --seed 1 --run-id f3-e3-f3-seed1"
   },
   {
     "scenario": "E3",
@@ -207,7 +207,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E3/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-2 --seed 2 --run-id f3-e3-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E3/f3/seed-2 --seed 2 --run-id f3-e3-f3-seed2"
   },
   {
     "scenario": "E3",
@@ -217,7 +217,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/none/seed-0",
     "model": "artifacts/sac/f3-15min/E3/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-0 --seed 0 --run-id f3-e3-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-0 --seed 0 --run-id f3-e3-none-seed0"
   },
   {
     "scenario": "E3",
@@ -227,7 +227,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/none/seed-1",
     "model": "artifacts/sac/f3-15min/E3/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-1 --seed 1 --run-id f3-e3-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-1 --seed 1 --run-id f3-e3-none-seed1"
   },
   {
     "scenario": "E3",
@@ -237,7 +237,7 @@
     "config": "configs/f3-e3.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E3/none/seed-2",
     "model": "artifacts/sac/f3-15min/E3/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-2 --seed 2 --run-id f3-e3-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e3.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E3/none/seed-2 --seed 2 --run-id f3-e3-none-seed2"
   },
   {
     "scenario": "E4",
@@ -247,7 +247,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E4/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-0 --seed 0 --run-id f3-e4-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-0 --seed 0 --run-id f3-e4-f3-seed0"
   },
   {
     "scenario": "E4",
@@ -257,7 +257,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E4/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-1 --seed 1 --run-id f3-e4-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-1 --seed 1 --run-id f3-e4-f3-seed1"
   },
   {
     "scenario": "E4",
@@ -267,7 +267,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E4/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-2 --seed 2 --run-id f3-e4-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E4/f3/seed-2 --seed 2 --run-id f3-e4-f3-seed2"
   },
   {
     "scenario": "E4",
@@ -277,7 +277,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/none/seed-0",
     "model": "artifacts/sac/f3-15min/E4/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-0 --seed 0 --run-id f3-e4-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-0 --seed 0 --run-id f3-e4-none-seed0"
   },
   {
     "scenario": "E4",
@@ -287,7 +287,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/none/seed-1",
     "model": "artifacts/sac/f3-15min/E4/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-1 --seed 1 --run-id f3-e4-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-1 --seed 1 --run-id f3-e4-none-seed1"
   },
   {
     "scenario": "E4",
@@ -297,7 +297,7 @@
     "config": "configs/f3-e4.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E4/none/seed-2",
     "model": "artifacts/sac/f3-15min/E4/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-2 --seed 2 --run-id f3-e4-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e4.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E4/none/seed-2 --seed 2 --run-id f3-e4-none-seed2"
   },
   {
     "scenario": "E5",
@@ -307,7 +307,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E5/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-0 --seed 0 --run-id f3-e5-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-0 --seed 0 --run-id f3-e5-f3-seed0"
   },
   {
     "scenario": "E5",
@@ -317,7 +317,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E5/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-1 --seed 1 --run-id f3-e5-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-1 --seed 1 --run-id f3-e5-f3-seed1"
   },
   {
     "scenario": "E5",
@@ -327,7 +327,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E5/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-2 --seed 2 --run-id f3-e5-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E5/f3/seed-2 --seed 2 --run-id f3-e5-f3-seed2"
   },
   {
     "scenario": "E5",
@@ -337,7 +337,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/none/seed-0",
     "model": "artifacts/sac/f3-15min/E5/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-0 --seed 0 --run-id f3-e5-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-0 --seed 0 --run-id f3-e5-none-seed0"
   },
   {
     "scenario": "E5",
@@ -347,7 +347,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/none/seed-1",
     "model": "artifacts/sac/f3-15min/E5/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-1 --seed 1 --run-id f3-e5-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-1 --seed 1 --run-id f3-e5-none-seed1"
   },
   {
     "scenario": "E5",
@@ -357,7 +357,7 @@
     "config": "configs/f3-e5.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E5/none/seed-2",
     "model": "artifacts/sac/f3-15min/E5/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-2 --seed 2 --run-id f3-e5-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e5.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E5/none/seed-2 --seed 2 --run-id f3-e5-none-seed2"
   },
   {
     "scenario": "E1_hard",
@@ -367,7 +367,7 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/f3/seed-0",
     "model": "artifacts/sac/f3-15min/E1_hard/f3/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-0 --seed 0 --run-id f3-e1_hard-f3-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-0 --seed 0 --run-id f3-e1_hard-f3-seed0"
   },
   {
     "scenario": "E1_hard",
@@ -377,7 +377,7 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/f3/seed-1",
     "model": "artifacts/sac/f3-15min/E1_hard/f3/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-1 --seed 1 --run-id f3-e1_hard-f3-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-1 --seed 1 --run-id f3-e1_hard-f3-seed1"
   },
   {
     "scenario": "E1_hard",
@@ -387,7 +387,7 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/f3/seed-2",
     "model": "artifacts/sac/f3-15min/E1_hard/f3/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-2 --seed 2 --run-id f3-e1_hard-f3-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode cached --artifact-dir artifacts/sac/f3-15min/E1_hard/f3/seed-2 --seed 2 --run-id f3-e1_hard-f3-seed2"
   },
   {
     "scenario": "E1_hard",
@@ -397,7 +397,7 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/none/seed-0",
     "model": "artifacts/sac/f3-15min/E1_hard/none/seed-0/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-0 --seed 0 --run-id f3-e1_hard-none-seed0"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-0 --seed 0 --run-id f3-e1_hard-none-seed0"
   },
   {
     "scenario": "E1_hard",
@@ -407,7 +407,7 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/none/seed-1",
     "model": "artifacts/sac/f3-15min/E1_hard/none/seed-1/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-1 --seed 1 --run-id f3-e1_hard-none-seed1"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-1 --seed 1 --run-id f3-e1_hard-none-seed1"
   },
   {
     "scenario": "E1_hard",
@@ -417,6 +417,6 @@
     "config": "configs/f3-e1-hard-unserved.yaml",
     "artifact_dir": "artifacts/sac/f3-15min/E1_hard/none/seed-2",
     "model": "artifacts/sac/f3-15min/E1_hard/none/seed-2/sac_microgrid.zip",
-    "command": "uv run microgrid-sim train --algo sac --timesteps 1000000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-2 --seed 2 --run-id f3-e1_hard-none-seed2"
+    "command": "uv run microgrid-sim train --algo sac --timesteps 200000 --config configs/f3-e1-hard-unserved.yaml --forecast-mode none --artifact-dir artifacts/sac/f3-15min/E1_hard/none/seed-2 --seed 2 --run-id f3-e1_hard-none-seed2"
   }
 ]
