@@ -1,0 +1,12 @@
+extends: f3-e1.yaml
+
+scenario:
+  name: f3_e1_hard_unserved
+  description: E1 high-diesel-fuel scenario with hard unserved-load termination during RL training.
+
+# RL-side enforcement of the load-service contract: any tick with unserved
+# load above the 2 kW tolerance ends the episode with a one-shot penalty.
+rl:
+  hard_unserved: true
+  hard_unserved_penalty: 1000.0
+  hard_unserved_tol_mw: 0.002

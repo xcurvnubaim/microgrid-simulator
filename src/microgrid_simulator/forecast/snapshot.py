@@ -29,6 +29,8 @@ class ForecastSnapshot:
     source_id: str = ""
     context_time: str | None = None
     context_steps: int = 0
+    pv_context_steps: int = 0
+    demand_context_steps: int = 0
     cold_start: bool = False
     covariate_mode: str = "unknown"
     issue_frequency_hours: float | None = None
@@ -62,6 +64,8 @@ class ForecastSnapshot:
             "forecast_source": self.source_id,
             "forecast_context_time": self.context_time,
             "forecast_context_steps": self.context_steps,
+            "forecast_pv_context_steps": self.pv_context_steps,
+            "forecast_demand_context_steps": self.demand_context_steps,
             "forecast_cold_start": self.cold_start,
             "forecast_covariate_mode": self.covariate_mode,
         }

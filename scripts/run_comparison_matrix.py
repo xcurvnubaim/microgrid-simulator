@@ -169,6 +169,8 @@ def main() -> None:
                     / policy
                     / window.replace(" ", "_").replace(":", "-")
                 )
+                if (out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists():
+                    continue
                 jobs.append(JobSpec(scenario_id, config_path, window, policy, 0, out_dir))
 
             # RL policies: SAC-F0 and SAC-none (three seeds each, retrained per scenario)
@@ -184,6 +186,8 @@ def main() -> None:
                             / f"{policy}_seed{seed}"
                             / window.replace(" ", "_").replace(":", "-")
                         )
+                        if (out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists():
+                            continue
                         jobs.append(
                             JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
                         )

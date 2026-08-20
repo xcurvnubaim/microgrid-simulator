@@ -1,0 +1,33 @@
+# F3 15-minute SAC training registry. This does not alter the frozen E0-E5
+# hourly-F0 comparison or its artifacts.
+version: 1
+name: module-6-f3-15min-sac
+scenarios:
+  E0: configs/f3-e0.yaml
+  E1: configs/f3-e1.yaml
+  E2: configs/f3-e2.yaml
+  E3: configs/f3-e3.yaml
+  E4: configs/f3-e4.yaml
+  E5: configs/f3-e5.yaml
+  # Diagnostic arm: E1 economics with hard unserved-load termination enabled
+  # during RL training (env.py one-shot constraint enforcement).
+  E1_hard: configs/f3-e1-hard-unserved.yaml
+policies:
+  - id: sac_f3
+    forecast_mode: f3
+    seeds: [0, 1, 2]
+  - id: sac_none_f3
+    forecast_mode: none
+    seeds: [0, 1, 2]
+training:
+  algorithm: sac
+  total_timesteps: 1000000
+  artifact_root: artifacts/sac/f3-15min
+  run_root: runs/f3-15min
+  checkpoint_selection_split: val
+  evaluation_split: test
+  forecast_cache: data/f3/train/forecasts.jsonl
+  forecast_manifest: data/f3/train/forecast_manifest.json
+  forecast_val_cache: data/f3/val/forecasts.jsonl
+  forecast_val_manifest: data/f3/val/forecast_manifest.json
+  do_not_launch: true

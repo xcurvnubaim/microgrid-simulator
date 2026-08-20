@@ -229,6 +229,7 @@ def optimize_dispatch(
         solver_name=solver_name or settings.backend.solver,
         log_to_console=False,
         extra_functionality=_add_common_reward_objective,
+        solver_options={"time_limit": 5.0, "mip_rel_gap": 0.01},
     )
     if status != "ok":  # pragma: no cover - solver dependent
         raise RuntimeError(f"PyPSA dispatch optimization failed: {status} / {condition}")

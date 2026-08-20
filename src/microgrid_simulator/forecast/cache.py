@@ -186,6 +186,8 @@ class ForecastCache:
                     source_id=str(data.get("source_id", "")),
                     context_time=data.get("context_time"),
                     context_steps=int(data.get("context_steps", 0)),
+                    pv_context_steps=int(data.get("pv_context_steps", 0)),
+                    demand_context_steps=int(data.get("demand_context_steps", 0)),
                     cold_start=bool(data.get("cold_start", False)),
                     covariate_mode=str(data.get("covariate_mode", "cached")),
                     issue_frequency_hours=(
@@ -226,6 +228,8 @@ class ForecastCache:
                     "source_id": snapshot.source_id,
                     "context_time": snapshot.context_time,
                     "context_steps": snapshot.context_steps,
+                    "pv_context_steps": snapshot.pv_context_steps,
+                    "demand_context_steps": snapshot.demand_context_steps,
                     "cold_start": snapshot.cold_start,
                     "covariate_mode": snapshot.covariate_mode,
                 }

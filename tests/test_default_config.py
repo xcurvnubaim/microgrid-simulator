@@ -44,3 +44,20 @@ def test_nominal_contract_values_are_explicit_in_yaml() -> None:
     assert settings.reward.w_carbon == 4.0
     assert settings.reward.w_health == 0.5
     assert settings.reward.w_unserved == 20.0
+
+
+def test_recursive_extends(tmp_path) -> None:
+    grandparent = tmp_path / "grandparent.yaml"
+    parent = tmp_path / "parent.yaml"
+    child = tmp_path / "child.yaml"
+
+    grandparent.write_text("reward:\n  w_carbon: 4.0\n  w_health: 0.5\n")
+    parent.write_text(f"extends: {grandparent.name}\nreward:\n  w_health: 1.0\n  w_unserved: 20.0\n")
+    child.write_text(f"extends: {parent.name}\nreward:\n  w_unserved: 30.0\n")
+
+    from microgrid_simulator.config import Settings
+    settings = Settings.from_yaml(child)
+    assert settings.reward.w_carbon == 4.0
+    assert settings.reward.w_health == 1.0
+    assert settings.reward.w_unserved == 30.0
+

@@ -683,15 +683,14 @@ class Settings(BaseSettings):
         return self
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> Settings:
-        path = Path(path)
+    def _load_raw_yaml(cls, path: Path) -> dict[str, Any]:
         raw = yaml.safe_load(path.read_text()) or {}
         parent = raw.pop("extends", None)
         if parent is not None:
             parent_path = Path(parent)
             if not parent_path.is_absolute():
                 parent_path = path.parent / parent_path
-            base = yaml.safe_load(parent_path.read_text()) or {}
+            base = cls._load_raw_yaml(parent_path)
 
             def merge(target: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
                 for key, value in overrides.items():
@@ -702,6 +701,12 @@ class Settings(BaseSettings):
                 return target
 
             raw = merge(base, raw)
+        return raw
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> Settings:
+        path = Path(path)
+        raw = cls._load_raw_yaml(path)
         return cls(**raw)
 
 
