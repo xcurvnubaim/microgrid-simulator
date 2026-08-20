@@ -167,7 +167,8 @@ def main() -> None:
                     / "mpc_f3"
                     / window.replace(" ", "_").replace(":", "-")
                 )
-                jobs.append(JobSpec(scenario_id, config_path, window, "mpc_f3", 0, out_dir))
+                if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
+                    jobs.append(JobSpec(scenario_id, config_path, window, "mpc_f3", 0, out_dir))
 
             # RL policies: SAC-F3 and SAC-none-F3 (three seeds each)
             if not args.policy or args.policy.startswith("sac_"):
@@ -181,9 +182,10 @@ def main() -> None:
                             / f"{policy}_seed{seed}"
                             / window.replace(" ", "_").replace(":", "-")
                         )
-                        jobs.append(
-                            JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
-                        )
+                        if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
+                            jobs.append(
+                                JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
+                            )
                 # Diagnostic hard-unserved trained policy under E1
                 if scenario_id == "E1":
                     for policy in ["sac_f3_hard", "sac_none_f3_hard"]:
@@ -196,9 +198,10 @@ def main() -> None:
                                 / f"{policy}_seed{seed}"
                                 / window.replace(" ", "_").replace(":", "-")
                             )
-                            jobs.append(
-                                JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
-                            )
+                            if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
+                                jobs.append(
+                                    JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
+                                )
 
     LOGGER.info("Resolved %d total F3 evaluation jobs", len(jobs))
     if args.dry_run:
