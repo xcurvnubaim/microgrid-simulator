@@ -14,7 +14,9 @@ import numpy as np
 from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
 from microgrid_simulator.config import Settings
 from microgrid_simulator.controllers import RuleBasedController
-from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+from microgrid_simulator.controllers.pypsa_rolling_horizon import (
+    PyPSARollingHorizonController,
+)
 from microgrid_simulator.ems.broker import EventBroker
 from microgrid_simulator.ems.shield import SafetyShield
 from microgrid_simulator.ems.types import DispatchCommand, TelemetryFrame, utc_now
@@ -29,29 +31,29 @@ class EMSService:
         settings: Settings,
         broker: EventBroker | None = None,
         *,
-        policy: Literal["rule", "sac", "ppo", "pypsa_mpc"] = "rule",
+        policy: Literal["rule", "sac", "ppo", "pypsa_rh", "pypsa_mpc"] = "rule",
         artifact: str | Path | None = None,
         command_ttl_ms: int = 1000,
     ) -> None:
         self.settings = settings
         self.broker = broker
-        self.policy = policy
+        self.policy = "pypsa_rh" if policy == "pypsa_mpc" else policy
         self.command_ttl_ms = command_ttl_ms
         self.shield = SafetyShield(settings)
         self.rule = RuleBasedController(settings)
         self.model: Any = None
         self.norm: Any = None
         self.policy_version = "rule-v1"
-        if policy == "pypsa_mpc":
+        if self.policy == "pypsa_rh":
             backend = PyPSAOperationalBackend(self.settings)
-            self.controller = PyPSAMPCController(backend=backend)
-            self.policy_version = "mpc-v1"
-        elif policy != "rule":
+            self.controller = PyPSARollingHorizonController(backend=backend)
+            self.policy_version = "pypsa-rh-v1"
+        elif self.policy != "rule":
             if artifact is None:
-                raise ValueError(f"{policy} policy requires an artifact")
+                raise ValueError(f"{self.policy} policy requires an artifact")
             from microgrid_simulator.rl.train import ALGOS
 
-            self.model = ALGOS[policy].load(str(artifact))
+            self.model = ALGOS[self.policy].load(str(artifact))
             stats = Path(str(artifact)).with_suffix("").as_posix() + "_vecnormalize.pkl"
             if Path(stats).exists():
                 with open(stats, "rb") as file:
@@ -65,9 +67,7 @@ class EMSService:
                 frame.forecast_pv_kw / 1000.0 if frame.forecast_pv_kw is not None else None
             ),
             demand_forecast_mw=(
-                frame.forecast_demand_kw / 1000.0
-                if frame.forecast_demand_kw is not None
-                else None
+                frame.forecast_demand_kw / 1000.0 if frame.forecast_demand_kw is not None else None
             ),
         )
         return encode_action(
@@ -77,7 +77,7 @@ class EMSService:
             self.settings.diesel.enabled,
         )
 
-    def _mpc_action(self, frame: TelemetryFrame) -> np.ndarray:
+    def _pypsa_rh_action(self, frame: TelemetryFrame) -> np.ndarray:
         grid_state = frame.to_grid_state()
         control = self.controller.act(grid_state)
         return encode_action(
@@ -90,8 +90,8 @@ class EMSService:
     def _policy_action(self, frame: TelemetryFrame) -> np.ndarray:
         if self.policy == "rule":
             return self._rule_action(frame)
-        if self.policy == "pypsa_mpc":
-            return self._mpc_action(frame)
+        if self.policy == "pypsa_rh":
+            return self._pypsa_rh_action(frame)
         obs = np.asarray(frame.observation, dtype=np.float32)
         expected = tuple(self.model.observation_space.shape)
         if obs.shape != expected:
@@ -150,7 +150,8 @@ class EMSService:
         expected_action = 2 + self.settings.topology.n_ev + int(self.settings.diesel.enabled)
         if action_shape != expected_action:
             raise ValueError(
-                f"plant action shape {action_shape} != configured EMS action shape {expected_action}"
+                f"plant action shape {action_shape} != configured EMS action shape "
+                f"{expected_action}"
             )
         if self.model is None:
             return

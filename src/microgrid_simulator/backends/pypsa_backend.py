@@ -12,13 +12,14 @@ optimization over a forecast horizon enforcing:
 * load shedding only as a last (heavily priced) resort.
 
 This is deliberately *not* run inside every RL step (a MILP per tick is far too
-slow for training). Use it as the MPC baseline (:class:`PyPSAMPCController`),
+slow for training). Use it as the PyPSA-RH optimization baseline
+(:class:`PyPSARollingHorizonController`),
 an expert/teacher policy, an operational feasibility checker, or an offline
 dispatch benchmark.
 
 Objective costs mirror the reward function's fuel, carbon, and autonomy terms:
 ``grid = w_autonomy*import_price + w_carbon*grid_carbon*1000`` per MWh and
-``diesel = fuel_cost + w_carbon*diesel_carbon*1000`` per MWh, so the MPC
+``diesel = fuel_cost + w_carbon*diesel_carbon*1000`` per MWh, so the PyPSA-RH
 optimum is a meaningful lower bound for the RL policy's operating cost.
 
 Requires PyPSA, which ships with the default install (``pip install -e .``).
@@ -39,13 +40,14 @@ from microgrid_simulator.core.types import ControlAction
 
 LOGGER = logging.getLogger(__name__)
 
+
 def _require_pypsa() -> Any:
     try:
         import pypsa
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise ImportError(
             "PyPSA is not installed. Reinstall project dependencies with "
-            "`pip install -e .` to use the PyPSA backend/MPC baseline."
+            "`pip install -e .` to use the PyPSA-RH optimization baseline."
         ) from exc
     return pypsa
 
@@ -171,7 +173,7 @@ def _add_common_reward_objective(net: Any, snapshots: Any) -> None:
     The simulator's baseline degradation is ``2e-4 * MWh / capacity_mwh`` and
     reward scales delta-SOH by 1e4, yielding ``2 / capacity_mwh`` per MWh
     before ``w_health``. Its nonlinear SOC-edge stress multiplier is not
-    represented in this linear MPC approximation.
+    represented in this linear rolling-horizon approximation.
     """
 
     settings: Settings = net.meta["microgrid_settings"]
@@ -195,9 +197,7 @@ def _add_common_reward_objective(net: Any, snapshots: Any) -> None:
         name="battery-store-mode-upper",
     )
 
-    wear_per_mwh = settings.reward.w_health * 2.0 / max(
-        settings.battery.capacity_mwh, 1e-9
-    )
+    wear_per_mwh = settings.reward.w_health * 2.0 / max(settings.battery.capacity_mwh, 1e-9)
     if wear_per_mwh <= 0.0:
         return
     dt = float(settings.topology.timestep_hours)
@@ -275,7 +275,7 @@ def plan_to_actions(plan: pd.DataFrame) -> list[ControlAction]:
 
 class PyPSAOperationalBackend(SimpleBackend):
     """Backend whose stepping physics match ``SimpleBackend`` and which exposes
-    PyPSA rolling-horizon optimization for MPC baselines and feasibility checks."""
+    PyPSA rolling-horizon optimization for scheduling baselines and feasibility checks."""
 
     def __init__(self, settings: Settings) -> None:
         _require_pypsa()  # fail fast with the install hint
@@ -290,7 +290,7 @@ class PyPSAOperationalBackend(SimpleBackend):
     def advance_window(self) -> None:
         """Advance the demand/PV window position by one control tick.
 
-        Called by an MPC controller each time it consumes one plan step so the
+        Called by the project rolling-horizon controller after it consumes one plan step so the
         next re-plan reads the telemetry window from the correct offset.
         """
         self.demand.advance()
@@ -323,7 +323,7 @@ class PyPSAOperationalBackend(SimpleBackend):
         """Optimize dispatch for the next ``n_steps`` from the current state.
 
         ``soc_init`` / ``diesel_on_init`` default to this backend's own (un-stepped)
-        values; pass the live environment state when the MPC plays against a
+        values; pass the live environment state when PyPSA-RH plays against a
         separately-stepped env so each re-plan starts from the true battery/diesel
         condition rather than a stale reset value.
 
@@ -349,7 +349,5 @@ class PyPSAOperationalBackend(SimpleBackend):
                     )
                 )
             ),
-            diesel_on_init=(
-                self.diesel.is_on if diesel_on_init is None else bool(diesel_on_init)
-            ),
+            diesel_on_init=(self.diesel.is_on if diesel_on_init is None else bool(diesel_on_init)),
         )

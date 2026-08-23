@@ -15,7 +15,7 @@ from typing import Any
 
 # Unserved load at or below this magnitude (MW) is solver/optimizer numerical
 # noise, not a real service interruption: LP/MILP dispatch plans (e.g. the
-# PyPSA MPC baseline) can leave residuals around 1e-9..1e-6 MW on an otherwise
+# PyPSA-RH baseline) can leave residuals around 1e-9..1e-6 MW on an otherwise
 # feasible interval. Real shortfalls from ramp/SOC/capacity limits are orders
 # of magnitude larger. Shared by ``GridState.blackout`` and every backend's
 # "unserved" constraint-violation check so the two stay consistent.

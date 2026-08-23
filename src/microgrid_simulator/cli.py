@@ -285,12 +285,15 @@ def replay(
         help="paper report, metrics JSON, and interval CSV directory "
         "(default: reports/experiments/islanded_72h_<policy>_<telemetry-date>)",
     ),
-    policy: str = typer.Option("rule", help="paper baseline controller (rule | mpc | schedule)"),
+    policy: str = typer.Option(
+        "rule", help="paper baseline controller (rule | pypsa_rh | schedule)"
+    ),
     seed: int = typer.Option(0, help="recorded reproducibility seed"),
 ) -> None:
     """Run a strict 72-hour measured load/PV baseline and export its report."""
     from microgrid_simulator.experiments.telemetry_replay import run_telemetry_replay
 
+    policy = "pypsa_rh" if policy == "mpc" else policy
     settings = _load_settings(config)
     if output_dir is None:
         output_dir = _replay_output_dir(settings, policy)

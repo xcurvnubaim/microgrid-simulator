@@ -1,6 +1,6 @@
 """Baseline and learned controllers, all speaking GridState -> ControlAction.
 
-``PyPSAMPCController`` and ``RLPolicyController`` are imported lazily because
+``PyPSARollingHorizonController`` and ``RLPolicyController`` are imported lazily because
 they need the optional ``ops`` / ``rl`` extras.
 """
 
@@ -21,14 +21,20 @@ __all__ = [
     "GreedyPeakShavingController",
     "IdleController",
     "ManualScheduleController",
-    "PyPSAMPCController",
+    "PyPSARollingHorizonController",
     "RLPolicyController",
     "RuleBasedController",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    if name == "PyPSAMPCController":
+    if name == "PyPSARollingHorizonController":
+        from microgrid_simulator.controllers.pypsa_rolling_horizon import (
+            PyPSARollingHorizonController,
+        )
+
+        return PyPSARollingHorizonController
+    if name == "PyPSAMPCController":  # deprecated import compatibility
         from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
 
         return PyPSAMPCController

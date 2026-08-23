@@ -186,8 +186,8 @@ def test_strict_client_uses_15min_covering_snapshot(tmp_path) -> None:
         client.fetch(context, issued_at="2026-01-15T00:15:00")
 
 
-def test_mpc_direct_15min_path_consumes_one_point_per_tick() -> None:
-    from microgrid_simulator.controllers.pypsa_mpc import _align_forecast_to_steps
+def test_pypsa_rh_direct_15min_path_consumes_one_point_per_tick() -> None:
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import _align_forecast_to_steps
 
     snapshot = ForecastSnapshot(
         issued_at="2026-01-15T00:00:00",

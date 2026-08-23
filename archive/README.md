@@ -11,7 +11,7 @@ The single active scenario is `configs/islanded-baseline-72h.yaml`:
 - pandapower AC plant with PV, battery, and diesel;
 - F0 causal hourly PV/load forecasts held for four controller ticks;
 - nominal dispatch economics;
-- rule, PyPSA MPC, no-forecast SAC, and F0 forecast-aware SAC controllers.
+- rule, PyPSA-RH, no-forecast SAC, and F0 forecast-aware SAC controllers.
 
 `configs/docker-islanded-72h.yaml` is only a container path/transport overlay for this same
 scenario. It is not a separate research scenario.

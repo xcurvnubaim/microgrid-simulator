@@ -2,7 +2,7 @@
 """Concurrency-enabled runner for the Module 6 comparison matrix.
 
 Spans E0-E5, 9 March telemetry windows, and all policies: Rule-F0, Schedule,
-MPC-F0, SAC-F0, and SAC-none (evaluation of 3 seeds each). Evaluates in parallel
+PyPSA-RH-F0, SAC-F0, and SAC-none (evaluation of 3 seeds each). Evaluates in parallel
 using a multiprocessing ProcessPoolExecutor to speed up MILP/RL rollouts.
 """
 
@@ -60,8 +60,8 @@ def run_single_job(spec: JobSpec) -> dict[str, Any]:
 
         # RL policy loading mapping once artifacts are generated:
         # artifacts/sac/{scenario_id}/cached-1m/seed-{seed}/
-        # For Rule/Schedule/MPC, standard replay paths are used.
-        # MPC uses full receding horizon (replan every step).
+        # For Rule/Schedule/PyPSA-RH, standard replay paths are used.
+        # PyPSA-RH uses the project rolling-horizon wrapper.
         if spec.policy in {"sac_f0", "sac_none"}:
             mode = "cached" if spec.policy == "sac_f0" else "noforecast"
             artifact_dir = (
@@ -136,7 +136,7 @@ def main() -> None:
     parser.add_argument(
         "--policy",
         type=str,
-        choices=["rule", "schedule", "mpc", "sac_f0", "sac_none"],
+        choices=["rule", "schedule", "pypsa_rh", "sac_f0", "sac_none"],
         help="Filter one policy",
     )
     parser.add_argument(
@@ -147,9 +147,7 @@ def main() -> None:
     parser.add_argument(
         "--scenario", type=str, choices=list(SCENARIOS.keys()), help="Filter single scenario"
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Print job specs without executing"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Print job specs without executing")
     args = parser.parse_args()
 
     jobs: list[JobSpec] = []
@@ -159,15 +157,12 @@ def main() -> None:
         if args.scenario and scenario_id != args.scenario:
             continue
         for window in MARCH_WINDOWS:
-            # Rule, Schedule, MPC baselines
-            for policy in ["rule", "schedule", "mpc"]:
+            # Rule, Schedule, and PyPSA-RH baselines
+            for policy in ["rule", "schedule", "pypsa_rh"]:
                 if args.policy and policy != args.policy:
                     continue
                 out_dir = (
-                    output_base
-                    / scenario_id
-                    / policy
-                    / window.replace(" ", "_").replace(":", "-")
+                    output_base / scenario_id / policy / window.replace(" ", "_").replace(":", "-")
                 )
                 if (out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists():
                     continue
@@ -186,7 +181,9 @@ def main() -> None:
                             / f"{policy}_seed{seed}"
                             / window.replace(" ", "_").replace(":", "-")
                         )
-                        if (out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists():
+                        if (out_dir / "metrics.json").exists() and (
+                            out_dir / "trajectory.csv"
+                        ).exists():
                             continue
                         jobs.append(
                             JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
@@ -204,7 +201,7 @@ def main() -> None:
         return
 
     # Check baseline filters to prevent running SAC before artifacts exist
-    baseline_policies = {"rule", "schedule", "mpc"}
+    baseline_policies = {"rule", "schedule", "pypsa_rh"}
     active_jobs = [
         j
         for j in jobs

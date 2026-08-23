@@ -3,7 +3,7 @@
 Uses the last solved tick as the forecast for the next one (one-tick lag):
 discharge just enough battery to pull the expected import below the threshold,
 and recharge only during clearly low-demand periods so energy is available for
-the next peak. No look-ahead — that is exactly what the PyPSA MPC baseline
+the next peak. No look-ahead — that is exactly what the PyPSA-RH baseline
 adds on top.
 """
 

@@ -16,7 +16,7 @@ off. The setpoint is deliberately not sized to the instantaneous residual, so
 it overgenerates relative to actual need — the surplus shows up as extra
 ``diesel_kwh``/``carbon_kg`` and ``excess_generation_kw`` (no PV/battery sink
 is commanded for it), the reliability-for-waste trade this baseline is meant
-to demonstrate against the reactive rule and MPC baselines.
+to demonstrate against the reactive rule and PyPSA-RH baselines.
 
 The default timetable (full nameplate outside 09:00-14:00, min load inside
 it) was hand-derived from the 2026-01-15 window's hourly load/PV profile. A

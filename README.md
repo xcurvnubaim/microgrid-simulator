@@ -33,7 +33,7 @@ Each `step()`:
 The runtime default is `configs/islanded-baseline-72h.yaml`: a deterministic 72-hour
 islanded campus replay at 15-minute control resolution, using pandapower AC with PV,
 battery, and diesel. It uses the F0 causal hourly forecast cache and nominal dispatch
-economics for rule, MPC, and SAC comparison. `configs/docker-islanded-72h.yaml` is a
+economics for rule, PyPSA-RH, and SAC comparison. `configs/docker-islanded-72h.yaml` is a
 container path/transport overlay for the same scenario, not a separate research scenario.
 
 Completed and inactive scenarios, runs, scripts, caches, and model variants are preserved
@@ -260,7 +260,7 @@ src/microgrid_simulator/
   contracts/                 telemetry, plant-observation, command, and result schemas
   telemetry/                 strict replay sessions and HTTP service
   simulator/                 transport-neutral orchestrator, providers, and HTTP service
-  controllers/               idle / rule / deterministic / manual / MPC / RL policies
+  controllers/               idle / rule / deterministic / manual / PyPSA-RH / RL policies
   digital_twin/              measured-data ingestion, alignment, replay
   model/reward.py            the multi-term reward / punish
   rl/                        Gymnasium env, SB3 train/eval, episode sampler

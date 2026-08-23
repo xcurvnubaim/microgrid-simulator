@@ -30,7 +30,7 @@ Terminal-SOC contract (RL Plan §Acceptance criteria): an episode whose final
 SOC lies outside ``settings.episode.terminal_soc_tolerance`` of the recorded
 starting SOC terminates with a one-shot terminal penalty on the last step, so
 the agent is trained to return the battery to its start-of-episode charge
-(the same target the rule/MPC comparisons are judged against). The deviation
+(the same target the rule/PyPSA-RH comparisons are judged against). The deviation
 and penalty are exposed in ``info``.
 """
 
@@ -405,7 +405,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         # Terminal-SOC return-to-start contract: ending the episode away from
         # the recorded starting SOC ends the episode with a one-shot penalty,
         # so a policy cannot drain or overfill the battery for a short-horizon
-        # gain the way an unconstrained finite-horizon MPC does.
+        # gain the way an unconstrained finite-horizon PyPSA-RH solve does.
         epcfg = self.settings.episode
         final_soc = float(self.backend.battery.soc)
         self._terminal_soc_deviation = abs(final_soc - self._initial_soc)
@@ -707,7 +707,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         the absolute replay time the current forecast was issued against and the
         snapshot is the most recently fetched (possibly stale) response. A stale
         or unavailable snapshot is still returned so the caller can decide how to
-        treat it; the dashboard MPC path fails closed when it cannot provide a
+        treat it; the dashboard PyPSA-RH path fails closed when it cannot provide a
         non-stale, full-horizon forecast.
         """
         if not self.settings.forecast.enabled:

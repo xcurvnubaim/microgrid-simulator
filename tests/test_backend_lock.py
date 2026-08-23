@@ -50,6 +50,7 @@ def test_environment_rejects_injected_backend() -> None:
         MicrogridEnv(settings=settings, backend=injected)
 
 
-def test_dashboard_exposes_mpc_through_shared_rollout() -> None:
-    """MPC uses a separate PyPSA planner but executes through pandapower."""
-    assert "mpc" in POLICIES
+def test_dashboard_exposes_pypsa_rh_through_shared_rollout() -> None:
+    """PyPSA-RH plans separately but executes through pandapower."""
+    assert "pypsa_rh" in POLICIES
+    assert "mpc" not in POLICIES

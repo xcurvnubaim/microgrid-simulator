@@ -91,7 +91,7 @@ class DispatchCommand(WireModel):
     command_id: str = Field(default_factory=lambda: str(uuid4()))
     session_id: str
     telemetry_sequence_id: int = Field(ge=0)
-    controller: Literal["rule", "sac", "ppo", "pypsa_mpc"]
+    controller: Literal["rule", "sac", "ppo", "pypsa_rh", "pypsa_mpc"]
     policy_version: str
     issued_at: datetime = Field(default_factory=utc_now)
     expires_at: datetime

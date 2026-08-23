@@ -1,4 +1,4 @@
-"""PyPSA MPC objective alignment tests."""
+"""PyPSA-RH objective alignment tests."""
 
 from __future__ import annotations
 
@@ -12,13 +12,22 @@ from microgrid_simulator.backends.pypsa_backend import (  # noqa: E402
     optimize_dispatch,
 )
 from microgrid_simulator.config import Settings  # noqa: E402
-from microgrid_simulator.controllers.pypsa_mpc import (  # noqa: E402
+from microgrid_simulator.controllers.pypsa_rolling_horizon import (  # noqa: E402
     _align_snapshot_to_steps,
     _resample_hourly_to_quarter,
 )
 from microgrid_simulator.forecast.cache import ForecastCache  # noqa: E402
 from microgrid_simulator.forecast.errors import ForecastCacheError, ForecastError  # noqa: E402
 from microgrid_simulator.forecast.snapshot import ForecastSnapshot  # noqa: E402
+
+
+def test_legacy_controller_import_is_compatibility_alias() -> None:
+    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import (
+        PyPSARollingHorizonController,
+    )
+
+    assert PyPSAMPCController is PyPSARollingHorizonController
 
 
 def _snapshot(
@@ -41,8 +50,7 @@ def _snapshot(
     )
     timestamps = [
         (
-            _dt.datetime.fromisoformat(start_ts)
-            + _dt.timedelta(hours=frequency_hours * i)
+            _dt.datetime.fromisoformat(start_ts) + _dt.timedelta(hours=frequency_hours * i)
         ).isoformat()
         for i in range(n_points)
     ]
@@ -217,8 +225,6 @@ def test_align_snapshot_rejects_non_leakage_free_first_point() -> None:
         )
 
 
-
-
 def test_diesel_costs_come_from_shared_reward_configuration() -> None:
     settings = Settings(
         diesel={
@@ -282,7 +288,7 @@ def _objective_settings(**reward_overrides: float) -> Settings:
     return settings
 
 
-def test_e2_battery_health_weight_changes_mpc_cycling() -> None:
+def test_e2_battery_health_weight_changes_pypsa_rh_cycling() -> None:
     low_health = _objective_settings(w_health=0.1)
     high_health = _objective_settings(w_health=2000.0)
     demand = np.array([0.0, 0.1])
@@ -296,7 +302,7 @@ def test_e2_battery_health_weight_changes_mpc_cycling() -> None:
     assert high_plan["diesel_p_mw"].sum() > low_plan["diesel_p_mw"].sum()
 
 
-def test_e4_pv_waste_weight_changes_mpc_pv_absorption() -> None:
+def test_e4_pv_waste_weight_changes_pypsa_rh_pv_absorption() -> None:
     no_waste_penalty = _objective_settings(
         w_carbon=0.0,
         w_health=0.5,
@@ -317,18 +323,14 @@ def test_e4_pv_waste_weight_changes_mpc_pv_absorption() -> None:
     assert high_penalty_plan.loc[0, "battery_p_mw"] == pytest.approx(0.1)
 
 
-def test_e5_unserved_weight_changes_mpc_load_shedding() -> None:
+def test_e5_unserved_weight_changes_pypsa_rh_load_shedding() -> None:
     low_unserved = _objective_settings(w_unserved=1.0)
     high_unserved = _objective_settings(w_unserved=100.0)
     demand = np.array([0.1, 0.1])
     pv = np.array([0.0, 0.0])
 
-    low_plan = optimize_dispatch(
-        low_unserved, demand, pv, soc_init=0.1, diesel_on_init=True
-    )
-    high_plan = optimize_dispatch(
-        high_unserved, demand, pv, soc_init=0.1, diesel_on_init=True
-    )
+    low_plan = optimize_dispatch(low_unserved, demand, pv, soc_init=0.1, diesel_on_init=True)
+    high_plan = optimize_dispatch(high_unserved, demand, pv, soc_init=0.1, diesel_on_init=True)
 
     assert low_plan["shed_mw"].sum() == pytest.approx(0.2)
     assert high_plan["shed_mw"].sum() == pytest.approx(0.0)
@@ -364,7 +366,7 @@ def test_resample_hourly_forecast_missing_covering_raises() -> None:
 
 
 class _SpyBackend:
-    """Minimal stand-in for PyPSAOperationalBackend used by PyPSAMPCController."""
+    """Minimal stand-in for PyPSAOperationalBackend used by PyPSARollingHorizonController."""
 
     def __init__(self) -> None:
         from types import SimpleNamespace
@@ -415,12 +417,12 @@ class _SpyBackend:
         )
 
 
-def test_mpc_uses_live_snapshot_and_never_perfect_foresight() -> None:
-    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+def test_pypsa_rh_uses_live_snapshot_and_never_perfect_foresight() -> None:
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import PyPSARollingHorizonController
     from microgrid_simulator.core.types import GridState
 
     backend = _SpyBackend()
-    ctrl = PyPSAMPCController(backend=backend)
+    ctrl = PyPSARollingHorizonController(backend=backend)
     snap = _snapshot()
     ctrl.set_live_forecast_source(
         lambda: ("2026-01-15T00:00:00", snap),
@@ -450,12 +452,12 @@ def test_mpc_uses_live_snapshot_and_never_perfect_foresight() -> None:
     assert backend._advances == 1
 
 
-def test_mpc_fails_closed_when_live_snapshot_missing() -> None:
-    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+def test_pypsa_rh_fails_closed_when_live_snapshot_missing() -> None:
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import PyPSARollingHorizonController
     from microgrid_simulator.core.types import GridState
 
     backend = _SpyBackend()
-    ctrl = PyPSAMPCController(backend=backend)
+    ctrl = PyPSARollingHorizonController(backend=backend)
     ctrl.set_live_forecast_source(lambda: ("2026-01-15T00:00:00", None))
 
     state = GridState(
@@ -471,12 +473,12 @@ def test_mpc_fails_closed_when_live_snapshot_missing() -> None:
     assert backend.calls == []
 
 
-def test_mpc_fails_closed_without_any_forecast_source() -> None:
-    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+def test_pypsa_rh_fails_closed_without_any_forecast_source() -> None:
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import PyPSARollingHorizonController
     from microgrid_simulator.core.types import GridState
 
     backend = _SpyBackend()
-    ctrl = PyPSAMPCController(backend=backend)
+    ctrl = PyPSARollingHorizonController(backend=backend)
 
     state = GridState(
         timestamp=0.0,

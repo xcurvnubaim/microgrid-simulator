@@ -94,7 +94,7 @@ diesel:
   min_down_time_min: 15.0
   carbon_kg_per_kwh: 0.70
 
-# Used only by the optional schedule policy; rule and MPC ignore it.
+# Used only by the optional schedule policy; rule and PyPSA-RH ignore it.
 diesel_schedule:
   segments:
     - {start_hour: 0.0,  end_hour: 9.0,  level: max}

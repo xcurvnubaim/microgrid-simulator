@@ -1,6 +1,6 @@
 """Shared rollout runner for the dashboard API.
 
-Runs a controller (rule / idle / random / deterministic / schedule / rl / mpc) through one
+Runs a controller (rule / idle / random / deterministic / schedule / rl / pypsa_rh) through one
 episode and returns per-timestep rows the frontend can chart directly, plus episode meta
 (demand source, window start, totals). ``stream_rollout`` yields the same rows one tick at
 a time so the API can stream them to the UI as they are solved.
@@ -8,7 +8,7 @@ a time so the API can stream them to the UI as they are solved.
 The ``rl`` policy loads a trained SB3 artifact and predicts from the env's own observation
 builder, so training and dashboard evaluation see identical inputs.
 
-The ``mpc`` policy uses a persistent PyPSAMPCController (rolling-horizon MILP) that
+The ``pypsa_rh`` policy uses a persistent ``PyPSARollingHorizonController`` that
 re-plans at ``backend.rolling_horizon_hours`` intervals against the configured leakage-free
 cached forecast. Each commanded action is executed against the pandapower AC plant, and
 realized SOC/diesel state is fed back into every re-plan.
@@ -37,15 +37,16 @@ from microgrid_simulator.rl.env import decode_action
 
 LOGGER = logging.getLogger(__name__)
 
-POLICIES = ("rule", "idle", "random", "deterministic", "schedule", "rl", "mpc")
+POLICIES = ("rule", "idle", "random", "deterministic", "schedule", "rl", "pypsa_rh")
+LEGACY_POLICY_ALIASES = {"mpc": "pypsa_rh"}
 
 
-class _MpcController:
-    """Persistent PyPSA MPC controller that survives across ticks and replans."""
+class _RollingHorizonController:
+    """Persistent project rolling-horizon controller that replans across ticks."""
 
-    def __init__(self, controller: Any, mpc_summary: dict[str, Any]) -> None:
+    def __init__(self, controller: Any, rh_summary: dict[str, Any]) -> None:
         self._controller = controller
-        self.mpc_summary = mpc_summary
+        self.rh_summary = rh_summary
 
     def act(self, env: MicrogridEnv) -> np.ndarray:
         return env.encode_action(self._controller.act(env._last_state))  # noqa: SLF001
@@ -58,11 +59,11 @@ class _MpcController:
         return self._controller.last_plan
 
 
-def _setup_mpc_controller(
+def _setup_pypsa_rh_controller(
     settings: Settings,
     env: MicrogridEnv,
 ) -> tuple[Any, dict[str, Any]]:
-    """Create a persistent PyPSA MPC controller wired to a live or cached forecast.
+    """Create the project PyPSA rolling-horizon controller with causal forecasts.
 
     The planning backend receives the same telemetry window as the pandapower
     plant so its physical dimensions are consistent, but the controller override
@@ -74,20 +75,22 @@ def _setup_mpc_controller(
     enabled and ``forecast_mode != none``) whose snapshots are consumed at each
     replan through the environment.
 
-    Returns the controller and an MPC-summary dict for reporting. Raises with a
+    Returns the controller and a PyPSA-RH summary dict for reporting. Raises with a
     descriptive message when no valid forecast source is configured or available.
     """
     from microgrid_simulator.backends.pypsa_backend import PyPSAOperationalBackend
-    from microgrid_simulator.controllers.pypsa_mpc import PyPSAMPCController
+    from microgrid_simulator.controllers.pypsa_rolling_horizon import (
+        PyPSARollingHorizonController,
+    )
     from microgrid_simulator.forecast.cache import ForecastCache
 
     if not settings.forecast.enabled:
-        raise ValueError("MPC policy requires forecast.enabled in the scenario YAML.")
+        raise ValueError("PyPSA-RH policy requires forecast.enabled in the scenario YAML.")
 
     forecast_mode = getattr(settings.rl, "forecast_mode", "cached")
     if forecast_mode == "none":
         raise ValueError(
-            "MPC policy cannot run with forecast_mode=none; it needs a forecast source."
+            "PyPSA-RH policy cannot run with forecast_mode=none; it needs a forecast source."
         )
 
     strict_cache = settings.forecast.strict_cache
@@ -110,7 +113,7 @@ def _setup_mpc_controller(
     if strict_cache:
         if not settings.forecast.cache_path or not settings.forecast.manifest_path:
             raise ValueError(
-                "MPC policy with strict_cache=true needs forecast.cache_path and "
+                "PyPSA-RH policy with strict_cache=true needs forecast.cache_path and "
                 "forecast.manifest_path in the scenario YAML."
             )
         source_id = settings.forecast.source_id or settings.scenario.name
@@ -122,8 +125,8 @@ def _setup_mpc_controller(
                 action_interval_hours=settings.topology.timestep_hours,
             )
         except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"MPC forecast cache rejected: {exc}") from exc
-        ctrl = PyPSAMPCController(backend=pypsa_backend, forecast_cache=cache)
+            raise ValueError(f"PyPSA-RH forecast cache rejected: {exc}") from exc
+        ctrl = PyPSARollingHorizonController(backend=pypsa_backend, forecast_cache=cache)
         summary.update(
             {
                 "cache_source_id": source_id,
@@ -135,10 +138,10 @@ def _setup_mpc_controller(
     else:
         if not settings.forecast.service_url:
             raise ValueError(
-                "MPC policy with strict_cache=false needs forecast.service_url "
+                "PyPSA-RH policy with strict_cache=false needs forecast.service_url "
                 "pointing at a live forecast service."
             )
-        ctrl = PyPSAMPCController(backend=pypsa_backend)
+        ctrl = PyPSARollingHorizonController(backend=pypsa_backend)
         ctrl.set_live_forecast_source(
             lambda: env.current_forecast(),
             expected_source_id=settings.forecast.source_id or settings.scenario.name,
@@ -198,7 +201,7 @@ def policy_action(
     *,
     rl_model: Any = None,
     rl_norm: Any = None,
-    mpc_ctrl: _MpcController | None = None,
+    rh_ctrl: _RollingHorizonController | None = None,
 ) -> np.ndarray:
     if policy == "random":
         return env.action_space.sample()
@@ -223,12 +226,14 @@ def policy_action(
             obs = obs.clip(-10.0, 10.0).astype("float32")
         action, _ = rl_model.predict(obs, deterministic=True)
         return action
-    if policy == "mpc":
-        if mpc_ctrl is None:
+    policy = LEGACY_POLICY_ALIASES.get(policy, policy)
+    if policy == "pypsa_rh":
+        if rh_ctrl is None:
             raise ValueError(
-                "MPC controller was not initialized; call _setup_mpc_controller before the rollout"
+                "PyPSA-RH controller was not initialized; call "
+                "_setup_pypsa_rh_controller before the rollout"
             )
-        return mpc_ctrl.act(env)
+        return rh_ctrl.act(env)
     return _rule_action(env)
 
 
@@ -278,8 +283,8 @@ def _dispatch_rule(
         return "idle rule: hold battery; diesel off; no PV curtailment"
     if policy == "rl":
         return f"trained RL policy: {battery}; {diesel}"
-    if policy == "mpc":
-        return f"PyPSA MPC rollout: {battery}; {diesel}"
+    if policy == "pypsa_rh":
+        return f"PyPSA-RH rollout: {battery}; {diesel}"
     return f"{policy} policy: {battery}; {diesel}"
 
 
@@ -540,7 +545,7 @@ def _episode_meta(
             "load_buses": [load.bus for load in settings.loads[: settings.topology.n_load]],
         },
     }
-    if policy == "mpc":
+    if policy == "pypsa_rh":
         meta["planner"] = "pypsa"
         meta["plant"] = "pandapower"
     return meta
@@ -553,6 +558,7 @@ def run_rollout(
     rl_artifact: str | Path | None = None,
     rl_algo: str | None = None,
 ) -> dict[str, Any]:
+    policy = LEGACY_POLICY_ALIASES.get(policy, policy)
     if policy not in POLICIES:
         raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
@@ -563,17 +569,15 @@ def run_rollout(
     dt = settings.topology.timestep_hours
     slack_id = _slack_bus_id(settings)
 
-    mpc_ctrl: _MpcController | None = None
-    mpc_summary: dict[str, Any] | None = None
-    if policy == "mpc":
-        ctrl, mpc_summary = _setup_mpc_controller(settings, env)
-        mpc_ctrl = _MpcController(ctrl, mpc_summary)
+    rh_ctrl: _RollingHorizonController | None = None
+    rh_summary: dict[str, Any] | None = None
+    if policy == "pypsa_rh":
+        ctrl, rh_summary = _setup_pypsa_rh_controller(settings, env)
+        rh_ctrl = _RollingHorizonController(ctrl, rh_summary)
 
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        action = policy_action(
-            env, policy, rl_model=rl_model, rl_norm=rl_norm, mpc_ctrl=mpc_ctrl
-        )
+        action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm, rh_ctrl=rh_ctrl)
         dispatch = _dispatch_trace(env, policy, action)
         _, reward, terminated, truncated, info = env.step(action)
         rows.append(_step_row(settings, env, step, reward, info, slack_id, dispatch))
@@ -605,8 +609,8 @@ def run_rollout(
     if rl_artifact is not None:
         meta["rl_artifact"] = str(rl_artifact)
         meta["rl_algo"] = rl_algo or settings.rl.algo
-    if mpc_summary is not None:
-        meta["mpc"] = mpc_summary
+    if rh_summary is not None:
+        meta["pypsa_rh"] = rh_summary
     env.close()
     return {"rows": rows, "totals": totals, "meta": meta}
 
@@ -618,6 +622,7 @@ def stream_rollout(
     rl_artifact: str | Path | None = None,
     rl_algo: str | None = None,
 ) -> Iterator[dict[str, Any]]:
+    policy = LEGACY_POLICY_ALIASES.get(policy, policy)
     if policy not in POLICIES:
         raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
@@ -633,12 +638,12 @@ def stream_rollout(
             meta["rl_artifact"] = str(rl_artifact)
             meta["rl_algo"] = rl_algo or settings.rl.algo
 
-        mpc_ctrl: _MpcController | None = None
-        mpc_summary: dict[str, Any] | None = None
-        if policy == "mpc":
-            ctrl, mpc_summary = _setup_mpc_controller(settings, env)
-            mpc_ctrl = _MpcController(ctrl, mpc_summary)
-            meta["mpc"] = mpc_summary
+        rh_ctrl: _RollingHorizonController | None = None
+        rh_summary: dict[str, Any] | None = None
+        if policy == "pypsa_rh":
+            ctrl, rh_summary = _setup_pypsa_rh_controller(settings, env)
+            rh_ctrl = _RollingHorizonController(ctrl, rh_summary)
+            meta["pypsa_rh"] = rh_summary
 
         yield {
             "type": "meta",
@@ -647,9 +652,7 @@ def stream_rollout(
 
         rows: list[dict[str, Any]] = []
         for step in range(env.max_steps):
-            action = policy_action(
-                env, policy, rl_model=rl_model, rl_norm=rl_norm, mpc_ctrl=mpc_ctrl
-            )
+            action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm, rh_ctrl=rh_ctrl)
             dispatch = _dispatch_trace(env, policy, action)
             _, reward, terminated, truncated, info = env.step(action)
             row = _step_row(settings, env, step, reward, info, slack_id, dispatch)
@@ -681,8 +684,8 @@ def stream_rollout(
         if rl_artifact is not None:
             end_meta["rl_artifact"] = str(rl_artifact)
             end_meta["rl_algo"] = rl_algo or settings.rl.algo
-        if mpc_summary is not None:
-            end_meta["mpc"] = mpc_summary
+        if rh_summary is not None:
+            end_meta["pypsa_rh"] = rh_summary
         yield {"type": "end", "totals": _totals(rows, dt), "meta": end_meta}
     finally:
         env.close()

@@ -6,7 +6,7 @@ A modular research framework for a campus microgrid:
 * ``components/``   battery, diesel, PV, load, grid-intertie device models
 * ``backends/``     simple (fast RL), pandapower (AC validation),
                     PyPSA (operational scheduling), OpenDSS (skeleton)
-* ``controllers/``  idle / rule-based / greedy / PyPSA-MPC / RL baselines
+* ``controllers/``  idle / rule-based / greedy / PyPSA-RH / RL baselines
 * ``digital_twin/`` measured-data ingestion, alignment, calibration, replay,
                     validation metrics
 * ``rl/``           Gymnasium env + SB3 training/evaluation

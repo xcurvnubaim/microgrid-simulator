@@ -144,7 +144,7 @@ class DieselCfg(BaseModel):
     bus: int = Field(default_factory=lambda: _yaml_default("diesel", "bus"))
     carbon_kg_per_kwh: float = Field(default_factory=lambda: _yaml_default("diesel", "carbon_kg_per_kwh"))
     # Unit-commitment shutdown cost. Fuel and startup costs are shared with the
-    # per-step reward through RewardCfg so MPC and RL use one objective definition.
+    # per-step reward through RewardCfg so PyPSA-RH and RL use one objective definition.
     shut_down_cost: float = Field(default_factory=lambda: _yaml_default("diesel", "shut_down_cost"))
     initial_on: bool = Field(default_factory=lambda: _yaml_default("diesel", "initial_on"))
 

@@ -59,7 +59,11 @@ def _telemetry_settings(tmp_path, *, horizon_hours: float = 1.0) -> Settings:
 
 def test_default_replay_output_uses_configured_telemetry_date(tmp_path) -> None:
     settings = _telemetry_settings(tmp_path)
-    assert _replay_output_dir(settings, "mpc").as_posix().endswith("islanded_72h_mpc_2026-01-15")
+    assert (
+        _replay_output_dir(settings, "pypsa_rh")
+        .as_posix()
+        .endswith("islanded_72h_pypsa_rh_2026-01-15")
+    )
 
 
 def test_fixed_replay_uses_context_then_exact_evaluated_samples(tmp_path) -> None:

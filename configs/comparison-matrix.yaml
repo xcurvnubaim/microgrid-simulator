@@ -18,7 +18,7 @@ policies:
     forecast_mode: none
     seeds: [0]
     artifact_required: false
-  - id: mpc
+  - id: pypsa_rh
     forecast_mode: cached
     seeds: [0]
     artifact_required: false

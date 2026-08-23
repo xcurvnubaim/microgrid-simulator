@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Concurrency-enabled runner for the Module 6 F3 comparison matrix.
 
-Evaluates SAC-F3, SAC-none-F3, and MPC-F3 across all 6 scenarios (E0-E5) and
+Evaluates SAC-F3, SAC-none-F3, and PyPSA-RH-F3 across all 6 scenarios (E0-E5) and
 9 March telemetry windows in parallel.
 """
 
@@ -106,12 +106,12 @@ def run_single_job(spec: JobSpec) -> dict[str, Any]:
                 "reward": result["totals"].get("total_reward", 0.0),
             }
 
-        # Otherwise, run telemtry replay (MPC)
+        # Otherwise, run the PyPSA rolling-horizon replay.
         metrics = run_telemetry_replay(
             settings,
             spec.config_path,
             spec.output_dir,
-            policy="mpc",
+            policy="pypsa_rh",
             seed=spec.seed,
         )
         return {
@@ -141,7 +141,7 @@ def main() -> None:
     parser.add_argument(
         "--policy",
         type=str,
-        choices=["mpc_f3", "sac_f3", "sac_none_f3", "sac_f3_hard", "sac_none_f3_hard"],
+        choices=["pypsa_rh_f3", "sac_f3", "sac_none_f3", "sac_f3_hard", "sac_none_f3_hard"],
         help="Filter one policy",
     )
     parser.add_argument(
@@ -159,16 +159,16 @@ def main() -> None:
         if args.scenario and scenario_id != args.scenario:
             continue
         for window in MARCH_WINDOWS:
-            # MPC baseline using F3
-            if not args.policy or args.policy == "mpc_f3":
+            # PyPSA-RH baseline using F3
+            if not args.policy or args.policy == "pypsa_rh_f3":
                 out_dir = (
                     output_base
                     / scenario_id
-                    / "mpc_f3"
+                    / "pypsa_rh_f3"
                     / window.replace(" ", "_").replace(":", "-")
                 )
                 if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
-                    jobs.append(JobSpec(scenario_id, config_path, window, "mpc_f3", 0, out_dir))
+                    jobs.append(JobSpec(scenario_id, config_path, window, "pypsa_rh_f3", 0, out_dir))
 
             # RL policies: SAC-F3 and SAC-none-F3 (three seeds each)
             if not args.policy or args.policy.startswith("sac_"):

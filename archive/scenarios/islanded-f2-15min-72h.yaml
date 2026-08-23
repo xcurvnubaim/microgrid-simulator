@@ -15,7 +15,7 @@
 
 scenario:
   name: islanded_72h_2026-01-15
-  description: Campus load/PV replay using provenance-labelled reconstruction candidates with assumed BESS/diesel; controller varies by `--policy` (rule | mpc); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model.
+  description: Campus load/PV replay using provenance-labelled reconstruction candidates with assumed BESS/diesel; controller varies by `--policy` (rule | pypsa_rh); parameters aligned to the reduced-order CampusMicrogridScheduling.slx model.
 
 topology:
   timestep_hours: 0.25
@@ -118,7 +118,7 @@ diesel:
   carbon_kg_per_kwh: 0.70    # ASSUMED emissions proxy (no MATLAB counterpart; techno-econ used $1.1/L)
 
 # Clock-driven diesel timetable for the `schedule` policy only (`--policy schedule`;
-# rule/mpc ignore it). DESIGNED from this window's 3-day hourly load/PV profile: PV
+# rule/PyPSA-RH ignore it). DESIGNED from this window's 3-day hourly load/PV profile: PV
 # covers most demand 09:00-14:00 (hold min stable load — a first cut with `off` here
 # lost to the rule baseline because PV swings ~47 kW within one 15-min step); full
 # nameplate everywhere else so no PV dip or load spike outruns diesel within a tick.

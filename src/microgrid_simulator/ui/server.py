@@ -210,11 +210,7 @@ class NatsMessageObserver:
             self._reply_routes[str(message.reply)] = route["target"]
         elif route["kind"] == "reply":
             matched_prefix = next(
-                (
-                    prefix
-                    for prefix in self._reply_routes
-                    if subject.startswith(prefix)
-                ),
+                (prefix for prefix in self._reply_routes if subject.startswith(prefix)),
                 None,
             )
             if matched_prefix:
@@ -312,7 +308,7 @@ def _base_settings(policy: str | None = None) -> Settings:
 def _merge_settings(overrides: dict[str, Any], policy: str | None = None) -> Settings:
     raw = _base_settings(policy).model_dump()
     # The artifact supplies the controller, not the plant. Dashboard settings
-    # therefore remain authoritative for RL just as they are for rule and MPC
+    # therefore remain authoritative for RL just as they are for rule and PyPSA-RH
     # playback. The policy-specific base only gives the UI a compatible initial
     # scenario; every explicit dashboard edit is applied below.
     for key, value in overrides.items():
@@ -469,9 +465,7 @@ def _service_communications_payload(
                 "in_bytes": sum(item["in_bytes"] for item in instances),
                 "out_bytes": sum(item["out_bytes"] for item in instances),
                 "subscriptions": [
-                    subscription
-                    for item in instances
-                    for subscription in item["subscriptions"]
+                    subscription for item in instances for subscription in item["subscriptions"]
                 ],
             }
         )
@@ -660,13 +654,17 @@ def create_app() -> FastAPI:
             payload = _service_communications_payload({}, {}, monitor_error=str(exc))
         else:
             payload = _service_communications_payload(varz, connz)
-        payload["message_tap"] = observer.snapshot() if observer else {
-            "status": "unavailable",
-            "error": "NATS disabled in standalone mode",
-            "captured": 0,
-            "limit": MESSAGE_BUFFER_LIMIT,
-            "messages": [],
-        }
+        payload["message_tap"] = (
+            observer.snapshot()
+            if observer
+            else {
+                "status": "unavailable",
+                "error": "NATS disabled in standalone mode",
+                "captured": 0,
+                "limit": MESSAGE_BUFFER_LIMIT,
+                "messages": [],
+            }
+        )
         return payload
 
     @app.post("/api/simulate")

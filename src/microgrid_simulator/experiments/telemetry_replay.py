@@ -54,13 +54,13 @@ TRAJECTORY_COLUMNS = (
 
 POLICY_LABELS = {
     "rule": "rule controller",
-    "mpc": "PyPSA MPC (rolling-horizon optimal dispatch) controller",
+    "pypsa_rh": "PyPSA-RH (rolling-horizon optimal dispatch) controller",
     "schedule": "manual fixed-schedule diesel controller",
 }
 
 POLICY_LIMITATIONS = {
-    "mpc": [
-        "- The MPC controller has perfect foresight of load/PV over its optimization "
+    "pypsa_rh": [
+        "- The PyPSA-RH controller has perfect foresight of load/PV over its optimization "
         "horizon (no forecast error is modeled); near the end of the 72 h episode the "
         "lookahead clamps to the last measured sample instead of running out of data.",
     ],
@@ -77,8 +77,8 @@ POLICY_EVIDENCE_ROWS = {
         "| Rule controller | designed baseline | diesel-first residual coverage, "
         "battery gap/surplus handling |"
     ),
-    "mpc": (
-        "| MPC controller | designed baseline | PyPSA rolling-horizon MILP, perfect-foresight "
+    "pypsa_rh": (
+        "| PyPSA-RH controller | designed baseline | PyPSA rolling-horizon MILP, perfect-foresight "
         "forecast from the driving backend, replanned every "
         "`backend.rolling_horizon_hours` |"
     ),
@@ -513,7 +513,8 @@ def plot_telemetry_replay(
     plt.close(fig)
 
 
-SUPPORTED_POLICIES = ("rule", "mpc", "schedule")
+SUPPORTED_POLICIES = ("rule", "pypsa_rh", "schedule")
+LEGACY_POLICY_ALIASES = {"mpc": "pypsa_rh"}
 
 
 def run_telemetry_replay(
@@ -524,6 +525,7 @@ def run_telemetry_replay(
     seed: int = 0,
 ) -> dict[str, Any]:
     """Run and persist one deterministic paper baseline."""
+    policy = LEGACY_POLICY_ALIASES.get(policy, policy)
     if policy not in SUPPORTED_POLICIES:
         raise ValueError(
             f"paper telemetry baseline currently supports policy in {SUPPORTED_POLICIES}"
