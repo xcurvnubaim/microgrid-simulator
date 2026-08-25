@@ -1,0 +1,4862 @@
+[
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1222.209105254512,
+    "diesel_kwh": 4470.33902726895,
+    "reward": -49026.50167310901
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 523.6441924762521,
+    "diesel_kwh": 6817.800613670478,
+    "reward": -44455.19449405888
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 390.9881540736954,
+    "diesel_kwh": 6564.473559312196,
+    "reward": -41462.65259825362
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 787.570097634958,
+    "diesel_kwh": 5440.11179481287,
+    "reward": -43831.221036676914
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 401.2198847798464,
+    "diesel_kwh": 3565.822638869605,
+    "reward": -30984.709911721216
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1048.9102927114893,
+    "diesel_kwh": 3471.811841478258,
+    "reward": -40131.118786550316
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 656.1726635604449,
+    "diesel_kwh": 5321.996053484396,
+    "reward": -42283.35285624315
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1681.2153259536274,
+    "diesel_kwh": 4586.72937867398,
+    "reward": -58417.26344439181
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 749.6525359199875,
+    "diesel_kwh": 6283.748008826297,
+    "reward": -47924.786777192516
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -36579.57680685
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -39945.06846691613
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -37631.55538368696
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -37580.43080196508
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -27729.548206496787
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -35421.1673399834
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -34467.19861188785
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -40425.085433211716
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -39747.35309703755
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 50.39874629556721,
+    "diesel_kwh": 6430.644524061899,
+    "reward": -45128.1861518029
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 89.43996896271356,
+    "diesel_kwh": 7985.944318170077,
+    "reward": -53043.6986050625
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 96.18524149217896,
+    "diesel_kwh": 6718.521896552933,
+    "reward": -52761.01111916919
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 167.95828001663472,
+    "diesel_kwh": 6714.799554501671,
+    "reward": -47474.3116222767
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 205.90019816795905,
+    "diesel_kwh": 3814.780922330319,
+    "reward": -38550.670460452726
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 254.99258280256745,
+    "diesel_kwh": 4834.871541369594,
+    "reward": -45980.742495617844
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 100.86543041622609,
+    "diesel_kwh": 6385.738260979495,
+    "reward": -48844.745666352275
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 212.97391865074655,
+    "diesel_kwh": 6485.162021841119,
+    "reward": -55919.49640617089
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 93.27604658944401,
+    "diesel_kwh": 7553.160310386955,
+    "reward": -52733.82315892432
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 2.3049227615159156,
+    "diesel_kwh": 5504.198082025298,
+    "reward": -44054.71237515073
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 24.551980655132603,
+    "diesel_kwh": 7184.996865642055,
+    "reward": -49960.36222480967
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 3.9347049470766695,
+    "diesel_kwh": 5991.4386111977865,
+    "reward": -43000.006172354646
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 6.564468067698912,
+    "diesel_kwh": 6098.639909267688,
+    "reward": -43348.33738773232
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 0.6628333496335789,
+    "diesel_kwh": 3585.8830716142675,
+    "reward": -37469.27528809786
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 16.579788193116116,
+    "diesel_kwh": 4855.521086895316,
+    "reward": -43120.81623567557
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 33.856500688879585,
+    "diesel_kwh": 5719.412566256547,
+    "reward": -44760.28248677361
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 60.20299904784294,
+    "diesel_kwh": 5951.882794689493,
+    "reward": -46068.80683213718
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 8.87270319463722,
+    "diesel_kwh": 6782.522081296786,
+    "reward": -48804.59268183532
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 44.20943937246016,
+    "diesel_kwh": 5720.769017757965,
+    "reward": -39113.88863848908
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 18.38133596473172,
+    "diesel_kwh": 7384.427609913248,
+    "reward": -45144.6154369968
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 47.567766039807864,
+    "diesel_kwh": 5923.740065874773,
+    "reward": -36847.16518626594
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 32.62447758120346,
+    "diesel_kwh": 6213.533470686848,
+    "reward": -37796.32110174301
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 63.824240728969656,
+    "diesel_kwh": 3490.3157467808965,
+    "reward": -27578.73130866966
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 53.73923405863231,
+    "diesel_kwh": 5209.25485989285,
+    "reward": -40728.89603057296
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 48.39292998073395,
+    "diesel_kwh": 5910.347448758629,
+    "reward": -37416.302655079664
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 58.005877362981764,
+    "diesel_kwh": 6274.690818051046,
+    "reward": -42534.7656678544
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 23.428786432044877,
+    "diesel_kwh": 6843.18900693741,
+    "reward": -42739.00554002033
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 18.816510250040224,
+    "diesel_kwh": 7357.83409095127,
+    "reward": -50325.65492144361
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 7.1493293826392375,
+    "diesel_kwh": 9179.501486567562,
+    "reward": -52012.69188416248
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 12.375790004099176,
+    "diesel_kwh": 7858.628678659273,
+    "reward": -52452.35437910576
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 31.437606392158198,
+    "diesel_kwh": 8147.187170135867,
+    "reward": -52459.90724737222
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 8.82524915489331,
+    "diesel_kwh": 4920.111120522079,
+    "reward": -36985.85439922282
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 66.17774613501741,
+    "diesel_kwh": 6582.103571613498,
+    "reward": -45172.05279158956
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 33.18455356114166,
+    "diesel_kwh": 7621.064322096003,
+    "reward": -54190.881466923216
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 69.83717453574778,
+    "diesel_kwh": 7811.848512506201,
+    "reward": -51049.43633128823
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 5.377642775528102e-13,
+    "diesel_kwh": 8594.14432910543,
+    "reward": -51478.66039759936
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 4.069120245664491,
+    "diesel_kwh": 6086.2736518231495,
+    "reward": -40254.40147411984
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 46.383049325638254,
+    "diesel_kwh": 7372.002794052587,
+    "reward": -41347.85078434178
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 61.69919137790017,
+    "diesel_kwh": 6331.372972890316,
+    "reward": -40939.38376145264
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 95.61288185569508,
+    "diesel_kwh": 6460.735203524535,
+    "reward": -40462.55946495973
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 52.79031485697567,
+    "diesel_kwh": 3813.2319803381947,
+    "reward": -30821.89304340207
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 23.809185411219257,
+    "diesel_kwh": 5237.416845987771,
+    "reward": -33870.5953041279
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 75.13498891324821,
+    "diesel_kwh": 5936.071032713186,
+    "reward": -37764.79520219735
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 86.9467505144651,
+    "diesel_kwh": 6377.257512522566,
+    "reward": -41185.80223267128
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 63.885546336603575,
+    "diesel_kwh": 6944.86315644782,
+    "reward": -42032.74988760382
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 18.223329562513538,
+    "diesel_kwh": 5931.232853491554,
+    "reward": -41537.18877347854
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 2.4798157076305545,
+    "diesel_kwh": 7522.1837243050195,
+    "reward": -44451.15037728991
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 64.59540384594047,
+    "diesel_kwh": 6241.722041665595,
+    "reward": -39248.70903570265
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 42.03688589216875,
+    "diesel_kwh": 6536.880329961388,
+    "reward": -44122.99575108906
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 34.07061904075069,
+    "diesel_kwh": 3961.578623143122,
+    "reward": -35598.3140789874
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 31.02404732897396,
+    "diesel_kwh": 5240.410638869991,
+    "reward": -41316.46799575723
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 29.637098825841917,
+    "diesel_kwh": 6128.769971771836,
+    "reward": -40932.441910545866
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 80.5003611219473,
+    "diesel_kwh": 6543.728672940844,
+    "reward": -49535.75965518435
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 26.899471545631563,
+    "diesel_kwh": 7083.783576615836,
+    "reward": -46968.714950808244
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58141.19081821461
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56407.86760022822
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57590.00184657298
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57479.51716944898
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -60770.25409559556
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58954.335567024136
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57979.18974740569
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57762.46517215234
+  },
+  {
+    "status": "success",
+    "scenario": "E0",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56865.82441517066
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1153.1320921383037,
+    "diesel_kwh": 4533.39577619913,
+    "reward": -62902.332193196155
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 503.9641063118165,
+    "diesel_kwh": 6883.010864710313,
+    "reward": -65280.700906484475
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 385.5608482512237,
+    "diesel_kwh": 6580.545807854383,
+    "reward": -62499.93452875051
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 815.156063636239,
+    "diesel_kwh": 5393.724260935039,
+    "reward": -60790.090193315344
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 395.6850059308565,
+    "diesel_kwh": 3559.895660263899,
+    "reward": -45115.314379235984
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1047.0089990242154,
+    "diesel_kwh": 3473.713135569763,
+    "reward": -51217.34064109464
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 660.6642963238545,
+    "diesel_kwh": 5346.451729341316,
+    "reward": -59167.0459381215
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1719.0240998163392,
+    "diesel_kwh": 4598.944299953174,
+    "reward": -75349.55842543922
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 761.8519063200512,
+    "diesel_kwh": 6277.67947861418,
+    "reward": -70364.50588691655
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -56903.30873389337
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -65231.666441995105
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -60738.39937622267
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -59780.72516757885
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -42475.20847977586
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -52897.13485866596
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -55533.19891159523
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -62908.99679114806
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -63667.257127830206
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 2561.0679339214375,
+    "diesel_kwh": 3259.7275974464906,
+    "reward": -83696.8681585054
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 2609.721495351167,
+    "diesel_kwh": 4918.0502818974,
+    "reward": -103311.20890294983
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 1857.8649414529384,
+    "diesel_kwh": 5281.160131827041,
+    "reward": -83802.67473612088
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 2640.1274541789185,
+    "diesel_kwh": 4362.786541664038,
+    "reward": -92643.32933443514
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 2364.0354738308074,
+    "diesel_kwh": 438.7893183908953,
+    "reward": -53660.06104895531
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 3058.3429654738015,
+    "diesel_kwh": 1638.050770712599,
+    "reward": -81220.68419019051
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 3842.4879037110713,
+    "diesel_kwh": 1578.2853369089985,
+    "reward": -95330.42077214672
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 3120.1337320018933,
+    "diesel_kwh": 2788.3560585693203,
+    "reward": -89338.11310272235
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 2692.5933164999224,
+    "diesel_kwh": 4677.298603348949,
+    "reward": -101039.04492047963
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 328.44356469430085,
+    "diesel_kwh": 5592.147660005135,
+    "reward": -65714.6108033511
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 362.784633408013,
+    "diesel_kwh": 6893.096851334312,
+    "reward": -70134.93140264702
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 107.80217866920668,
+    "diesel_kwh": 6291.893962599414,
+    "reward": -61881.60651170505
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 426.7260402366785,
+    "diesel_kwh": 5874.60147937277,
+    "reward": -64880.148283268805
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 512.304859698418,
+    "diesel_kwh": 3301.6840208549042,
+    "reward": -54289.93956519717
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 625.3751052454293,
+    "diesel_kwh": 4469.167987871323,
+    "reward": -61988.50655207548
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 285.17378837228614,
+    "diesel_kwh": 5682.036836002926,
+    "reward": -65144.8700187093
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 608.5350456538694,
+    "diesel_kwh": 5470.558625876806,
+    "reward": -70968.88957178628
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 310.657381934534,
+    "diesel_kwh": 6565.94422030091,
+    "reward": -72289.39397351835
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 4391.958516624117,
+    "diesel_kwh": 1186.5548028244832,
+    "reward": -100744.50567394552
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3647.0987620214087,
+    "diesel_kwh": 3871.693158228036,
+    "reward": -111886.38721134541
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3473.347266661966,
+    "diesel_kwh": 2958.183503169831,
+    "reward": -98544.43800667833
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3938.5073702989835,
+    "diesel_kwh": 2059.566442393688,
+    "reward": -104871.02276077903
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2729.5762228961485,
+    "diesel_kwh": 372.6268411253771,
+    "reward": -59945.71170102453
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3958.338246931977,
+    "diesel_kwh": 703.3018686312694,
+    "reward": -90739.44158105296
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 4562.970956162833,
+    "diesel_kwh": 850.6544409610232,
+    "reward": -101928.05450307821
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 4727.060729585441,
+    "diesel_kwh": 1231.2421457717483,
+    "reward": -112147.81619755966
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3533.788166933462,
+    "diesel_kwh": 3232.2600552876947,
+    "reward": -103380.12220022193
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 194.15876682798657,
+    "diesel_kwh": 5293.054878173696,
+    "reward": -65295.83075483288
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 82.3718222403483,
+    "diesel_kwh": 7294.683995518524,
+    "reward": -71840.90184484607
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 166.89928501712228,
+    "diesel_kwh": 5954.64922542294,
+    "reward": -64953.74929970099
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 209.5625931118821,
+    "diesel_kwh": 6026.364983254622,
+    "reward": -67845.75856366847
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 225.2115174348729,
+    "diesel_kwh": 2806.522049012515,
+    "reward": -47285.73191412819
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 215.28399799059744,
+    "diesel_kwh": 4576.261749973286,
+    "reward": -62062.23996587454
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 215.15259862519594,
+    "diesel_kwh": 5562.222995740579,
+    "reward": -66243.9952308693
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 255.8963005736534,
+    "diesel_kwh": 5893.464049143209,
+    "reward": -72387.23199887632
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 122.23786426249798,
+    "diesel_kwh": 6790.826478263092,
+    "reward": -76336.27731262382
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 219.07271741977283,
+    "diesel_kwh": 5492.00239328885,
+    "reward": -57600.38744456327
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 34.15941883341856,
+    "diesel_kwh": 7352.361422182431,
+    "reward": -69454.57410504915
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 89.33982890967224,
+    "diesel_kwh": 6143.64547813161,
+    "reward": -62284.95707254135
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 114.33485862058987,
+    "diesel_kwh": 6423.097520572154,
+    "reward": -61800.06711548413
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 166.7113395300445,
+    "diesel_kwh": 3294.4282466430905,
+    "reward": -41102.28644807626
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 235.77265596412855,
+    "diesel_kwh": 4726.750686643983,
+    "reward": -55549.6190102357
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 109.5356855951143,
+    "diesel_kwh": 5782.619763328165,
+    "reward": -59337.16850786519
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 139.99308796643942,
+    "diesel_kwh": 6107.695347962246,
+    "reward": -64561.02846475984
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 144.56200721893438,
+    "diesel_kwh": 6804.2056251757585,
+    "reward": -70109.11430195712
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 217.78721659684203,
+    "diesel_kwh": 5494.742522261256,
+    "reward": -61246.95179629774
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 89.93091021294407,
+    "diesel_kwh": 7159.265852492037,
+    "reward": -70411.76262747023
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 80.9998789486767,
+    "diesel_kwh": 5967.508242236257,
+    "reward": -56424.78371404534
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 102.69439883105596,
+    "diesel_kwh": 6113.562392291055,
+    "reward": -60539.65580551253
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 107.8473839456517,
+    "diesel_kwh": 3443.504032379196,
+    "reward": -40561.96450109112
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 117.11019412408515,
+    "diesel_kwh": 4843.430556879864,
+    "reward": -50806.002761143514
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 89.10975827644393,
+    "diesel_kwh": 5683.798730994887,
+    "reward": -59603.30282103139
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 179.09588912320785,
+    "diesel_kwh": 5897.150490281524,
+    "reward": -65259.01670931151
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 114.84751757708665,
+    "diesel_kwh": 6790.5453270302805,
+    "reward": -72085.8277052796
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -95093.42901448118
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -93360.1057964948
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94542.24004283956
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94431.75536571557
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -97722.49229186215
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -95906.57376329071
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94931.42794367227
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94714.70336841892
+  },
+  {
+    "status": "success",
+    "scenario": "E1",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -93818.06261143723
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1193.1924223866,
+    "diesel_kwh": 4459.9519835671645,
+    "reward": -47776.67869415297
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 525.9192595793934,
+    "diesel_kwh": 6827.867150027442,
+    "reward": -44239.157003794935
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 392.3940400856223,
+    "diesel_kwh": 6572.806032476091,
+    "reward": -40432.404745901236
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 791.3575339699233,
+    "diesel_kwh": 5423.111413660466,
+    "reward": -43134.44590209649
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 398.77248987149477,
+    "diesel_kwh": 3567.632589537626,
+    "reward": -31257.320669674773
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1048.910292848769,
+    "diesel_kwh": 3470.6002167367037,
+    "reward": -40122.295627294676
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 660.6610896861912,
+    "diesel_kwh": 5329.864056242422,
+    "reward": -41989.54943912145
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1695.8879182473984,
+    "diesel_kwh": 4587.060647283129,
+    "reward": -59020.713482372135
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 749.6940892357246,
+    "diesel_kwh": 6286.872099130594,
+    "reward": -47940.13325771272
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -36578.62138734218
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -39945.06846691613
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -37631.53575386194
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -37580.24516238791
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -27728.484686026393
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -35420.53847984876
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -34467.08719109138
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -40425.02998848519
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -39747.33981383335
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 36.403371423743465,
+    "diesel_kwh": 5692.427913132792,
+    "reward": -43784.040851542195
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 3.413893162014273,
+    "diesel_kwh": 7132.136817756816,
+    "reward": -43846.91221436854
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 25.557389211960356,
+    "diesel_kwh": 5994.81115467053,
+    "reward": -39303.152683583015
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 103.22945834597942,
+    "diesel_kwh": 6073.749905858037,
+    "reward": -42930.97883934321
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 89.89169736063118,
+    "diesel_kwh": 3602.670984257459,
+    "reward": -35795.17217527932
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 99.22166832854532,
+    "diesel_kwh": 4772.469305841685,
+    "reward": -42247.036840045934
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 34.10107882869818,
+    "diesel_kwh": 5742.26394235227,
+    "reward": -42093.81137632067
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 72.64773880927719,
+    "diesel_kwh": 6035.548238049782,
+    "reward": -48039.38612424099
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 13.006882833643859,
+    "diesel_kwh": 6791.856551293276,
+    "reward": -49179.769819790665
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 37.514976753338146,
+    "diesel_kwh": 5697.757451467876,
+    "reward": -43766.360057765436
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 6.894346022445081,
+    "diesel_kwh": 7222.7297244221745,
+    "reward": -45046.08514955843
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 6.218031214320984,
+    "diesel_kwh": 6025.874960085094,
+    "reward": -37806.76859055324
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 13.292111175134579,
+    "diesel_kwh": 6238.606263028618,
+    "reward": -41480.825082264
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 16.150463024171888,
+    "diesel_kwh": 3627.563089383676,
+    "reward": -33827.189933937865
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 12.812878511147096,
+    "diesel_kwh": 4810.51386114844,
+    "reward": -39371.81502525401
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 20.044427953742264,
+    "diesel_kwh": 5699.198503993878,
+    "reward": -40645.67058491352
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 31.022460533956373,
+    "diesel_kwh": 6106.091273212287,
+    "reward": -46161.22367766058
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 8.45901724730294,
+    "diesel_kwh": 6802.778388015102,
+    "reward": -44385.82973269908
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 15.091246921129136,
+    "diesel_kwh": 5619.323511110958,
+    "reward": -40952.220566699536
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 1.3343415346764327,
+    "diesel_kwh": 7249.8403440276725,
+    "reward": -47176.22191655774
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 12.70672059579069,
+    "diesel_kwh": 5994.119992863131,
+    "reward": -37833.16807003557
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 4.9489227760753005,
+    "diesel_kwh": 6294.411371591653,
+    "reward": -39903.90422749106
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 17.552172909614658,
+    "diesel_kwh": 3706.4605790713913,
+    "reward": -35075.97571669323
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 21.6184756697813,
+    "diesel_kwh": 4944.586156192987,
+    "reward": -39473.986226118715
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 23.105469829560644,
+    "diesel_kwh": 5726.050288704034,
+    "reward": -40314.58401913487
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 45.23893628829292,
+    "diesel_kwh": 6018.435964745356,
+    "reward": -43707.23999728276
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 37.47069796099463,
+    "diesel_kwh": 6729.887275526828,
+    "reward": -44605.71570648486
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 9.000688385787909,
+    "diesel_kwh": 6357.189431066996,
+    "reward": -39847.193779861394
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 2.206068389025399,
+    "diesel_kwh": 7713.301326765413,
+    "reward": -45973.13398782792
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 39.96448857211567,
+    "diesel_kwh": 6406.285421645277,
+    "reward": -46608.0219199274
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 43.319655507773916,
+    "diesel_kwh": 6579.163665162817,
+    "reward": -42997.24491101618
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 21.129778359552304,
+    "diesel_kwh": 3934.146975013662,
+    "reward": -34868.91675885591
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 82.76406193781928,
+    "diesel_kwh": 5270.349476360644,
+    "reward": -41771.43579208772
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 32.40530241976747,
+    "diesel_kwh": 6142.848098247807,
+    "reward": -42703.87041081325
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 93.54882214566511,
+    "diesel_kwh": 6498.5090262874255,
+    "reward": -51301.99582392538
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 9.172538298288044,
+    "diesel_kwh": 7425.546570702383,
+    "reward": -49919.45781390616
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 189.82127390092205,
+    "diesel_kwh": 5959.140806547748,
+    "reward": -40451.43243402377
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 160.4911097037073,
+    "diesel_kwh": 8022.202737041646,
+    "reward": -53342.56047219175
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 109.07641015589131,
+    "diesel_kwh": 6620.171179986182,
+    "reward": -40688.82661771808
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 142.5490117497641,
+    "diesel_kwh": 7129.699768627813,
+    "reward": -47887.88677514782
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 188.22473377429915,
+    "diesel_kwh": 3439.5646298940624,
+    "reward": -28643.458301083218
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 230.40381335853485,
+    "diesel_kwh": 5306.380736164054,
+    "reward": -40564.320702783414
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 113.77034603551279,
+    "diesel_kwh": 6322.860803980819,
+    "reward": -43263.97317419397
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 239.0775912495533,
+    "diesel_kwh": 6750.000333488709,
+    "reward": -49037.36370891251
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 139.016009218975,
+    "diesel_kwh": 7455.387580039959,
+    "reward": -52187.03163703926
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 2.347435153680246,
+    "diesel_kwh": 5942.496309564113,
+    "reward": -37218.672149226935
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 40.29093434625864,
+    "diesel_kwh": 7556.723888749923,
+    "reward": -41998.71198739985
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 32.79406422581254,
+    "diesel_kwh": 6185.6206121454325,
+    "reward": -36753.37763944994
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 42.15228360027409,
+    "diesel_kwh": 6421.626908466008,
+    "reward": -40620.84267063239
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 23.08781279048332,
+    "diesel_kwh": 3842.5175870823246,
+    "reward": -29087.78345457116
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 67.99616368722691,
+    "diesel_kwh": 5246.475643716725,
+    "reward": -35097.73461203866
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 49.07940232088456,
+    "diesel_kwh": 6053.698222285447,
+    "reward": -36704.66180129944
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 122.93339484017567,
+    "diesel_kwh": 6273.454125277409,
+    "reward": -40122.34233308679
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 41.20332766359603,
+    "diesel_kwh": 7209.5570570081,
+    "reward": -44014.52388994919
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58140.79348059353
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56407.47031676807
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57589.60449707061
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57479.12033835741
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -60769.856757974485
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58953.93822940305
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57978.79240978461
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57762.067834531255
+  },
+  {
+    "status": "success",
+    "scenario": "E2",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56865.427030552295
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1171.0327679020525,
+    "diesel_kwh": 4484.525993565357,
+    "reward": -62887.74109981465
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 528.6764700693551,
+    "diesel_kwh": 6955.464409315635,
+    "reward": -66248.1688081825
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 391.72417221179035,
+    "diesel_kwh": 6523.00142723603,
+    "reward": -62469.98215268259
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 780.633162163094,
+    "diesel_kwh": 5427.657066088943,
+    "reward": -62001.38917235065
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 399.8261696121331,
+    "diesel_kwh": 3596.2061491553523,
+    "reward": -43987.890225718045
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1038.4533718799591,
+    "diesel_kwh": 3484.029804298728,
+    "reward": -51883.61942028582
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 660.6705412064453,
+    "diesel_kwh": 5347.409667347612,
+    "reward": -59174.36759921284
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1718.371036033059,
+    "diesel_kwh": 4547.056949527966,
+    "reward": -74229.11104493614
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 764.4923730293075,
+    "diesel_kwh": 6263.681389868089,
+    "reward": -70308.73831396383
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -56902.353314385546
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -65231.666441995105
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -60738.37974639765
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -59780.53952800168
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -42474.144959305464
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -52896.50599853132
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -55533.08749079876
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -62908.94134642155
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -63667.243844626
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 348.9847399464328,
+    "diesel_kwh": 5093.843403767213,
+    "reward": -55159.03664600902
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 320.89175740679394,
+    "diesel_kwh": 6981.144926119639,
+    "reward": -74506.0854825563
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 391.0558912575608,
+    "diesel_kwh": 5837.879494291418,
+    "reward": -62707.797248429866
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 642.6174430989638,
+    "diesel_kwh": 5544.199722197222,
+    "reward": -68322.51025599675
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 440.0624369787787,
+    "diesel_kwh": 3115.086995729097,
+    "reward": -48703.440386652204
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 770.584454014118,
+    "diesel_kwh": 3983.6327691002425,
+    "reward": -62320.7297896709
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 454.26561482483646,
+    "diesel_kwh": 5469.081612727155,
+    "reward": -63369.58232585604
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 538.5295622090698,
+    "diesel_kwh": 5527.808999682576,
+    "reward": -64741.530787731004
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 440.4285523010271,
+    "diesel_kwh": 6328.2425125097225,
+    "reward": -69405.87159089127
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 518.5396921998234,
+    "diesel_kwh": 5133.718599727788,
+    "reward": -61949.335326216664
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 785.3980095911041,
+    "diesel_kwh": 6393.139842339616,
+    "reward": -76144.99401044374
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 822.6925610121509,
+    "diesel_kwh": 5200.225887678742,
+    "reward": -64145.18856452651
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 740.7061691300746,
+    "diesel_kwh": 5369.404265148952,
+    "reward": -65866.51077679006
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 892.6624036428356,
+    "diesel_kwh": 2303.933065702343,
+    "reward": -46236.4005813757
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 1054.4753755781385,
+    "diesel_kwh": 3625.205610392064,
+    "reward": -62229.540004959665
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 857.9247258129584,
+    "diesel_kwh": 4758.203237455123,
+    "reward": -61713.285684955285
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 960.0410774592922,
+    "diesel_kwh": 4951.3467607017055,
+    "reward": -67047.62298483614
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 720.9274131210453,
+    "diesel_kwh": 6084.634765969277,
+    "reward": -74926.45006078518
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2573.4456969077996,
+    "diesel_kwh": 3424.468952860403,
+    "reward": -83452.94777836012
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2676.455988991341,
+    "diesel_kwh": 4516.371086370602,
+    "reward": -96750.70402499584
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2553.104102873556,
+    "diesel_kwh": 3248.0340864104246,
+    "reward": -85466.78518524372
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2955.024635781475,
+    "diesel_kwh": 3158.125842105942,
+    "reward": -91128.19127259622
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2646.5799239578214,
+    "diesel_kwh": 965.0395072835576,
+    "reward": -64958.40269083573
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2914.5724385234143,
+    "diesel_kwh": 1839.7194282523142,
+    "reward": -76823.30275332589
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2622.078599396864,
+    "diesel_kwh": 3237.161204930076,
+    "reward": -86599.13938688193
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 2780.6146528504823,
+    "diesel_kwh": 3156.5192793170504,
+    "reward": -84815.83370762825
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 3117.7601178622676,
+    "diesel_kwh": 3621.6921310681687,
+    "reward": -94396.10403632987
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 150.49741592164384,
+    "diesel_kwh": 5859.408359000423,
+    "reward": -69026.86222505712
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 98.75029264142051,
+    "diesel_kwh": 7401.257184083586,
+    "reward": -75983.67633710525
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 177.64424480128875,
+    "diesel_kwh": 6071.013607471764,
+    "reward": -68711.07470183569
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 91.76989849189927,
+    "diesel_kwh": 6525.432744765015,
+    "reward": -68940.89867794007
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 134.10728401914383,
+    "diesel_kwh": 3837.730485899577,
+    "reward": -56337.02874400577
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 107.68217210885686,
+    "diesel_kwh": 5039.140383075769,
+    "reward": -60539.223688660364
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 171.23000005417634,
+    "diesel_kwh": 5802.725651434377,
+    "reward": -62959.73519494675
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 143.3960854535465,
+    "diesel_kwh": 6134.025927026306,
+    "reward": -71167.38017160163
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 71.76808048391113,
+    "diesel_kwh": 7031.33527209038,
+    "reward": -72004.76732982633
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 468.8747457437778,
+    "diesel_kwh": 5359.791907667902,
+    "reward": -64480.394591226934
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 460.61355931730355,
+    "diesel_kwh": 7065.409773241605,
+    "reward": -83159.49133579536
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 250.13716419416167,
+    "diesel_kwh": 6173.623492506571,
+    "reward": -67150.99122804559
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 306.51486190223847,
+    "diesel_kwh": 6273.7094005238805,
+    "reward": -70958.34406459729
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 599.2339391449767,
+    "diesel_kwh": 2960.244044918827,
+    "reward": -50766.28413047045
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 669.123986968508,
+    "diesel_kwh": 4443.221969796182,
+    "reward": -66062.3648134164
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 419.9960691046777,
+    "diesel_kwh": 5459.339373513176,
+    "reward": -65114.52173187901
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 616.2908822655954,
+    "diesel_kwh": 5705.001587421498,
+    "reward": -72934.6813922888
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 577.8665204880143,
+    "diesel_kwh": 6622.384516449429,
+    "reward": -77946.77565924895
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 167.2195553917617,
+    "diesel_kwh": 5516.542595462978,
+    "reward": -56559.06345886758
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 105.03686907551159,
+    "diesel_kwh": 7084.878572249175,
+    "reward": -68606.63411201959
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 370.7249424807644,
+    "diesel_kwh": 5693.43539775248,
+    "reward": -64020.009610088455
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 255.09064541401193,
+    "diesel_kwh": 5921.890924477087,
+    "reward": -62106.79368774578
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 60.429568807355075,
+    "diesel_kwh": 3401.194484868348,
+    "reward": -42378.37429148855
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 35.66025496305514,
+    "diesel_kwh": 4848.5023050203345,
+    "reward": -51410.16419173717
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 156.23609223069047,
+    "diesel_kwh": 5559.205428261444,
+    "reward": -57356.53523188576
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 146.65607773762366,
+    "diesel_kwh": 5965.591691986838,
+    "reward": -63509.68401284248
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 143.19280769187088,
+    "diesel_kwh": 6658.676237599914,
+    "reward": -67639.5699486927
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -95093.0316768601
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -93359.70851303465
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94541.84269333718
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94431.35853462399
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -97722.09495424105
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -95906.17642566963
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94931.0306060512
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -94714.30603079783
+  },
+  {
+    "status": "success",
+    "scenario": "E3",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -93817.66522681888
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1210.7939541411536,
+    "diesel_kwh": 4457.601758491085,
+    "reward": -48876.22492371558
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 523.6441924762521,
+    "diesel_kwh": 6817.800613670478,
+    "reward": -44612.993905461844
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 396.9349345452347,
+    "diesel_kwh": 6586.393885652865,
+    "reward": -40938.61528381271
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 813.8526173996587,
+    "diesel_kwh": 5380.567155688336,
+    "reward": -44822.97205423584
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 401.51844339627985,
+    "diesel_kwh": 3577.232614544382,
+    "reward": -32060.885006908175
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1048.8011490975605,
+    "diesel_kwh": 3473.728026667906,
+    "reward": -40188.11990160564
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 656.1726635604449,
+    "diesel_kwh": 5321.996053484396,
+    "reward": -42625.84388379555
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1701.0552832436497,
+    "diesel_kwh": 4603.874204355735,
+    "reward": -59308.403720388495
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 749.6525359199875,
+    "diesel_kwh": 6283.748008826297,
+    "reward": -48264.59854997923
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -36993.93409919957
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -40147.58776530431
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -38158.81075487073
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -38037.786875427875
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -28759.137475017706
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -36007.34413096646
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -34867.64218668338
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -40922.991008043464
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -40113.14313120304
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 22.254218984947766,
+    "diesel_kwh": 6032.127165491758,
+    "reward": -47094.74410114224
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 8.760353553682876e-13,
+    "diesel_kwh": 7695.48610224581,
+    "reward": -49491.63993632892
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 76.81083763651422,
+    "diesel_kwh": 6315.678750619318,
+    "reward": -46015.310502072876
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 69.48247762296066,
+    "diesel_kwh": 6551.59544288983,
+    "reward": -47387.14904510983
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 37.852839827678366,
+    "diesel_kwh": 3701.5562097118423,
+    "reward": -38518.907030437156
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 91.455258260779,
+    "diesel_kwh": 5192.352452061571,
+    "reward": -46493.09822927006
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 11.893131726084041,
+    "diesel_kwh": 6350.909817704848,
+    "reward": -43399.910189216374
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 123.62244407461803,
+    "diesel_kwh": 6417.139539264773,
+    "reward": -52279.00531075934
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 10.404114633513727,
+    "diesel_kwh": 7148.976576878557,
+    "reward": -50716.88894618783
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 31.537124986735932,
+    "diesel_kwh": 5563.914693317365,
+    "reward": -47206.002046669586
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 19.91608830673369,
+    "diesel_kwh": 7249.072335953545,
+    "reward": -48627.154267496415
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 21.27863166446553,
+    "diesel_kwh": 6166.259613209004,
+    "reward": -42653.07375060264
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 15.676567511719282,
+    "diesel_kwh": 6316.17927000535,
+    "reward": -43852.897082556134
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 15.356623589941902,
+    "diesel_kwh": 3631.6132074633406,
+    "reward": -34006.28376168119
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 37.55975056531902,
+    "diesel_kwh": 5176.040216110986,
+    "reward": -46623.91539901098
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 17.839566615385245,
+    "diesel_kwh": 5948.336310866031,
+    "reward": -43005.11103057422
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 64.8674203594989,
+    "diesel_kwh": 6065.924097169665,
+    "reward": -49238.64192341804
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 8.508507432973815,
+    "diesel_kwh": 6795.312468036332,
+    "reward": -45399.62723561961
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 58.118706953559986,
+    "diesel_kwh": 5648.727567496084,
+    "reward": -43120.50572444411
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 32.68093106957438,
+    "diesel_kwh": 7273.008925368564,
+    "reward": -49243.47284449789
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 53.864584281805115,
+    "diesel_kwh": 6178.715506986674,
+    "reward": -42542.82993470314
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 57.824408682111134,
+    "diesel_kwh": 6216.952157908781,
+    "reward": -44081.43897982553
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 57.81067249932881,
+    "diesel_kwh": 3977.1085207082883,
+    "reward": -36808.27259472932
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 71.98272125174118,
+    "diesel_kwh": 5416.454688394788,
+    "reward": -44118.785534897266
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 30.188472386800736,
+    "diesel_kwh": 5726.964463958784,
+    "reward": -41117.4373640818
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 74.96227829052252,
+    "diesel_kwh": 6356.673856407027,
+    "reward": -48475.48132717925
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 22.074283601051704,
+    "diesel_kwh": 6980.809002344716,
+    "reward": -45225.157135502406
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 26.936305786023862,
+    "diesel_kwh": 5781.466576542814,
+    "reward": -38906.093514213724
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 21.5821303456053,
+    "diesel_kwh": 7503.702950267301,
+    "reward": -41717.095561261005
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 62.19224822808582,
+    "diesel_kwh": 6216.698319324896,
+    "reward": -36368.14661963858
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 17.577300201816396,
+    "diesel_kwh": 6352.894402432782,
+    "reward": -36027.02013118109
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 14.61124740089094,
+    "diesel_kwh": 3497.129188375174,
+    "reward": -29842.431948264835
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 37.9061159096675,
+    "diesel_kwh": 4972.986572094913,
+    "reward": -35934.71540127211
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 7.5744886355727825,
+    "diesel_kwh": 5751.608585226044,
+    "reward": -36668.71073095314
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 46.442642938580725,
+    "diesel_kwh": 6208.599595400029,
+    "reward": -38892.381069023635
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 31.130546753942905,
+    "diesel_kwh": 6845.702209827726,
+    "reward": -44608.92943546005
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 20.122673289616433,
+    "diesel_kwh": 7284.590877191989,
+    "reward": -49350.9776772797
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 2.182148873851363,
+    "diesel_kwh": 8620.491151707845,
+    "reward": -51295.323411300116
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 66.24279240209967,
+    "diesel_kwh": 7314.806822591719,
+    "reward": -50942.691666301995
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 1.617184294611964,
+    "diesel_kwh": 7901.804520499357,
+    "reward": -52767.548616592736
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 35.8131732066629,
+    "diesel_kwh": 5334.303910120401,
+    "reward": -49450.98952656791
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 44.65172576514435,
+    "diesel_kwh": 7276.463444076798,
+    "reward": -56805.33642396567
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 26.365392053559415,
+    "diesel_kwh": 7778.189845072249,
+    "reward": -55093.28637557191
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 59.38720106602317,
+    "diesel_kwh": 8003.900024727834,
+    "reward": -54697.71365150672
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 32.010469928942626,
+    "diesel_kwh": 8625.056313048333,
+    "reward": -54791.728551704844
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 10.033110863067781,
+    "diesel_kwh": 5817.371737034605,
+    "reward": -39496.11049429958
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 6.971418262907671,
+    "diesel_kwh": 7357.9583950937995,
+    "reward": -43921.84366794423
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 88.0425632100941,
+    "diesel_kwh": 6144.014909710499,
+    "reward": -40590.25673912251
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 32.84332863404878,
+    "diesel_kwh": 6358.185457255932,
+    "reward": -40746.54256339287
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 40.23589343009881,
+    "diesel_kwh": 3621.0694260168866,
+    "reward": -33730.385456332675
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 38.4441165789456,
+    "diesel_kwh": 5046.037265158731,
+    "reward": -38393.79735469412
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 44.94517861245119,
+    "diesel_kwh": 5742.089405314971,
+    "reward": -38016.45974190847
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 68.77348579494016,
+    "diesel_kwh": 6186.722203835157,
+    "reward": -42696.22843722522
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 48.45989564259459,
+    "diesel_kwh": 6939.075580250463,
+    "reward": -46751.617074732894
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -59561.74759083366
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57189.35747259419
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58380.82588340148
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -59313.38050397279
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -64703.19498261693
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -62271.757925809354
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -59888.46628657247
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -59534.99629870911
+  },
+  {
+    "status": "success",
+    "scenario": "E4",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58248.20666079859
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1193.8493670275273,
+    "diesel_kwh": 4481.463103842571,
+    "reward": -145620.21001549263
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 519.3605867751577,
+    "diesel_kwh": 6983.997107158755,
+    "reward": -85276.6433504958
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 388.32275102466974,
+    "diesel_kwh": 6492.574259436199,
+    "reward": -71026.44252285843
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 782.0081274891619,
+    "diesel_kwh": 5426.746557334911,
+    "reward": -105936.36693967687
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 399.28763598375315,
+    "diesel_kwh": 3559.145767460238,
+    "reward": -62422.75604134719
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1043.7464929905238,
+    "diesel_kwh": 3474.036259262351,
+    "reward": -123534.41113981834
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 658.5774626930598,
+    "diesel_kwh": 5368.589077838647,
+    "reward": -95246.67332862642
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 1714.9723425568213,
+    "diesel_kwh": 4568.624607620641,
+    "reward": -196477.1625744974
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "mpc",
+    "seed": 0,
+    "unserved_kwh": 748.8353253840202,
+    "diesel_kwh": 6274.099425329562,
+    "reward": -106664.84114464407
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 141.48501498129255,
+    "diesel_kwh": 6351.1662272010535,
+    "reward": -47898.3780053534
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 144.48099050652468,
+    "diesel_kwh": 7902.061867212181,
+    "reward": -51503.5477074381
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 99.36556631335203,
+    "diesel_kwh": 7220.888747667409,
+    "reward": -45580.800688755124
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 108.51370977996876,
+    "diesel_kwh": 6937.591989254304,
+    "reward": -46261.52758436258
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 64.762826840439,
+    "diesel_kwh": 4608.018835399708,
+    "reward": -32910.57435373191
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 165.90133889275305,
+    "diesel_kwh": 5461.2398495883,
+    "reward": -48693.274451403646
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 124.53787908968529,
+    "diesel_kwh": 6583.125093658557,
+    "reward": -44430.228939062676
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 207.61353008193117,
+    "diesel_kwh": 7026.22229935511,
+    "reward": -57034.1678397662
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "rule",
+    "seed": 0,
+    "unserved_kwh": 178.0674357105598,
+    "diesel_kwh": 7474.970009622705,
+    "reward": -53992.74795388233
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 0.7065247992302446,
+    "diesel_kwh": 5936.60650218503,
+    "reward": -42314.300447486006
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 1.1813466871402056e-12,
+    "diesel_kwh": 7455.833362580741,
+    "reward": -46230.24712452541
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 4.036438420603432,
+    "diesel_kwh": 6300.34192667122,
+    "reward": -41193.61851255793
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 18.287375883435622,
+    "diesel_kwh": 6619.030026592911,
+    "reward": -45901.94071183724
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 16.02768698297135,
+    "diesel_kwh": 4132.047701677095,
+    "reward": -35660.343796373265
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 9.558326352632207e-13,
+    "diesel_kwh": 5497.459443543852,
+    "reward": -41108.13356001194
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 10.158822988289748,
+    "diesel_kwh": 6165.610970777713,
+    "reward": -44323.878885754966
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 15.865650650854672,
+    "diesel_kwh": 6374.510447723817,
+    "reward": -47446.147216709964
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 0,
+    "unserved_kwh": 0.8586262248887703,
+    "diesel_kwh": 7033.872773611276,
+    "reward": -50011.05029809184
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 46.960569282700064,
+    "diesel_kwh": 5618.476623467443,
+    "reward": -44259.143954691855
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 6.593742757263585,
+    "diesel_kwh": 7283.4058453777425,
+    "reward": -46776.22418646242
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 0.39316064952884916,
+    "diesel_kwh": 6084.524518857444,
+    "reward": -39627.16075194697
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 54.37040709117078,
+    "diesel_kwh": 6288.434869881441,
+    "reward": -46685.85448829328
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 18.8483212823395,
+    "diesel_kwh": 3649.773809365572,
+    "reward": -35590.021196843685
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 6.221851132148257,
+    "diesel_kwh": 5390.69534433798,
+    "reward": -41314.810853894305
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 4.104981265623023,
+    "diesel_kwh": 5828.929655881894,
+    "reward": -39988.79844535522
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 37.90099744818271,
+    "diesel_kwh": 6194.38291630357,
+    "reward": -47635.89650028002
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 1,
+    "unserved_kwh": 3.5686835349101105,
+    "diesel_kwh": 6937.594496469812,
+    "reward": -47259.95868170342
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 25.292218107195996,
+    "diesel_kwh": 5534.037412222764,
+    "reward": -40702.826666782195
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 1.2695449754707295,
+    "diesel_kwh": 7251.708828801702,
+    "reward": -45971.19985939613
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 1.5161483180037294e-12,
+    "diesel_kwh": 6164.345590606841,
+    "reward": -38052.91785004339
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 4.1812490449176645,
+    "diesel_kwh": 6251.152840978861,
+    "reward": -41318.53779750024
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 1.7615166821483597,
+    "diesel_kwh": 3337.804295907765,
+    "reward": -29442.676918885467
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 10.880095296998757,
+    "diesel_kwh": 4923.2530826324255,
+    "reward": -39346.64132471859
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 24.363905660138904,
+    "diesel_kwh": 5667.771993680948,
+    "reward": -39991.66880190489
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 89.67109146208071,
+    "diesel_kwh": 5944.619608116626,
+    "reward": -51596.866498462005
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_f0",
+    "seed": 2,
+    "unserved_kwh": 16.614152237290707,
+    "diesel_kwh": 6750.500625725354,
+    "reward": -47779.50036596001
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 22.811369007446384,
+    "diesel_kwh": 6072.324343725286,
+    "reward": -43135.85173600482
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 5.380103485787919,
+    "diesel_kwh": 7334.008639432043,
+    "reward": -44932.38780202483
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 6.825469012751428,
+    "diesel_kwh": 6200.827206360104,
+    "reward": -39416.535043867785
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 1.0373646386341306e-12,
+    "diesel_kwh": 6316.693286238399,
+    "reward": -39959.30037111726
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 5.261442213451525,
+    "diesel_kwh": 3822.9965390787297,
+    "reward": -32732.375720544635
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 11.44961395880859,
+    "diesel_kwh": 5103.552888486055,
+    "reward": -42072.20994389015
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 2.1675447620678105,
+    "diesel_kwh": 5870.367721163885,
+    "reward": -39830.5763629168
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 20.20731472113815,
+    "diesel_kwh": 6374.105546850795,
+    "reward": -46347.626305453596
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 0,
+    "unserved_kwh": 3.5562683633399135,
+    "diesel_kwh": 7026.702032667345,
+    "reward": -47418.273385521345
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 27.493249093782154,
+    "diesel_kwh": 5970.510969682287,
+    "reward": -41108.261510058
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 10.903326460109113,
+    "diesel_kwh": 7423.160870559961,
+    "reward": -41783.11095444957
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 12.077005919335292,
+    "diesel_kwh": 6137.684010818259,
+    "reward": -36671.34009352744
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 1.2715523078909996e-12,
+    "diesel_kwh": 6540.6905790763085,
+    "reward": -38500.21662832078
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 1.0217521273503394e-12,
+    "diesel_kwh": 4049.463706592433,
+    "reward": -29169.594457540337
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 1.2264494975156026e-12,
+    "diesel_kwh": 5367.2047903254725,
+    "reward": -35636.358749731604
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 1.2871648191747909e-12,
+    "diesel_kwh": 5950.7141783017305,
+    "reward": -35805.63942912805
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 13.666448617603594,
+    "diesel_kwh": 6460.204924145959,
+    "reward": -42058.420827660964
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 1,
+    "unserved_kwh": 16.669652038598226,
+    "diesel_kwh": 7189.261423032598,
+    "reward": -43064.392987731306
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 159.98047157460152,
+    "diesel_kwh": 5648.051545735609,
+    "reward": -51604.09911787507
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 128.17668949364875,
+    "diesel_kwh": 7106.998113747661,
+    "reward": -51534.82079734619
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 238.82450026207076,
+    "diesel_kwh": 5832.960169122579,
+    "reward": -56273.36809807746
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 67.40633416103675,
+    "diesel_kwh": 6197.394231456157,
+    "reward": -41262.81571255182
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 132.1918418859897,
+    "diesel_kwh": 3656.23930737963,
+    "reward": -40802.570124415215
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 68.8906526436713,
+    "diesel_kwh": 4891.060546800713,
+    "reward": -40561.90522972206
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 136.84026148154965,
+    "diesel_kwh": 5641.26612507144,
+    "reward": -45431.21467023216
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 79.02539952863025,
+    "diesel_kwh": 6064.944234234437,
+    "reward": -44535.46732187183
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "sac_none",
+    "seed": 2,
+    "unserved_kwh": 251.66643927743405,
+    "diesel_kwh": 6583.576673264975,
+    "reward": -66337.3637935104
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-01 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58141.19081821461
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-04 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 3.469446951953614e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56407.86760022823
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-07 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.245004513516506e-14,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57590.00184657299
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-10 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 1.6653345369377348e-13,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57479.51716944899
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-13 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -60770.25409559556
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-16 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 6.938893903907228e-15,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58954.335567024136
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-19 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -57979.18974740569
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-22 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 8.899999999999999,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -58474.46517215234
+  },
+  {
+    "status": "success",
+    "scenario": "E5",
+    "window": "2026-03-25 00:00:00",
+    "policy": "schedule",
+    "seed": 0,
+    "unserved_kwh": 0.0,
+    "diesel_kwh": 11547.574436333307,
+    "reward": -56865.82441517066
+  }
+]

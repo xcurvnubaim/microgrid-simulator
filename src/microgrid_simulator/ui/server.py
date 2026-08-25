@@ -55,6 +55,16 @@ RL_PRESETS = (
     },
 )
 
+EXPERIMENT_POLICY_LABELS = {
+    "rule_f3": "Rule-F3",
+    "schedule": "Schedule",
+    "pypsa_rh_f3": "PyPSA-RH-F3",
+    "sac_f3": "SAC-F3",
+    "sac_none_f3": "SAC-none-F3",
+    "sac_f3_summary": "SAC-F3-summary",
+    # "sac_f3_finetuned": "FT SAC",
+}
+
 SERVICE_DEFINITIONS = (
     {
         "id": "control-room",
@@ -273,6 +283,7 @@ class SimulateRequest(BaseModel):
     seed: int = 0
     rl_artifact: str | None = None
     rl_algo: str | None = None
+    rl_mask_episode_progress: bool = False
 
 
 class StreamRequest(SimulateRequest):
@@ -372,7 +383,164 @@ def _defaults_payload() -> dict[str, Any]:
         "policy_settings": {"rl": _base_settings("rl").model_dump()},
         "policies": list(POLICIES),
         "rl_presets": list(RL_PRESETS),
+        "experiment_catalog": _experiment_catalog(),
         "demand": _demand_status(settings),
+    }
+
+
+def _experiment_catalog() -> dict[str, Any]:
+    """Expose the March matrix and its documented SAC extensions.
+
+    The monthly evaluator remains the source of truth for scenario configs,
+    policy/runtime mappings, seeds, and checkpoint paths. The summary arm is
+    the completed 18-job March extension. FT SAC† is a February diagnostic arm,
+    not a promoted policy or a result from the continuous-March comparison.
+    """
+    from microgrid_simulator.experiments.monthly_evaluation import (
+        DETERMINISTIC_POLICIES,
+        SAC_POLICIES,
+        SAC_SEEDS,
+        SAC_SUMMARY_POLICIES,
+        SCENARIOS,
+    )
+
+    configured = Path(os.environ.get("MGS_CONFIG", ""))
+    root_candidates = [
+        configured.parent.parent if configured.is_absolute() else Path.cwd(),
+        Path.cwd(),
+        Path(__file__).resolve().parents[3],
+    ]
+    repo_root = next(
+        (root for root in root_candidates if (root / "configs" / "f3-e0-monthly.yaml").is_file()),
+        root_candidates[0],
+    )
+    scenario_paths = {
+        scenario_id: repo_root / "configs" / f"f3-{scenario_id.lower()}-monthly.yaml"
+        for scenario_id in SCENARIOS
+    }
+    scenarios = []
+    for scenario_id, config_path in scenario_paths.items():
+        scenario_settings = Settings.from_yaml(config_path)
+        scenarios.append(
+            {
+                "id": scenario_id,
+                "label": f"{scenario_id} · {scenario_settings.scenario.description}",
+                "config": str(config_path.relative_to(repo_root)),
+                "settings": scenario_settings.model_dump(),
+            }
+        )
+
+    policies = []
+    for policy_id, runtime_policy in DETERMINISTIC_POLICIES.items():
+        policies.append(
+            {
+                "id": policy_id,
+                "label": EXPERIMENT_POLICY_LABELS[policy_id],
+                "runtime_policy": runtime_policy,
+                "seeds": [0],
+                "artifacts": {},
+                "settings_overrides": {},
+            }
+        )
+    for policy_id, forecast_mode in SAC_POLICIES.items():
+        artifacts = {
+            scenario_id: {
+                str(seed): (
+                    f"artifacts/sac/f3-15min/{scenario_id}/{forecast_mode}/seed-{seed}/"
+                    "sac_microgrid.zip"
+                )
+                for seed in SAC_SEEDS
+            }
+            for scenario_id in SCENARIOS
+        }
+        policies.append(
+            {
+                "id": policy_id,
+                "label": EXPERIMENT_POLICY_LABELS[policy_id],
+                "runtime_policy": "rl",
+                "seeds": list(SAC_SEEDS),
+                "artifacts": artifacts,
+                "settings_overrides": {
+                    "rl": {
+                        "forecast_mode": "none" if forecast_mode == "none" else "cached",
+                        "forecast_representation": "raw",
+                    }
+                },
+                "mask_episode_progress": True,
+            }
+        )
+
+    for policy_id, forecast_representation in SAC_SUMMARY_POLICIES.items():
+        artifacts = {
+            scenario_id: {
+                str(seed): (
+                    f"artifacts/sac/f3-summary/{scenario_id}/seed-{seed}/"
+                    "sac_microgrid.zip"
+                )
+                for seed in SAC_SEEDS
+            }
+            for scenario_id in SCENARIOS
+        }
+        policies.append(
+            {
+                "id": policy_id,
+                "label": EXPERIMENT_POLICY_LABELS[policy_id],
+                "runtime_policy": "rl",
+                "seeds": list(SAC_SEEDS),
+                "artifacts": artifacts,
+                "settings_overrides": {
+                    "rl": {
+                        "forecast_mode": "cached",
+                        "forecast_representation": forecast_representation,
+                    }
+                },
+                "mask_episode_progress": True,
+                "evidence_scope": "continuous March 2026 extension (18 jobs)",
+                "promotion_status": "frozen comparison arm",
+            }
+        )
+
+    fine_tuned_artifacts = {
+        scenario_id: {
+            str(seed): (
+                f"artifacts/agent-loop/e5/iteration-002/seed-{seed}/sac_microgrid.zip"
+                if scenario_id == "E5"
+                else (
+                    f"artifacts/agent-loop-cross/{scenario_id.lower()}/iteration-001/"
+                    f"seed-{seed}/sac_microgrid.zip"
+                )
+            )
+            for seed in SAC_SEEDS
+        }
+        for scenario_id in SCENARIOS
+    }
+    policies.append(
+        {
+            "id": "sac_f3_finetuned",
+            "label": EXPERIMENT_POLICY_LABELS["sac_f3_finetuned"],
+            "runtime_policy": "rl",
+            "seeds": list(SAC_SEEDS),
+            "artifacts": fine_tuned_artifacts,
+            "settings_overrides": {
+                "rl": {
+                    "forecast_mode": "cached",
+                    "forecast_representation": "raw",
+                }
+            },
+            "mask_episode_progress": True,
+            "evidence_scope": "72-hour February validation diagnostic",
+            "promotion_status": "not promoted",
+            "training_change": "fine_tune + gamma=0.995",
+        }
+    )
+
+    return {
+        "id": "continuous_march_policy_catalog",
+        "label": "Continuous March policies + documented SAC extensions",
+        "default_scenario": "E0",
+        "default_policy": "rule_f3",
+        "scenarios": scenarios,
+        "policies": policies,
     }
 
 
@@ -685,6 +853,7 @@ def create_app() -> FastAPI:
                 seed=req.seed,
                 rl_artifact=req.rl_artifact,
                 rl_algo=req.rl_algo,
+                rl_mask_episode_progress=req.rl_mask_episode_progress,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
@@ -712,6 +881,7 @@ def create_app() -> FastAPI:
                 seed=req.seed,
                 rl_artifact=req.rl_artifact,
                 rl_algo=req.rl_algo,
+                rl_mask_episode_progress=req.rl_mask_episode_progress,
             ):
                 if pace and event["type"] == "row":
                     now = time.monotonic()

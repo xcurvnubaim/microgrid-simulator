@@ -113,6 +113,21 @@ def decode_action(
     )
 
 
+def get_episode_progress_index(settings: Settings) -> int:
+    """Return the index of ``episode_progress`` in the 214-value observation.
+
+    The index depends only on static topology dimensions that are fixed at
+    config load time.
+    """
+    n_buses = len(settings.buses)
+    n_load = settings.topology.n_load
+    n_pv = settings.topology.n_pv
+    n_storage = settings.topology.n_storage
+    n_ev = settings.topology.n_ev
+    diesel_idx = 1 if settings.diesel.enabled else 0
+    return n_buses + n_load + n_pv + n_storage + n_storage + n_ev + 3 + diesel_idx + 2 + 1 + 1 + 1
+
+
 def encode_action(
     action: ControlAction, settings: Settings, n_ev: int, diesel_enabled: bool
 ) -> np.ndarray:
@@ -142,6 +157,96 @@ def encode_action(
     return np.clip(a, -1.0, 1.0)
 
 
+def project_rl_action(
+    action: ControlAction,
+    state: GridState,
+    settings: Settings,
+    soc_target: float,
+    step: int,
+    max_steps: int,
+) -> tuple[ControlAction, tuple[str, ...]]:
+    """Project SAC dispatch toward current load service and terminal SOC."""
+    projected = action.copy()
+    reasons: list[str] = []
+    dt = float(settings.topology.timestep_hours)
+    battery = settings.battery
+    capacity = max(battery.capacity_mwh * float(state.soh[0] if state.soh else 1.0), 1e-9)
+    soc = float(state.soc[0] if state.soc else 0.0)
+    max_discharge = min(
+        battery.max_discharge_mw,
+        max(0.0, (soc - battery.soc_min) * capacity * battery.discharge_eff / max(dt, 1e-9)),
+    )
+    pv_supply = max(0.0, state.pv_available_mw * (1.0 - projected.pv_curtail))
+    if state.load_demand_mw > pv_supply and projected.battery_p_mw > 0.0:
+        projected.battery_p_mw = 0.0
+        reasons.append("cancel_battery_charge_for_load")
+    projected.battery_p_mw = max(-max_discharge, min(battery.max_charge_mw, projected.battery_p_mw))
+    required_diesel = max(0.0, state.load_demand_mw - pv_supply + projected.battery_p_mw)
+    diesel_max = settings.diesel.max_kw / 1000.0 if settings.diesel.enabled else 0.0
+    if required_diesel > projected.diesel_setpoint_mw and required_diesel > 0.0:
+        projected.diesel_on = True
+        projected.diesel_setpoint_mw = min(diesel_max, required_diesel)
+        reasons.append("load_service_diesel_commitment")
+
+    terminal_steps = max(1, int(round(settings.rl.shield_terminal_hours / max(dt, 1e-9))))
+    if step >= max(0, max_steps - terminal_steps) and soc < soc_target:
+        if projected.battery_p_mw < 0.0:
+            projected.battery_p_mw = 0.0
+            reasons.append("terminal_soc_discharge_block")
+        if not projected.diesel_on:
+            projected.diesel_on = True
+            projected.diesel_setpoint_mw = min(
+                diesel_max, max(settings.diesel.min_kw / 1000.0, 0.0)
+            )
+            reasons.append("terminal_soc_diesel_commitment")
+    return projected, tuple(reasons)
+
+
+def summarize_forecast(
+    pv_forecast_mw: np.ndarray,
+    demand_forecast_mw: np.ndarray,
+    timestep_hours: float,
+) -> np.ndarray:
+    """Encode a causal forecast into fixed, control-relevant summaries."""
+    pv = np.maximum(np.asarray(pv_forecast_mw, dtype=np.float32), 0.0)
+    demand = np.maximum(np.asarray(demand_forecast_mw, dtype=np.float32), 0.0)
+    net = demand - pv
+
+    def window(values: np.ndarray, hours: float, reducer: str) -> float:
+        count = max(1, min(len(values), int(round(hours / timestep_hours))))
+        selected = values[:count]
+        if reducer == "mean":
+            return float(np.mean(selected))
+        return float(np.max(selected))
+
+    def energy(values: np.ndarray, hours: float) -> float:
+        count = max(1, min(len(values), int(round(hours / timestep_hours))))
+        return float(np.sum(values[:count]) * timestep_hours)
+
+    ramp_count = max(1, min(len(net), int(round(1.0 / timestep_hours))))
+    ramp = np.diff(net[: ramp_count + 1]) / max(timestep_hours, 1e-9)
+    return np.asarray(
+        [
+            float(pv[0]) if len(pv) else 0.0,
+            float(demand[0]) if len(demand) else 0.0,
+            float(net[0]) if len(net) else 0.0,
+            window(net, 1.0, "mean"),
+            window(net, 4.0, "mean"),
+            window(net, 12.0, "mean"),
+            window(net, 24.0, "mean"),
+            window(net, 4.0, "max"),
+            window(net, 24.0, "max"),
+            energy(np.maximum(net, 0.0), 4.0),
+            energy(np.maximum(net, 0.0), 12.0),
+            energy(np.maximum(net, 0.0), 24.0),
+            energy(np.maximum(-net, 0.0), 24.0),
+            float(np.max(np.abs(ramp))) if len(ramp) else 0.0,
+            energy(pv, 24.0),
+        ],
+        dtype=np.float32,
+    )
+
+
 def build_observation(
     state: GridState,
     diesel_enabled: bool,
@@ -152,6 +257,8 @@ def build_observation(
     target_soc: float | None = None,
     episode_progress: float = 0.0,
     forecast_horizon: int = 24,
+    forecast_representation: str = "raw",
+    forecast_timestep_hours: float = 1.0,
 ) -> np.ndarray:
     """Flatten a :class:`GridState` into the env's float32 observation vector.
 
@@ -181,12 +288,20 @@ def build_observation(
     if pv_forecast_mw is not None:
         pv_values[: min(forecast_horizon, len(pv_forecast_mw))] = pv_forecast_mw[:forecast_horizon]
     if demand_forecast_mw is not None:
-        demand_values[: min(forecast_horizon, len(demand_forecast_mw))] = (
-            demand_forecast_mw[:forecast_horizon]
-        )
+        demand_values[: min(forecast_horizon, len(demand_forecast_mw))] = demand_forecast_mw[
+            :forecast_horizon
+        ]
     vals += [1.0 if forecast_available else 0.0]
-    vals += list(pv_values)
-    vals += list(demand_values)
+    if forecast_representation == "raw":
+        forecast_values = np.concatenate((pv_values, demand_values))
+    elif forecast_representation == "summary":
+        forecast_values = np.zeros(2 * forecast_horizon, dtype=np.float32)
+        if forecast_available:
+            summary = summarize_forecast(pv_values, demand_values, forecast_timestep_hours)
+            forecast_values[: len(summary)] = summary
+    else:
+        raise ValueError("forecast_representation must be 'raw' or 'summary'")
+    vals += list(forecast_values)
     return np.asarray(vals, dtype=np.float32)
 
 
@@ -319,9 +434,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
                 "demand_window_start_time": trace.window_start_time(start_idx),
             }
 
-        self._last_state = self._reset_plant(
-            seed=seed, window=window, pv_window=pv_window
-        )
+        self._last_state = self._reset_plant(seed=seed, window=window, pv_window=pv_window)
         self._initial_soc = float(self.backend.battery.soc)
         self._terminal_soc_deviation = 0.0
         self._terminal_soc_penalty = 0.0
@@ -356,9 +469,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             stream = np.random.default_rng((base * 10_003 + (seed or 0)) & 0xFFFFFFFF)
             sampler = UncertaintySampler(self.settings, stream)
             self._active_uncertainty = sampler.sample()
-            self._active_settings = apply_plant_mismatch(
-                self.settings, self._active_uncertainty
-            )
+            self._active_settings = apply_plant_mismatch(self.settings, self._active_uncertainty)
         else:
             self._active_uncertainty = SampledUncertainty()
             self._active_settings = self.settings
@@ -370,6 +481,16 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         control = self._decode_action(action)
+        shield_reasons: tuple[str, ...] = ()
+        if getattr(self.settings.rl, "action_shield", False):
+            control, shield_reasons = project_rl_action(
+                control,
+                self.backend.get_state(),
+                self.settings,
+                self._initial_soc,
+                self._steps,
+                self.max_steps,
+            )
         state = self.backend.step(control)
         self._last_state = state
 
@@ -412,9 +533,7 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
         self._terminal_soc_penalty = 0.0
         terminal_soc_met = self._terminal_soc_deviation <= epcfg.terminal_soc_tolerance
         if truncated and not terminal_soc_met:
-            self._terminal_soc_penalty = (
-                self._terminal_soc_deviation * epcfg.terminal_soc_penalty
-            )
+            self._terminal_soc_penalty = self._terminal_soc_deviation * epcfg.terminal_soc_penalty
             reward -= self._terminal_soc_penalty
             breakdown.constraint += self._terminal_soc_penalty
             breakdown.total -= self._terminal_soc_penalty
@@ -443,6 +562,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "hard_unserved_triggered": self._hard_unserved_triggered,
             "unserved_mw": state.unserved_mw,
             "load_demand_mw": state.load_demand_mw,
+            "pv_available_mw": state.pv_available_mw,
+            "pv_used_mw": state.pv_used_mw,
             "pv_wasted_mw": max(0.0, state.pv_available_mw - state.pv_used_mw),
             "diesel_p_mw": state.diesel_p_mw,
             "diesel_on": state.diesel_on,
@@ -467,6 +588,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             "forecast_model_version": (
                 self._forecast_snapshot.model_version if self._forecast_snapshot else None
             ),
+            "rl_action_shield_enabled": bool(getattr(self.settings.rl, "action_shield", False)),
+            "rl_action_shield_reasons": list(shield_reasons),
             **self._forecast_meta(),
             **breakdown.as_info(),
             **self._active_uncertainty.as_info(),
@@ -510,6 +633,8 @@ class MicrogridEnv(gym.Env[np.ndarray, np.ndarray]):
             target_soc=self._initial_soc,
             episode_progress=self._steps / max(1, self.max_steps),
             forecast_horizon=self.settings.forecast.forecast_steps,
+            forecast_representation=self.settings.rl.forecast_representation,
+            forecast_timestep_hours=self.dt,
         )
 
     # -- forecast observation ---------------------------------------------

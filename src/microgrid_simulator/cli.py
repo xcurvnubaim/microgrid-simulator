@@ -102,9 +102,7 @@ def generate_forecast_cache(
         # Send past 500 steps (~20 days) context to Chronos HTTP forecaster
         ctx_start_idx = max(0, i - 500)
         past_pv = tuple(max(0.0, float(val)) for val in pv_mw[ctx_start_idx : i + 1 : 4])
-        past_demand = tuple(
-            max(0.0, float(val)) for val in demand_mw[ctx_start_idx : i + 1 : 4]
-        )
+        past_demand = tuple(max(0.0, float(val)) for val in demand_mw[ctx_start_idx : i + 1 : 4])
         ctx = ForecastContext(
             source_id=source_id,
             frequency_hours=1.0,
@@ -163,6 +161,9 @@ def train(
     forecast_mode: str | None = typer.Option(
         None, help="forecast input override: cached | none (default: config value)"
     ),
+    forecast_representation: str | None = typer.Option(
+        None, help="forecast representation override: raw | summary"
+    ),
     init_artifact: Path | None = typer.Option(
         None, help="existing policy .zip to continue from (fine-tuning)"
     ),
@@ -194,6 +195,12 @@ def train(
         raise typer.BadParameter("choose cached or none", param_hint="--forecast-mode")
     if forecast_mode is not None:
         settings.rl.forecast_mode = forecast_mode  # type: ignore[assignment]
+    if forecast_representation is not None:
+        if forecast_representation not in {"raw", "summary"}:
+            raise typer.BadParameter(
+                "choose raw or summary", param_hint="--forecast-representation"
+            )
+        settings.rl.forecast_representation = forecast_representation  # type: ignore[assignment]
     path = _train(
         settings,
         algo=algo,
@@ -396,10 +403,10 @@ def ems_serve(
     asyncio.run(
         run_worker(
             EMSService(
-            _load_settings(config),
-            policy=policy,  # type: ignore[arg-type]
-            artifact=artifact,
-            command_ttl_ms=timeout_ms,
+                _load_settings(config),
+                policy=policy,  # type: ignore[arg-type]
+                artifact=artifact,
+                command_ttl_ms=timeout_ms,
             ),
             nats_url,
         )

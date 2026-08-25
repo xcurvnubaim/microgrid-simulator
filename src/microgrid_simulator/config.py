@@ -137,12 +137,22 @@ class DieselCfg(BaseModel):
     enabled: bool = Field(default_factory=lambda: _yaml_default("diesel", "enabled"))
     max_kw: float = Field(default_factory=lambda: _yaml_default("diesel", "max_kw"))
     min_kw: float = Field(default_factory=lambda: _yaml_default("diesel", "min_kw"))
-    ramp_kw_per_min: float = Field(default_factory=lambda: _yaml_default("diesel", "ramp_kw_per_min"))
-    start_delay_min: float = Field(default_factory=lambda: _yaml_default("diesel", "start_delay_min"))
-    min_up_time_min: float = Field(default_factory=lambda: _yaml_default("diesel", "min_up_time_min"))
-    min_down_time_min: float = Field(default_factory=lambda: _yaml_default("diesel", "min_down_time_min"))
+    ramp_kw_per_min: float = Field(
+        default_factory=lambda: _yaml_default("diesel", "ramp_kw_per_min")
+    )
+    start_delay_min: float = Field(
+        default_factory=lambda: _yaml_default("diesel", "start_delay_min")
+    )
+    min_up_time_min: float = Field(
+        default_factory=lambda: _yaml_default("diesel", "min_up_time_min")
+    )
+    min_down_time_min: float = Field(
+        default_factory=lambda: _yaml_default("diesel", "min_down_time_min")
+    )
     bus: int = Field(default_factory=lambda: _yaml_default("diesel", "bus"))
-    carbon_kg_per_kwh: float = Field(default_factory=lambda: _yaml_default("diesel", "carbon_kg_per_kwh"))
+    carbon_kg_per_kwh: float = Field(
+        default_factory=lambda: _yaml_default("diesel", "carbon_kg_per_kwh")
+    )
     # Unit-commitment shutdown cost. Fuel and startup costs are shared with the
     # per-step reward through RewardCfg so PyPSA-RH and RL use one objective definition.
     shut_down_cost: float = Field(default_factory=lambda: _yaml_default("diesel", "shut_down_cost"))
@@ -294,6 +304,32 @@ class DigitalTwinCfg(BaseModel):
     max_missing_fraction: float = 0.05  # hard error above this share of missing data
 
 
+class SACCfg(BaseModel):
+    """Explicit SAC hyperparameters for the agent-gated loop.
+
+    All fields are optional — when None, Stable-Baselines3 defaults apply.
+    The agent loop may change one field per iteration from the allowlist.
+    Unknown fields are rejected so YAML typos fail loudly instead of being
+    silently ignored by the loop's proposal validator.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    learning_rate: float | None = None
+    buffer_size: int | None = None
+    learning_starts: int | None = None
+    batch_size: int | None = None
+    gamma: float | None = None
+    tau: float | None = None
+    train_freq: int | None = None
+    gradient_steps: int | None = None
+    ent_coef: str | float | None = None
+    target_entropy: int | str | None = None
+    net_arch: list[int] | None = None
+    n_critics: int | None = None
+    use_sde: bool | None = None
+
+
 class RLCfg(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
@@ -310,6 +346,7 @@ class RLCfg(BaseModel):
     train_split: Literal["train"] = "train"
     eval_split: Literal["val"] = "val"
     forecast_mode: Literal["cached", "none"] = "cached"
+    forecast_representation: Literal["raw", "summary"] = "raw"
     device: str = "auto"  # auto | cpu | cuda / cuda:0
     # Hard unserved-load constraint (islanded outage scenario). When True, any
     # tick with unserved load above the solver-noise tolerance terminates the
@@ -325,6 +362,13 @@ class RLCfg(BaseModel):
     # terminating on every microscopic shortfall kills every episode within the
     # first ~15 steps, so training never observes a full-length episode.
     hard_unserved_tol_mw: float = 0.002  # 2 kW
+    # Optional RL-side action projection. Disabled for existing training runs;
+    # enable only in a separately labelled shielded evaluation/experiment.
+    action_shield: bool = False
+    shield_terminal_hours: float = 12.0
+
+    # SAC hyperparameters (used only when algo == "sac").
+    sac: SACCfg = Field(default_factory=SACCfg)
 
 
 class APICfg(BaseModel):

@@ -6,7 +6,12 @@ import numpy as np
 
 from microgrid_simulator.config import Settings
 from microgrid_simulator.rl.env import MicrogridEnv
-from microgrid_simulator.ui.server import _defaults_payload, _merge_settings, _playback_settings
+from microgrid_simulator.ui.server import (
+    _defaults_payload,
+    _experiment_catalog,
+    _merge_settings,
+    _playback_settings,
+)
 
 
 def test_dashboard_defaults_expose_active_rl_scenario_and_artifact(monkeypatch) -> None:
@@ -24,6 +29,81 @@ def test_dashboard_defaults_expose_active_rl_scenario_and_artifact(monkeypatch) 
         "artifact": "artifacts/sac/noforecast-1m/seed-1/sac_microgrid.zip",
         "algo": "sac",
     }
+
+
+def test_dashboard_exposes_march_experiment_and_documented_policy_extensions() -> None:
+    catalog = _experiment_catalog()
+
+    assert catalog["id"] == "continuous_march_policy_catalog"
+    assert [scenario["id"] for scenario in catalog["scenarios"]] == [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "E5",
+    ]
+    policies = {policy["id"]: policy for policy in catalog["policies"]}
+    assert list(policies) == [
+        "rule_f3",
+        "schedule",
+        "pypsa_rh_f3",
+        "sac_f3",
+        "sac_none_f3",
+        "sac_f3_summary",
+        "sac_f3_finetuned",
+    ]
+    assert policies["pypsa_rh_f3"]["label"] == "PyPSA-RH-F3"
+    assert policies["sac_f3"]["runtime_policy"] == "rl"
+    assert policies["sac_f3"]["seeds"] == [0, 1, 2]
+    assert policies["sac_f3"]["mask_episode_progress"] is True
+    assert policies["sac_f3"]["artifacts"]["E5"]["2"] == (
+        "artifacts/sac/f3-15min/E5/f3/seed-2/sac_microgrid.zip"
+    )
+    assert policies["sac_none_f3"]["settings_overrides"]["rl"]["forecast_mode"] == "none"
+    assert policies["sac_f3_summary"]["settings_overrides"]["rl"] == {
+        "forecast_mode": "cached",
+        "forecast_representation": "summary",
+    }
+    assert policies["sac_f3_summary"]["artifacts"]["E3"]["1"] == (
+        "artifacts/sac/f3-summary/E3/seed-1/sac_microgrid.zip"
+    )
+    assert policies["sac_f3_finetuned"]["promotion_status"] == "not promoted"
+    assert policies["sac_f3_finetuned"]["training_change"] == "fine_tune + gamma=0.995"
+    assert policies["sac_f3_finetuned"]["artifacts"]["E0"]["2"] == (
+        "artifacts/agent-loop-cross/e0/iteration-001/seed-2/sac_microgrid.zip"
+    )
+    assert policies["sac_f3_finetuned"]["artifacts"]["E5"]["2"] == (
+        "artifacts/agent-loop/e5/iteration-002/seed-2/sac_microgrid.zip"
+    )
+
+
+def test_dashboard_experiment_rl_masks_normalized_episode_progress() -> None:
+    from types import SimpleNamespace
+
+    from microgrid_simulator.ui.rollout import policy_action
+
+    class RecordingModel:
+        def __init__(self) -> None:
+            self.observation = None
+
+        def predict(self, observation, deterministic=True):  # noqa: ANN001, ARG002
+            self.observation = observation
+            return np.zeros(3, dtype=np.float32), None
+
+    env = SimpleNamespace(_last_observation=np.asarray([1.0, 2.0, 3.0, 4.0]))
+    norm = SimpleNamespace(mean=np.zeros(4), var=np.ones(4))
+    model = RecordingModel()
+
+    policy_action(
+        env,
+        "rl",
+        rl_model=model,
+        rl_norm=norm,
+        rl_mask_progress_index=2,
+    )
+
+    assert model.observation.tolist() == [1.0, 2.0, 0.0, 4.0]
 
 
 def test_rl_dashboard_honors_episode_and_topology_settings() -> None:

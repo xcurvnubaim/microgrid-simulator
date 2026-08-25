@@ -1,0 +1,8 @@
+extends: f3-e1.yaml
+scenario: {name: f3_e1_monthly, description: F3 15-minute E1 scenario, continuous March test}
+episode:
+  horizon_hours: 744
+  telemetry_start: "2026-03-01 00:00:00"
+forecast:
+  cache_path: data/f3/test/forecasts.jsonl
+  manifest_path: data/f3/test/forecast_manifest.json

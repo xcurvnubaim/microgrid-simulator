@@ -14,8 +14,9 @@ digital_twin:
 
 forecast:
   enabled: true
-  strict_cache: false
-  service_url: http://host.docker.internal:8000
+  # Keep the demo self-contained: use the bundled, manifest-validated F0 cache
+  # instead of requiring a separately launched forecast HTTP service.
+  strict_cache: true
   horizon_hours: 24
   target_frequency_hours: 1.0
   issue_frequency_hours: 1.0

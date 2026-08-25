@@ -195,12 +195,32 @@ def _load_rl_model(
     return model, norm
 
 
+def _episode_progress_index(settings: Settings) -> int:
+    """Index of episode progress in the flat controller observation."""
+    diesel = 1 if settings.diesel.enabled else 0
+    return (
+        len(settings.buses)
+        + settings.topology.n_load
+        + settings.topology.n_pv
+        + settings.topology.n_storage
+        + settings.topology.n_storage
+        + settings.topology.n_ev
+        + 3
+        + diesel
+        + 2
+        + 1
+        + 1
+        + 1
+    )
+
+
 def policy_action(
     env: MicrogridEnv,
     policy: str,
     *,
     rl_model: Any = None,
     rl_norm: Any = None,
+    rl_mask_progress_index: int | None = None,
     rh_ctrl: _RollingHorizonController | None = None,
 ) -> np.ndarray:
     if policy == "random":
@@ -221,9 +241,14 @@ def policy_action(
         if rl_model is None:
             raise ValueError("policy 'rl' requires a trained model artifact")
         obs = env._last_observation  # noqa: SLF001
+        if rl_mask_progress_index is not None and rl_norm is None:
+            raise ValueError("masked-progress RL playback requires VecNormalize statistics")
         if rl_norm is not None:
             obs = (obs - rl_norm.mean) / (rl_norm.var + 1e-8) ** 0.5
             obs = obs.clip(-10.0, 10.0).astype("float32")
+        if rl_mask_progress_index is not None:
+            obs = obs.copy()
+            obs[rl_mask_progress_index] = 0.0
         action, _ = rl_model.predict(obs, deterministic=True)
         return action
     policy = LEGACY_POLICY_ALIASES.get(policy, policy)
@@ -557,12 +582,16 @@ def run_rollout(
     seed: int = 0,
     rl_artifact: str | Path | None = None,
     rl_algo: str | None = None,
+    rl_mask_episode_progress: bool = False,
 ) -> dict[str, Any]:
     policy = LEGACY_POLICY_ALIASES.get(policy, policy)
     if policy not in POLICIES:
         raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
         _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
+    )
+    rl_progress_index = (
+        _episode_progress_index(settings) if policy == "rl" and rl_mask_episode_progress else None
     )
     env = MicrogridEnv(settings=settings)
     _, reset_info = env.reset(seed=seed)
@@ -577,7 +606,14 @@ def run_rollout(
 
     rows: list[dict[str, Any]] = []
     for step in range(env.max_steps):
-        action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm, rh_ctrl=rh_ctrl)
+        action = policy_action(
+            env,
+            policy,
+            rl_model=rl_model,
+            rl_norm=rl_norm,
+            rl_mask_progress_index=rl_progress_index,
+            rh_ctrl=rh_ctrl,
+        )
         dispatch = _dispatch_trace(env, policy, action)
         _, reward, terminated, truncated, info = env.step(action)
         rows.append(_step_row(settings, env, step, reward, info, slack_id, dispatch))
@@ -609,6 +645,7 @@ def run_rollout(
     if rl_artifact is not None:
         meta["rl_artifact"] = str(rl_artifact)
         meta["rl_algo"] = rl_algo or settings.rl.algo
+        meta["rl_mask_episode_progress"] = rl_mask_episode_progress
     if rh_summary is not None:
         meta["pypsa_rh"] = rh_summary
     env.close()
@@ -621,12 +658,16 @@ def stream_rollout(
     seed: int = 0,
     rl_artifact: str | Path | None = None,
     rl_algo: str | None = None,
+    rl_mask_episode_progress: bool = False,
 ) -> Iterator[dict[str, Any]]:
     policy = LEGACY_POLICY_ALIASES.get(policy, policy)
     if policy not in POLICIES:
         raise ValueError(f"policy must be one of {POLICIES}")
     rl_model, rl_norm = (
         _load_rl_model(rl_artifact, rl_algo, settings) if policy == "rl" else (None, None)
+    )
+    rl_progress_index = (
+        _episode_progress_index(settings) if policy == "rl" and rl_mask_episode_progress else None
     )
     env = MicrogridEnv(settings=settings)
     try:
@@ -637,6 +678,7 @@ def stream_rollout(
         if rl_artifact is not None:
             meta["rl_artifact"] = str(rl_artifact)
             meta["rl_algo"] = rl_algo or settings.rl.algo
+            meta["rl_mask_episode_progress"] = rl_mask_episode_progress
 
         rh_ctrl: _RollingHorizonController | None = None
         rh_summary: dict[str, Any] | None = None
@@ -652,7 +694,14 @@ def stream_rollout(
 
         rows: list[dict[str, Any]] = []
         for step in range(env.max_steps):
-            action = policy_action(env, policy, rl_model=rl_model, rl_norm=rl_norm, rh_ctrl=rh_ctrl)
+            action = policy_action(
+                env,
+                policy,
+                rl_model=rl_model,
+                rl_norm=rl_norm,
+                rl_mask_progress_index=rl_progress_index,
+                rh_ctrl=rh_ctrl,
+            )
             dispatch = _dispatch_trace(env, policy, action)
             _, reward, terminated, truncated, info = env.step(action)
             row = _step_row(settings, env, step, reward, info, slack_id, dispatch)
@@ -684,6 +733,7 @@ def stream_rollout(
         if rl_artifact is not None:
             end_meta["rl_artifact"] = str(rl_artifact)
             end_meta["rl_algo"] = rl_algo or settings.rl.algo
+            end_meta["rl_mask_episode_progress"] = rl_mask_episode_progress
         if rh_summary is not None:
             end_meta["pypsa_rh"] = rh_summary
         yield {"type": "end", "totals": _totals(rows, dt), "meta": end_meta}

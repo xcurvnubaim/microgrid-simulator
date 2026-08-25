@@ -1,0 +1,70 @@
+{
+  "budget": {
+    "completed_iterations": 4,
+    "total_training_steps": 4650000,
+    "wall_time_hours": 5.171991456283463,
+    "consecutive_no_improvement": 3,
+    "failed_iterations": 0
+  },
+  "iterations": [
+    {
+      "iteration": 2,
+      "status": "RETAINED",
+      "detail": "candidate did not pass promotion gate",
+      "gate_reasons": [
+        "solver_failures=20",
+        "avoidable_unserved=2.22",
+        "terminal_soc_violations=27"
+      ],
+      "promoted_policy_id": null,
+      "elapsed_min": 100.41821016470591
+    },
+    {
+      "iteration": 3,
+      "status": "RETAINED",
+      "detail": "candidate did not pass promotion gate",
+      "gate_reasons": [
+        "solver_failures=11",
+        "avoidable_unserved=9.41",
+        "terminal_soc_violations=26"
+      ],
+      "promoted_policy_id": null,
+      "elapsed_min": 107.02498737573623
+    },
+    {
+      "iteration": 4,
+      "status": "RETAINED",
+      "detail": "candidate did not pass promotion gate",
+      "gate_reasons": [
+        "solver_failures=39",
+        "avoidable_unserved=2.46",
+        "terminal_soc_violations=27"
+      ],
+      "promoted_policy_id": null,
+      "elapsed_min": 102.87629432280859
+    },
+    {
+      "iteration": 5,
+      "status": "STOPPED",
+      "detail": "CONSECUTIVE_NO_IMPROVEMENT",
+      "gate_reasons": [],
+      "promoted_policy_id": null,
+      "elapsed_min": 1.1523564656575521e-07
+    }
+  ],
+  "incumbent": {
+    "policy_id": "e5_raw_f3",
+    "artifact_dir": "/home/ma012/projects/microgrid-simulator/artifacts/sac/f3-15min/E5/f3/seed-0",
+    "checkpoint_sha256": null,
+    "vecnormalize_sha256": null,
+    "mean_unserved_kwh": 18.715599735945226,
+    "worst_episode_unserved_kwh": 170.53271817773495,
+    "mean_reward": -33965.33482508444,
+    "promoted_at_iteration": 0,
+    "history": [
+      {
+        "provenance": "frozen validation evaluation of existing checkpoints"
+      }
+    ]
+  }
+}

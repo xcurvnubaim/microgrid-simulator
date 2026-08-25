@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Concurrency-enabled runner for the Module 6 F3 comparison matrix.
 
-Evaluates SAC-F3, SAC-none-F3, and PyPSA-RH-F3 across all 6 scenarios (E0-E5) and
-9 March telemetry windows in parallel.
+Evaluates SAC-F3, SAC-none-F3, SAC-F3-summary, and PyPSA-RH-F3 across the configured
+economic scenarios and 9 March telemetry windows in parallel.
 """
 
 from __future__ import annotations
@@ -66,23 +66,42 @@ def run_single_job(spec: JobSpec) -> dict[str, Any]:
         settings.forecast.val_cache_path = "data/f3/val/forecasts.jsonl"
         settings.forecast.val_manifest_path = "data/f3/val/forecast_manifest.json"
 
-        if spec.policy in {"sac_f3", "sac_none_f3", "sac_f3_hard", "sac_none_f3_hard"}:
+        if spec.policy in {
+            "sac_f3",
+            "sac_none_f3",
+            "sac_f3_summary",
+            "sac_f3_hard",
+            "sac_none_f3_hard",
+        }:
             mode = "f3" if "sac_f3" in spec.policy else "none"
             scenario_folder = "E1_hard" if "_hard" in spec.policy else spec.scenario_id
-            artifact_dir = (
-                REPO_ROOT
-                / "artifacts"
-                / "sac"
-                / "f3-15min"
-                / scenario_folder
-                / mode
-                / f"seed-{spec.seed}"
-            )
+            if spec.policy == "sac_f3_summary":
+                artifact_dir = (
+                    REPO_ROOT
+                    / "artifacts"
+                    / "sac"
+                    / "f3-summary"
+                    / scenario_folder
+                    / f"seed-{spec.seed}"
+                )
+            else:
+                artifact_dir = (
+                    REPO_ROOT
+                    / "artifacts"
+                    / "sac"
+                    / "f3-15min"
+                    / scenario_folder
+                    / mode
+                    / f"seed-{spec.seed}"
+                )
             model_zip = artifact_dir / "sac_microgrid.zip"
             if not model_zip.exists():
                 raise FileNotFoundError(f"Missing SAC model: {model_zip}")
-            
+
             settings.rl.forecast_mode = "cached" if mode == "f3" else "none"
+            settings.rl.forecast_representation = (
+                "summary" if spec.policy == "sac_f3_summary" else "raw"
+            )
             result = run_rollout(
                 settings,
                 policy="rl",
@@ -141,24 +160,70 @@ def main() -> None:
     parser.add_argument(
         "--policy",
         type=str,
-        choices=["pypsa_rh_f3", "sac_f3", "sac_none_f3", "sac_f3_hard", "sac_none_f3_hard"],
+        choices=[
+            "pypsa_rh_f3",
+            "sac_f3",
+            "sac_none_f3",
+            "sac_f3_summary",
+            "sac_f3_hard",
+            "sac_none_f3_hard",
+        ],
         help="Filter one policy",
     )
     parser.add_argument(
         "--scenario", type=str, choices=list(SCENARIOS.keys()), help="Filter single scenario"
     )
+    parser.add_argument("--dry-run", action="store_true", help="Print job specs without executing")
     parser.add_argument(
-        "--dry-run", action="store_true", help="Print job specs without executing"
+        "--summary-pilot",
+        action="store_true",
+        help="Evaluate only SAC-F3-summary on E0, E1, and E5",
+    )
+    parser.add_argument(
+        "--summary-remaining",
+        action="store_true",
+        help="Evaluate only SAC-F3-summary on E2, E3, and E4",
     )
     args = parser.parse_args()
+    if args.summary_pilot and args.summary_remaining:
+        parser.error("choose only one summary scenario group")
 
     jobs: list[JobSpec] = []
     output_base = REPO_ROOT / "reports" / "experiments" / "comparison_matrix_f3"
 
-    for scenario_id, config_path in SCENARIOS.items():
+    scenario_items = SCENARIOS.items()
+    if args.summary_pilot:
+        scenario_items = ((name, SCENARIOS[name]) for name in ("E0", "E1", "E5"))
+    elif args.summary_remaining:
+        scenario_items = ((name, SCENARIOS[name]) for name in ("E2", "E3", "E4"))
+    for scenario_id, config_path in scenario_items:
         if args.scenario and scenario_id != args.scenario:
             continue
         for window in MARCH_WINDOWS:
+            if args.summary_pilot or args.summary_remaining:
+                out_dir = (
+                    output_base
+                    / scenario_id
+                    / "sac_f3_summary"
+                    / window.replace(" ", "_").replace(":", "-")
+                )
+                for seed in range(3):
+                    seed_dir = out_dir.with_name(f"{out_dir.name}_seed{seed}")
+                    if not (
+                        (seed_dir / "metrics.json").exists()
+                        and (seed_dir / "trajectory.csv").exists()
+                    ):
+                        jobs.append(
+                            JobSpec(
+                                scenario_id,
+                                config_path,
+                                window,
+                                "sac_f3_summary",
+                                seed,
+                                seed_dir,
+                            )
+                        )
+                continue
             # PyPSA-RH baseline using F3
             if not args.policy or args.policy == "pypsa_rh_f3":
                 out_dir = (
@@ -167,12 +232,19 @@ def main() -> None:
                     / "pypsa_rh_f3"
                     / window.replace(" ", "_").replace(":", "-")
                 )
-                if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
-                    jobs.append(JobSpec(scenario_id, config_path, window, "pypsa_rh_f3", 0, out_dir))
+                if not (
+                    (out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()
+                ):
+                    jobs.append(
+                        JobSpec(scenario_id, config_path, window, "pypsa_rh_f3", 0, out_dir)
+                    )
 
-            # RL policies: SAC-F3 and SAC-none-F3 (three seeds each)
+            # RL policies: existing F3 ablations and the isolated summary pilot.
             if not args.policy or args.policy.startswith("sac_"):
-                for policy in ["sac_f3", "sac_none_f3"]:
+                policies = ["sac_f3", "sac_none_f3"]
+                if args.policy == "sac_f3_summary" or not args.policy:
+                    policies.append("sac_f3_summary")
+                for policy in policies:
                     if args.policy and policy != args.policy:
                         continue
                     for seed in range(3):
@@ -182,7 +254,10 @@ def main() -> None:
                             / f"{policy}_seed{seed}"
                             / window.replace(" ", "_").replace(":", "-")
                         )
-                        if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
+                        if not (
+                            (out_dir / "metrics.json").exists()
+                            and (out_dir / "trajectory.csv").exists()
+                        ):
                             jobs.append(
                                 JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
                             )
@@ -198,7 +273,10 @@ def main() -> None:
                                 / f"{policy}_seed{seed}"
                                 / window.replace(" ", "_").replace(":", "-")
                             )
-                            if not ((out_dir / "metrics.json").exists() and (out_dir / "trajectory.csv").exists()):
+                            if not (
+                                (out_dir / "metrics.json").exists()
+                                and (out_dir / "trajectory.csv").exists()
+                            ):
                                 jobs.append(
                                     JobSpec(scenario_id, config_path, window, policy, seed, out_dir)
                                 )

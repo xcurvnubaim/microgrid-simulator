@@ -1,0 +1,8 @@
+{
+  "iteration": 5,
+  "status": "STOPPED",
+  "detail": "CONSECUTIVE_NO_IMPROVEMENT",
+  "gate_reasons": [],
+  "promoted_policy_id": null,
+  "elapsed_min": 1.1523564656575521e-07
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
+import numpy as np
 import pytest
 
 from microgrid_simulator.config import ForecastCfg
@@ -153,9 +154,7 @@ def test_96_targets_exactly_15_minutes_apart(tmp_path) -> None:
     import pandas as pd
 
     ts = [pd.Timestamp(t) for t in snap.timestamps]
-    spacings = [
-        (b - a).total_seconds() for a, b in zip(ts, ts[1:], strict=False)
-    ]
+    spacings = [(b - a).total_seconds() for a, b in zip(ts, ts[1:], strict=False)]
     assert all(s == 900 for s in spacings)
     assert len(ts) == 96
 
@@ -221,3 +220,59 @@ def test_observation_shape_scales_with_forecast_steps() -> None:
     base = len(f24) - 24 * 2 - 1
     assert base == len(f96) - 96 * 2 - 1
     assert len(f96) - len(f24) == (96 - 24) * 2
+
+
+def test_summary_forecast_is_causal_and_keeps_raw_observation_width() -> None:
+    from microgrid_simulator.core.types import GridState
+    from microgrid_simulator.rl.env import build_observation, summarize_forecast
+
+    state = GridState()
+    pv = np.full(96, 0.2, dtype=np.float32)
+    demand = np.full(96, 0.5, dtype=np.float32)
+    summary = summarize_forecast(pv, demand, 0.25)
+
+    assert summary.shape == (15,)
+    assert summary[2] == pytest.approx(0.3)
+    assert summary[9] == pytest.approx(1.2)
+    assert summary[11] == pytest.approx(7.2)
+    assert summary[12] == pytest.approx(0.0)
+
+    raw = build_observation(
+        state,
+        False,
+        pv_forecast_mw=pv,
+        demand_forecast_mw=demand,
+        forecast_available=True,
+        forecast_horizon=96,
+        forecast_timestep_hours=0.25,
+    )
+    compact = build_observation(
+        state,
+        False,
+        pv_forecast_mw=pv,
+        demand_forecast_mw=demand,
+        forecast_available=True,
+        forecast_horizon=96,
+        forecast_representation="summary",
+        forecast_timestep_hours=0.25,
+    )
+    assert compact.shape == raw.shape
+    assert compact[-192:-177].tolist() == pytest.approx(summary.tolist())
+    assert np.all(compact[-177:] == 0.0)
+
+
+def test_summary_forecast_is_zeroed_when_unavailable() -> None:
+    from microgrid_simulator.core.types import GridState
+    from microgrid_simulator.rl.env import build_observation
+
+    state = GridState()
+    obs = build_observation(
+        state,
+        False,
+        pv_forecast_mw=np.ones(96),
+        demand_forecast_mw=np.ones(96),
+        forecast_horizon=96,
+        forecast_representation="summary",
+        forecast_timestep_hours=0.25,
+    )
+    assert np.all(obs[-192:] == 0.0)

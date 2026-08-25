@@ -39,6 +39,25 @@ function mergeTotals(prev, t) {
   return out;
 }
 
+function resolveExperimentSelection(catalog, scenarioId, policyId, requestedSeed = 0) {
+  if (!catalog) return null;
+  const scenario = catalog.scenarios.find((item) => item.id === scenarioId);
+  const policy = catalog.policies.find((item) => item.id === policyId);
+  if (!scenario || !policy) return null;
+  const seed = policy.seeds.includes(requestedSeed) ? requestedSeed : policy.seeds[0];
+  const settings = JSON.parse(JSON.stringify(scenario.settings));
+  for (const [section, values] of Object.entries(policy.settings_overrides ?? {})) {
+    settings[section] = { ...(settings[section] ?? {}), ...values };
+  }
+  return {
+    scenario,
+    policy,
+    seed,
+    settings,
+    artifact: policy.artifacts?.[scenario.id]?.[String(seed)] ?? "",
+  };
+}
+
 // Client-side mirror of the backend's episode totals, so the KPI strip ticks
 // up live while an episode is still streaming.
 function liveTotals(rows, dt) {
@@ -118,6 +137,9 @@ export default function App() {
   const [rlArtifact, setRlArtifact] = useState("");
   const [rlAlgo, setRlAlgo] = useState("sac");
   const [rlPreset, setRlPreset] = useState("");
+  const [experimentCatalog, setExperimentCatalog] = useState(null);
+  const [experimentScenario, setExperimentScenario] = useState("");
+  const [experimentPolicy, setExperimentPolicy] = useState("");
   const [seed, setSeed] = useState(0);
   const [error, setError] = useState(null);
   const [railOpen, setRailOpen] = useState(false);
@@ -174,16 +196,34 @@ export default function App() {
   useEffect(() => {
     Promise.all([getDefaults(), getRuntime()])
       .then(([d, configuredRuntime]) => {
-        setSettings(d.settings);
-        setDefaultSettings(d.settings);
+        const catalog = d.experiment_catalog ?? null;
+        const selection = resolveExperimentSelection(
+          catalog,
+          catalog?.default_scenario,
+          catalog?.default_policy,
+          0,
+        );
+        setExperimentCatalog(catalog);
+        setExperimentScenario(selection?.scenario.id ?? "");
+        setExperimentPolicy(selection?.policy.id ?? "");
+        setSettings(selection?.settings ?? d.settings);
+        setDefaultSettings(selection?.settings ?? d.settings);
         setRlSettings(d.policy_settings?.rl ?? null);
         setPolicies(d.policies);
         setRlPresets(d.rl_presets ?? []);
-        const preset = d.rl_presets?.[0];
-        if (preset) {
+        if (selection) {
+          setPolicy(selection.policy.runtime_policy);
+          setSeed(selection.seed);
+          setRlPreset(selection.policy.label);
+          setRlArtifact(selection.artifact);
+          setRlAlgo("sac");
+        } else {
+          const preset = d.rl_presets?.[0];
+          if (preset) {
           setRlPreset(preset.label);
           setRlArtifact(preset.artifact);
           setRlAlgo(preset.algo);
+          }
         }
         setDemand(d.demand);
         setRuntime(configuredRuntime);
@@ -268,7 +308,11 @@ export default function App() {
     try {
       const rl =
         policy === "rl"
-          ? { rl_artifact: rlArtifact, rl_algo: rlAlgo }
+          ? {
+              rl_artifact: rlArtifact,
+              rl_algo: rlAlgo,
+              rl_mask_episode_progress: Boolean(activeExperimentPolicy?.mask_episode_progress),
+            }
           : { rl_artifact: "", rl_algo: "" };
       const stream = emsMode ? emsStream : simulateStream;
       await stream(runSettings, policy, seed + episodeRef.current - 1, {
@@ -408,6 +452,8 @@ export default function App() {
     : 0;
   const modelLabel = runtime.modular_mode
     ? `external ${(runtime.ems_policy ?? "unknown").toUpperCase()} controller`
+    : experimentCatalog
+      ? `${experimentCatalog.policies.find((item) => item.id === experimentPolicy)?.label ?? experimentPolicy}${policy === "rl" ? ` · seed ${seed}` : ""}`
     : policy === "rl"
       ? rlArtifact.split("/").slice(-2).join(" / ")
       : `${policy} controller`;
@@ -427,6 +473,29 @@ export default function App() {
     setPolicy(nextPolicy);
     reset();
   };
+  const changeExperiment = (nextScenario, nextPolicy, nextSeed = seed) => {
+    const selection = resolveExperimentSelection(
+      experimentCatalog,
+      nextScenario,
+      nextPolicy,
+      nextSeed,
+    );
+    if (!selection) return;
+    setExperimentScenario(selection.scenario.id);
+    setExperimentPolicy(selection.policy.id);
+    setPolicy(selection.policy.runtime_policy);
+    setSeed(selection.seed);
+    setSettings(selection.settings);
+    setDefaultSettings(selection.settings);
+    setRlArtifact(selection.artifact);
+    setRlAlgo("sac");
+    setRlPreset(selection.policy.label);
+    setAutoContinue(false);
+    reset();
+  };
+  const activeExperimentPolicy = experimentCatalog?.policies.find(
+    (item) => item.id === experimentPolicy,
+  );
   const patchSettings = (part) => {
     setSettings((current) => {
       if (!current) return current;
@@ -521,20 +590,41 @@ export default function App() {
         )}
 
         <div className="controls">
+          {!runtime.modular_mode && experimentCatalog && (
+            <>
+              <label htmlFor="experiment-scenario">scenario</label>
+              <select
+                id="experiment-scenario"
+                value={experimentScenario}
+                disabled={running}
+                onChange={(e) => changeExperiment(e.target.value, experimentPolicy, seed)}
+              >
+                {experimentCatalog.scenarios.map((scenario) => (
+                  <option key={scenario.id} value={scenario.id}>{scenario.id}</option>
+                ))}
+              </select>
+            </>
+          )}
           <label htmlFor="policy">policy</label>
           <select
             id="policy"
-            value={runtime.modular_mode ? (runtime.ems_policy ?? "external") : policy}
-            onChange={(e) => changePolicy(e.target.value)}
+            value={runtime.modular_mode
+              ? (runtime.ems_policy ?? "external")
+              : experimentCatalog ? experimentPolicy : policy}
+            onChange={(e) => experimentCatalog
+              ? changeExperiment(experimentScenario, e.target.value, seed)
+              : changePolicy(e.target.value)}
             disabled={running || runtime.modular_mode}
           >
-            {(runtime.modular_mode ? [runtime.ems_policy ?? "external"] : policies).map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
+            {runtime.modular_mode
+              ? <option value={runtime.ems_policy ?? "external"}>{runtime.ems_policy ?? "external"}</option>
+              : experimentCatalog
+                ? experimentCatalog.policies.map((item) => (
+                    <option key={item.id} value={item.id}>{item.label}</option>
+                  ))
+                : policies.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          {!runtime.modular_mode && policy === "rl" && (
+          {!runtime.modular_mode && !experimentCatalog && policy === "rl" && (
             <span className="rl-fields">
               <select
                 id="rl-preset"
@@ -580,10 +670,22 @@ export default function App() {
             type="number"
             value={seed}
             step={1}
-            disabled={running || runtime.modular_mode}
-            onChange={(e) => setSeed(Number(e.target.value) || 0)}
+            min={activeExperimentPolicy ? Math.min(...activeExperimentPolicy.seeds) : undefined}
+            max={activeExperimentPolicy ? Math.max(...activeExperimentPolicy.seeds) : undefined}
+            disabled={running || runtime.modular_mode || activeExperimentPolicy?.seeds.length === 1}
+            onChange={(e) => {
+              const nextSeed = Number(e.target.value) || 0;
+              if (experimentCatalog) {
+                changeExperiment(experimentScenario, experimentPolicy, nextSeed);
+              } else {
+                setSeed(nextSeed);
+              }
+            }}
             style={{ width: 64 }}
           />
+          {!runtime.modular_mode && experimentCatalog && policy === "rl" && (
+            <span className="badge" title={rlArtifact}>frozen checkpoint</span>
+          )}
           {!runtime.modular_mode && <label
             className="check auto-check"
             title="Chain episodes without stopping — the battery state carries over. Uncheck (or hit Stop) to pause at the next episode boundary."

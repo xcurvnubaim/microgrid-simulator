@@ -1,0 +1,12 @@
+{
+  "iteration": 4,
+  "status": "RETAINED",
+  "detail": "candidate did not pass promotion gate",
+  "gate_reasons": [
+    "solver_failures=39",
+    "avoidable_unserved=2.46",
+    "terminal_soc_violations=27"
+  ],
+  "promoted_policy_id": null,
+  "elapsed_min": 102.87629432280859
+}

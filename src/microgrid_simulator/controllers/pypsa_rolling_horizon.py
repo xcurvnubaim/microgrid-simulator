@@ -65,7 +65,11 @@ def _align_snapshot_to_steps(
 
     if not snapshot.timestamps:
         raise ForecastError("forecast snapshot carries no timestamps; cannot align to the grid")
-    if len(snapshot.timestamps) != len(snapshot.pv_values_mw) != len(snapshot.demand_values_mw):
+    if not (
+        len(snapshot.timestamps)
+        == len(snapshot.pv_values_mw)
+        == len(snapshot.demand_values_mw)
+    ):
         raise ForecastError(
             "forecast snapshot timestamps must align one-to-one with pv/demand values"
         )

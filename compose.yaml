@@ -41,6 +41,10 @@ services:
         target: /app/artifacts
         read_only: true
       - type: bind
+        source: ./data/f3
+        target: /app/data/f3
+        read_only: true
+      - type: bind
         source: ${TEEP_DATA_DIR:-../data}
         target: /data
         read_only: true

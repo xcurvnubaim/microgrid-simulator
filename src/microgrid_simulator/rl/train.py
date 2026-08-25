@@ -31,6 +31,55 @@ LOGGER = logging.getLogger(__name__)
 ALGOS: dict[str, type[BaseAlgorithm]] = {"ppo": PPO, "sac": SAC}
 
 
+def _build_sac_kwargs(settings: Settings) -> dict[str, Any]:
+    """Build SAC keyword arguments from config, filtering out None values.
+
+    This lets the YAML override individual hyperparameters while falling back
+    to SB3 defaults for anything left unset.
+    """
+    cfg = settings.rl.sac
+    kwargs: dict[str, Any] = {}
+    for field in ("learning_rate", "buffer_size", "learning_starts",
+                  "batch_size", "gamma", "tau", "train_freq", "gradient_steps",
+                  "n_critics", "use_sde"):
+        val = getattr(cfg, field, None)
+        if val is not None:
+            kwargs[field] = val
+    if cfg.ent_coef is not None:
+        kwargs["ent_coef"] = cfg.ent_coef
+    if cfg.target_entropy is not None:
+        kwargs["target_entropy"] = cfg.target_entropy
+    if cfg.net_arch is not None:
+        kwargs["policy_kwargs"] = {"net_arch": cfg.net_arch}
+    return kwargs
+
+
+def _override_sac_params(model: SAC, settings: Settings) -> SAC:
+    """Apply config-level SAC hyperparameters to an already loaded model.
+
+    This is used for fine-tuning: the loaded model keeps its old constructor
+    values, so we override the ones the user explicitly set.
+    """
+    cfg = settings.rl.sac
+    if cfg.learning_rate is not None:
+        from stable_baselines3.common.utils import constant_fn
+        model.lr_schedule = constant_fn(cfg.learning_rate)
+    if cfg.gamma is not None:
+        model.gamma = cfg.gamma
+    if cfg.tau is not None:
+        model.tau = cfg.tau
+    if cfg.batch_size is not None:
+        model.batch_size = cfg.batch_size
+    if cfg.gradient_steps is not None:
+        model.gradient_steps = cfg.gradient_steps
+    if cfg.train_freq is not None:
+        from stable_baselines3.common.type_aliases import TrainFreq
+        model.train_freq = TrainFreq(cfg.train_freq, "step")
+    if cfg.learning_starts is not None:
+        model.learning_starts = cfg.learning_starts
+    return model
+
+
 def _resolve_device(device: str) -> str:
     """Resolve the RL device string, honouring PyTorch CUDA availability."""
     if device == "auto":
@@ -75,6 +124,8 @@ def train(
     forecast_mode = getattr(rl, "forecast_mode", "cached")
     if forecast_mode not in {"cached", "none"}:
         raise ValueError("training forecast_mode must be 'cached' or 'none'")
+    if rl.forecast_representation not in {"raw", "summary"}:
+        raise ValueError("forecast_representation must be 'raw' or 'summary'")
     if forecast_mode == "cached" and (
         not settings.forecast.enabled or not settings.forecast.strict_cache
     ):
@@ -155,17 +206,23 @@ def train(
         load_cls = SAC if algo == "sac" else PPO
         model = load_cls.load(str(Path(init_artifact)), env=vec_env, device=device)
         if init_vecnorm is not None:
-            from microgrid_simulator.rl.wrappers import load_training_normalization
+            from microgrid_simulator.rl.wrappers import (
+                load_normalization,
+                load_training_normalization,
+            )
 
-            # Re-apply training-mode normalization over the env the model uses.
             vec_env = load_training_normalization(vec_env, init_vecnorm)
+            eval_env = load_normalization(eval_env, init_vecnorm)
             model = load_cls.load(str(Path(init_artifact)), env=vec_env, device=device)
         if algo == "sac" and init_replay_buffer is not None:
             model.load_replay_buffer(str(init_replay_buffer))
+        if algo == "sac":
+            model = _override_sac_params(cast(SAC, model), settings)
         LOGGER.info(
             "Continuing from %s (fine-tune/resume), %d steps", init_artifact, total_timesteps
         )
     else:
+        sac_kwargs = _build_sac_kwargs(settings) if algo == "sac" else {}
         model = model_cls(
             "MlpPolicy",
             vec_env,
@@ -173,6 +230,7 @@ def train(
             seed=seed,
             tensorboard_log=str(tensorboard_log) if tensorboard_log else None,
             device=device,
+            **sac_kwargs,
         )
         LOGGER.info(
             "Training %s for %d timesteps (%d envs) -> %s",

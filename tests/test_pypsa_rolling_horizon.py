@@ -213,6 +213,21 @@ def test_align_snapshot_rejects_missing_timestamps() -> None:
         )
 
 
+def test_align_snapshot_rejects_mismatched_value_lengths() -> None:
+    from dataclasses import replace
+
+    snap = _snapshot(n_points=8)
+    snap = replace(snap, demand_values_mw=snap.demand_values_mw[:-1])
+    with pytest.raises(ForecastError, match="one-to-one"):
+        _align_snapshot_to_steps(
+            snap,
+            "2026-01-15T00:00:00",
+            8,
+            control_interval_hours=0.25,
+            expected_source_id=None,
+        )
+
+
 def test_align_snapshot_rejects_non_leakage_free_first_point() -> None:
     snap = _snapshot(start="2026-01-15T00:00:00")
     with pytest.raises(ForecastError, match="leakage-free"):

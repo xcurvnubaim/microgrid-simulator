@@ -80,10 +80,11 @@ def make_training_env(
 
 def load_normalization(vec: VecEnv, stats_path: str | Path) -> VecEnv:
     """Restore saved VecNormalize statistics for evaluation (obs only)."""
-    vec = VecNormalize.load(str(stats_path), vec)
-    vec.training = False
-    vec.norm_reward = False
-    return vec
+    venv = vec.venv if isinstance(vec, VecNormalize) else vec
+    loaded = VecNormalize.load(str(stats_path), venv)
+    loaded.training = False
+    loaded.norm_reward = False
+    return loaded
 
 
 def load_training_normalization(vec: VecEnv, stats_path: str | Path) -> VecEnv:
@@ -93,7 +94,8 @@ def load_training_normalization(vec: VecEnv, stats_path: str | Path) -> VecEnv:
     (obs *and* reward normalisation active) so a resumed run keeps updating the
     statistics it was fine-tuning.
     """
-    vec = VecNormalize.load(str(stats_path), vec)
-    vec.training = True
-    vec.norm_reward = True
-    return vec
+    venv = vec.venv if isinstance(vec, VecNormalize) else vec
+    loaded = VecNormalize.load(str(stats_path), venv)
+    loaded.training = True
+    loaded.norm_reward = True
+    return loaded
