@@ -62,7 +62,7 @@ EXPERIMENT_POLICY_LABELS = {
     "sac_f3": "SAC-F3",
     "sac_none_f3": "SAC-none-F3",
     "sac_f3_summary": "SAC-F3-summary",
-    # "sac_f3_finetuned": "FT SAC",
+    "sac_f3_finetuned": "FT SAC",
 }
 
 SERVICE_DEFINITIONS = (
